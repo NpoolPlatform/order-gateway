@@ -35,6 +35,11 @@ import (
 	stockcli "github.com/NpoolPlatform/stock-manager/pkg/client"
 	stockconst "github.com/NpoolPlatform/stock-manager/pkg/const"
 
+	ledgermgrcli "github.com/NpoolPlatform/ledger-manager/pkg/client/general"
+	ledgermgrpb "github.com/NpoolPlatform/message/npool/ledger/mgr/v1/ledger/general"
+
+	commonpb "github.com/NpoolPlatform/message/npool"
+
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/shopspring/decimal"
@@ -576,9 +581,111 @@ func (o *OrderCreate) ReleaseStock(ctx context.Context) error {
 	return err
 }
 
-func (o *OrderCreate) ValidateBalance(ctx context.Context) error {
-	// TODO: validate balance
-	return nil
+func (o *OrderCreate) LockBalance(ctx context.Context) error {
+	if o.BalanceAmount == nil {
+		return nil
+	}
+
+	ba, err := decimal.NewFromString(*o.BalanceAmount)
+	if err != nil {
+		return err
+	}
+
+	if ba.Cmp(decimal.NewFromInt(0)) <= 0 {
+		return nil
+	}
+
+	general, err := ledgermgrcli.GetGeneralOnly(ctx, &ledgermgrpb.Conds{
+		AppID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.AppID,
+		},
+		UserID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.UserID,
+		},
+		CoinTypeID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.PaymentCoinID,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if general == nil {
+		return nil
+	}
+
+	spendable, err := decimal.NewFromString(general.Spendable)
+	if err != nil {
+		return err
+	}
+
+	if spendable.Cmp(ba) < 0 {
+		return fmt.Errorf("insufficient balance")
+	}
+
+	spendableMinus := fmt.Sprintf("-%v", o.BalanceAmount)
+
+	_, err = ledgermgrcli.AddGeneral(ctx, &ledgermgrpb.GeneralReq{
+		ID:         &general.ID,
+		AppID:      &general.AppID,
+		UserID:     &general.UserID,
+		CoinTypeID: &general.CoinTypeID,
+		Locked:     o.BalanceAmount,
+		Spendable:  &spendableMinus,
+	})
+
+	return err
+}
+
+func (o *OrderCreate) ReleaseBalance(ctx context.Context) error {
+	if o.BalanceAmount == nil {
+		return nil
+	}
+
+	ba, err := decimal.NewFromString(*o.BalanceAmount)
+	if err != nil {
+		return err
+	}
+
+	if ba.Cmp(decimal.NewFromInt(0)) <= 0 {
+		return nil
+	}
+
+	general, err := ledgermgrcli.GetGeneralOnly(ctx, &ledgermgrpb.Conds{
+		AppID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.AppID,
+		},
+		UserID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.UserID,
+		},
+		CoinTypeID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.PaymentCoinID,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if general == nil {
+		return nil
+	}
+
+	lockedMinus := fmt.Sprintf("-%v", o.BalanceAmount)
+
+	_, err = ledgermgrcli.AddGeneral(ctx, &ledgermgrpb.GeneralReq{
+		ID:         &general.ID,
+		AppID:      &general.AppID,
+		UserID:     &general.UserID,
+		CoinTypeID: &general.CoinTypeID,
+		Locked:     &lockedMinus,
+		Spendable:  o.BalanceAmount,
+	})
+
+	return err
 }
 
 func (o *OrderCreate) Create(ctx context.Context) (*npool.Order, error) {

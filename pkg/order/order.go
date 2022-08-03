@@ -27,10 +27,6 @@ func CreateOrder(ctx context.Context, op *OrderCreate) (info *npool.Order, err e
 		return nil, err
 	}
 
-	if err := op.ValidateBalance(ctx); err != nil {
-		return nil, err
-	}
-
 	if err := op.PeekAddress(ctx); err != nil {
 		return nil, err
 	}
@@ -45,10 +41,17 @@ func CreateOrder(ctx context.Context, op *OrderCreate) (info *npool.Order, err e
 		return nil, err
 	}
 
+	if err := op.LockBalance(ctx); err != nil {
+		_ = op.ReleaseAddress(ctx)
+		_ = op.ReleaseStock(ctx)
+		return nil, err
+	}
+
 	ord, err := op.Create(ctx)
 	if err != nil {
 		_ = op.ReleaseAddress(ctx)
 		_ = op.ReleaseStock(ctx)
+		_ = op.ReleaseBalance(ctx)
 		return nil, err
 	}
 
