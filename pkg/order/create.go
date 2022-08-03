@@ -55,7 +55,7 @@ type OrderCreate struct {
 	BalanceAmount *string
 
 	ParentOrderID *string
-	OrderType     string
+	OrderType     ordermgrpb.OrderType
 
 	FixAmountID    *string
 	DiscountID     *string
@@ -183,7 +183,7 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		return fmt.Errorf("too many unpaid orders")
 	}
 
-	switch o.OrderType {
+	switch o.OrderType.String() {
 	case ordermgrpb.OrderType_Normal.String():
 	case ordermgrpb.OrderType_Offline.String():
 	case ordermgrpb.OrderType_Airdrop.String():
@@ -689,15 +689,20 @@ func (o *OrderCreate) ReleaseBalance(ctx context.Context) error {
 }
 
 func (o *OrderCreate) Create(ctx context.Context) (*npool.Order, error) {
-	switch o.OrderType {
+	switch o.OrderType.String() {
 	case ordermgrpb.OrderType_Normal.String():
 	case ordermgrpb.OrderType_Offline.String():
 	case ordermgrpb.OrderType_Airdrop.String():
+	case orderconst.OrderTypeNormal:
+		o.OrderType = ordermgrpb.OrderType_Normal
+	case orderconst.OrderTypeOffline:
+		o.OrderType = ordermgrpb.OrderType_Offline
+	case orderconst.OrderTypeAirdrop:
+		o.OrderType = ordermgrpb.OrderType_Airdrop
 	default:
 		return nil, fmt.Errorf("invalid order type")
 	}
 
-	orderType := ordermgrpb.OrderType(ordermgrpb.OrderType_value[o.OrderType])
 	paymentAmount := o.paymentAmountCoin.String()
 	startAmount := o.paymentAddressStartAmount.String()
 	coinCurrency := o.coinCurrency.String()
@@ -711,7 +716,7 @@ func (o *OrderCreate) Create(ctx context.Context) (*npool.Order, error) {
 		UserID:    &o.UserID,
 		GoodID:    &o.GoodID,
 		Units:     &o.Units,
-		OrderType: &orderType,
+		OrderType: &o.OrderType,
 
 		ParentOrderID: o.ParentOrderID,
 
