@@ -1,0 +1,7 @@
+resources:
+  - 01-order-gateway.viper.yaml
+  - 02-order-gateway.yaml
+  - 03-strip-prefix.yaml
+  - 04-traefik-ingress.yaml
+  - 05-traefik-vpn-ingress.yaml
+  - 06-service-monitor.yaml

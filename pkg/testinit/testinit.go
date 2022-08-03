@@ -7,9 +7,7 @@ import (
 
 	"github.com/NpoolPlatform/go-service-framework/pkg/app"
 
-	"github.com/NpoolPlatform/service-template/pkg/db"
-
-	servicename "github.com/NpoolPlatform/service-template/pkg/servicename"
+	servicename "github.com/NpoolPlatform/order-gateway/pkg/servicename"
 
 	mysqlconst "github.com/NpoolPlatform/go-service-framework/pkg/mysql/const"
 	rabbitmqconst "github.com/NpoolPlatform/go-service-framework/pkg/rabbitmq/const"
@@ -39,10 +37,6 @@ func Init() error {
 	)
 	if err != nil {
 		return fmt.Errorf("cannot init app stub: %v", err)
-	}
-	err = db.Init()
-	if err != nil {
-		return fmt.Errorf("cannot init database: %v", err)
 	}
 
 	return nil

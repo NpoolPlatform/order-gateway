@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-gateway
+  namespace: kube-system
+  annotations:
+    "sidecar.jaegertracing.io/inject": "true"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: order-gateway
+  template:
+    metadata:
+      labels:
+        app: order-gateway
+    spec:
+      containers:
+        - name: order-gateway
+          image: uhub.service.ucloud.cn/entropypool/order-gateway:latest
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: service-config
+              mountPath: /etc/OrderGateway
+          env:
+            - name: ENV_ENVIRONMENT_TARGET
+              valueFrom:
+                configMapKeyRef:
+                  name: system-environment
+                  key: environment.target
+            - name: ENV_CONSUL_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: system-environment
+                  key: environment.consul_host
+            - name: ENV_CONSUL_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: system-environment
+                  key: environment.consul_port
+            - name: ENV_CLUSTER_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+      volumes:
+        - name: service-config
+          configMap:
+            name: order-gateway-config
+            items:
+              - key: service-conf
+                path: OrderGateway.viper.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-gateway
+  namespace: kube-system
+spec:
+  ports:
+    - name: http
+      port: 50430
+      targetPort: 50430
+    - name: grpc
+      port: 50431
+      targetPort: 50431
+    - name: healthz
+      port: 50432
+      targetPort: 50432
+    - name: prometheus
+      port: 50433
+      targetPort: 50433
+  selector:
+    app: order-gateway

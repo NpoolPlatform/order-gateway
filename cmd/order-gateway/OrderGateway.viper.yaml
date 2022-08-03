@@ -1,0 +1,11 @@
+---
+config:
+  hostname: "order-gateway.npool.top"
+  http_port: 50430
+  grpc_port: 50431
+  healthz_port: 50432
+  prometheus_port: 50433
+  appid: "89089012783789789719823798127398"
+  serviceid: "e49f2f72-12d8-11ed-94eb-72e9de4b20f6"
+  logdir: "./"
+  apolloAccessKey: "0147fb70b815403790e8634b899fac07"
