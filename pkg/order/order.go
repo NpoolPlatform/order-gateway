@@ -8,7 +8,7 @@ import (
 )
 
 func CreateOrder(ctx context.Context, op *OrderCreate) (info *npool.Order, err error) {
-	if err := op.Validate(ctx); err != nil {
+	if err := op.ValidateInit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -21,6 +21,10 @@ func CreateOrder(ctx context.Context, op *OrderCreate) (info *npool.Order, err e
 	}
 
 	if err := op.SetPaymentAmount(ctx); err != nil {
+		return nil, err
+	}
+
+	if err := op.PeekAddress(ctx); err != nil {
 		return nil, err
 	}
 

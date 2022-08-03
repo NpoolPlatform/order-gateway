@@ -9,20 +9,24 @@ import (
 
 	appcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/app"
 	usercli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
+	billingcli "github.com/NpoolPlatform/cloud-hashing-billing/pkg/client"
 	goodcli "github.com/NpoolPlatform/cloud-hashing-goods/pkg/client"
 	ordercli "github.com/NpoolPlatform/cloud-hashing-order/pkg/client"
 	couponcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon"
 	oraclecli "github.com/NpoolPlatform/oracle-manager/pkg/client"
 	coininfocli "github.com/NpoolPlatform/sphinx-coininfo/pkg/client"
+	sphinxproxycli "github.com/NpoolPlatform/sphinx-proxy/pkg/client"
 
+	billingconst "github.com/NpoolPlatform/cloud-hashing-billing/pkg/const"
 	orderconst "github.com/NpoolPlatform/cloud-hashing-order/pkg/const"
 	oracleconst "github.com/NpoolPlatform/oracle-manager/pkg/const"
 
+	billingpb "github.com/NpoolPlatform/message/npool/cloud-hashing-billing"
 	couponpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/inspire/coupon"
 
-	// accountlock "github.com/NpoolPlatform/staker-manager/pkg/middleware/account"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	currency "github.com/NpoolPlatform/oracle-manager/pkg/middleware/currency"
+	accountlock "github.com/NpoolPlatform/staker-manager/pkg/middleware/account"
 
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -44,6 +48,7 @@ type OrderCreate struct {
 	DiscountID     *string
 	SpecialOfferID *string
 
+	paymentCoinName   string
 	paymentAmountUSD  decimal.Decimal
 	paymentAmountCoin decimal.Decimal
 	paymentAddress    string
@@ -61,7 +66,7 @@ type OrderCreate struct {
 	reductionPercent decimal.Decimal
 }
 
-func (o *OrderCreate) Validate(ctx context.Context) error {
+func (o *OrderCreate) ValidateInit(ctx context.Context) error {
 	app, err := appcli.GetApp(ctx, o.AppID)
 	if err != nil {
 		return err
@@ -110,6 +115,8 @@ func (o *OrderCreate) Validate(ctx context.Context) error {
 	if coin.ENV != gcoin.ENV {
 		return fmt.Errorf("good coin mismatch payment coin")
 	}
+
+	o.paymentCoinName = coin.Name
 
 	if o.ParentOrderID != nil {
 		order, err := ordercli.GetOrder(ctx, *o.ParentOrderID)
@@ -325,11 +332,123 @@ func (o *OrderCreate) SetPaymentAmount(ctx context.Context) error {
 	return nil
 }
 
-/*
-func (o *OrderCreate) setAddress(ctx context.Context) error {
+func (o *OrderCreate) createAddresses(ctx context.Context) error {
+	const createCount = 5
+	successCreated := 0
+
+	for i := 0; i < createCount; i++ {
+		address, err := sphinxproxycli.CreateAddress(ctx, o.paymentCoinName)
+		if err != nil {
+			return err
+		}
+		if address == nil || address.Address == "" {
+			return fmt.Errorf("invalid address")
+		}
+
+		account, err := billingcli.CreateAccount(ctx, &billingpb.CoinAccountInfo{
+			CoinTypeID:             o.PaymentCoinID,
+			Address:                address.Address,
+			PlatformHoldPrivateKey: true,
+		})
+		if err != nil {
+			return err
+		}
+
+		_, err = billingcli.CreateGoodPayment(ctx, &billingpb.GoodPayment{
+			GoodID:            o.GoodID,
+			PaymentCoinTypeID: o.PaymentCoinID,
+			AccountID:         account.ID,
+		})
+		if err != nil {
+			return err
+		}
+
+		successCreated++
+	}
+
+	if successCreated == 0 {
+		return fmt.Errorf("fail create addresses")
+	}
+
+	return nil
 
 }
 
+func (o *OrderCreate) peekAddress(ctx context.Context) (*billingpb.CoinAccountInfo, error) {
+	payments, err := billingcli.GetIdleGoodPayments(ctx, o.AppID, o.GoodID)
+	if err != nil {
+		return nil, err
+	}
+
+	var account *billingpb.GoodPayment
+
+	for _, payment := range payments {
+		if !payment.Idle {
+			continue
+		}
+
+		if err := accountlock.Lock(payment.AccountID); err != nil {
+			continue
+		}
+
+		info, err := billingcli.GetGoodPayment(ctx, payment.ID)
+		if err != nil {
+			accountlock.Unlock(payment.AccountID) //nilint
+			return nil, err
+		}
+
+		if !info.Idle {
+			accountlock.Unlock(payment.AccountID) //nilint
+			continue
+		}
+
+		info.Idle = false
+		info.OccupiedBy = billingconst.TransactionForPaying
+		_, err = billingcli.UpdateGoodPayment(ctx, info)
+		if err != nil {
+			accountlock.Unlock(payment.AccountID) //nilint
+			return nil, err
+		}
+
+		account = info
+		accountlock.Unlock(payment.AccountID) //nilint
+		break
+	}
+
+	if account == nil {
+		return nil, nil
+	}
+
+	return billingcli.GetAccount(ctx, account.AccountID)
+}
+
+func (o *OrderCreate) PeekAddress(ctx context.Context) error {
+	account, err := o.peekAddress(ctx)
+	if err != nil {
+		return err
+	}
+	if account != nil {
+		o.paymentAddress = account.Address
+		return nil
+	}
+
+	if err := o.createAddresses(ctx); err != nil {
+		return err
+	}
+
+	account, err = o.peekAddress(ctx)
+	if err != nil {
+		return err
+	}
+	if account == nil {
+		return fmt.Errorf("fail peek address")
+	}
+
+	o.paymentAddress = account.Address
+	return nil
+}
+
+/*
 func (o *OrderCreate) checkBalance(ctx context.Context) error {
 
 }
