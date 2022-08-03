@@ -12,13 +12,19 @@ import (
 	goodcli "github.com/NpoolPlatform/cloud-hashing-goods/pkg/client"
 	ordercli "github.com/NpoolPlatform/cloud-hashing-order/pkg/client"
 	couponcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon"
+	oraclecli "github.com/NpoolPlatform/oracle-manager/pkg/client"
 	coininfocli "github.com/NpoolPlatform/sphinx-coininfo/pkg/client"
 
 	orderconst "github.com/NpoolPlatform/cloud-hashing-order/pkg/const"
+	oracleconst "github.com/NpoolPlatform/oracle-manager/pkg/const"
 
 	couponpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/inspire/coupon"
 
 	// accountlock "github.com/NpoolPlatform/staker-manager/pkg/middleware/account"
+	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
+	currency "github.com/NpoolPlatform/oracle-manager/pkg/middleware/currency"
+
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/shopspring/decimal"
 )
@@ -212,16 +218,10 @@ func (o *OrderCreate) setPrice(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if good == nil {
-		return fmt.Errorf("invalid good")
-	}
 
 	ag, err := goodcli.GetAppGood(ctx, o.AppID, o.GoodID)
 	if err != nil {
 		return err
-	}
-	if ag == nil {
-		return fmt.Errorf("permission denied")
 	}
 	if !ag.Online {
 		return fmt.Errorf("good offline")
@@ -253,39 +253,54 @@ func (o *OrderCreate) setPrice(ctx context.Context) error {
 	return nil
 }
 
-/*
-func (o *OrderCreate) setCurrency(ctx context.Context) error {
+func (o *OrderCreate) SetCurrency(ctx context.Context) error {
+	coin, err := coininfocli.GetCoinInfo(ctx, o.PaymentCoinID)
+	if err != nil {
+		return err
+	}
+
 	liveCurrency, err := currency.USDPrice(ctx, coin.Name)
 	if err != nil {
-		return  err
+		return err
 	}
-	coinCurrency := liveCurrency
-	localCurrency := 0.0
+
+	o.coinCurrency = decimal.NewFromFloat(liveCurrency)
+
+	if o.coinCurrency.Cmp(decimal.NewFromInt(0)) <= 0 ||
+		o.liveCurrency.Cmp(decimal.NewFromInt(0)) <= 0 {
+		return fmt.Errorf("invalid coin currency")
+	}
 
 	pc, err := oraclecli.GetCurrencyOnly(ctx,
 		cruder.NewFilterConds().
 			WithCond(
-				oracleconst.FieldAppID, cruder.EQ, structpb.NewStringValue(appID),
+				oracleconst.FieldAppID,
+				cruder.EQ,
+				structpb.NewStringValue(o.AppID),
 			).
 			WithCond(
-				oracleconst.FieldCoinTypeID, cruder.EQ, structpb.NewStringValue(paymentCoinID),
+				oracleconst.FieldCoinTypeID,
+				cruder.EQ,
+				structpb.NewStringValue(o.PaymentCoinID),
 			))
 	if err != nil {
-		return  err
+		return err
 	}
-	if pc != nil {
-		if pc.AppPriceVSUSDT {
-			coinCurrency = pc.AppPriceVSUSDT
-		}
-		if pc.PriceVSUSDT > 0 {
-			localCurrency = pc.PriceVSUSDT
-		}
+	if pc == nil {
+		return nil
 	}
-	if coinCurrency <= 0 || liveCurrency <= 0 {
-		return  fmt.Errorf("invalid coin currency")
+
+	if pc.AppPriceVSUSDT > 0 {
+		o.coinCurrency = decimal.NewFromFloat(pc.AppPriceVSUSDT)
 	}
+	if pc.PriceVSUSDT > 0 {
+		o.localCurrency = decimal.NewFromFloat(pc.PriceVSUSDT)
+	}
+
+	return nil
 }
 
+/*
 func (o *OrderCreate) setAddress(ctx context.Context) error {
 
 }

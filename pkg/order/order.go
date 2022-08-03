@@ -16,5 +16,9 @@ func CreateOrder(ctx context.Context, op *OrderCreate) (info *npool.Order, err e
 		return nil, err
 	}
 
+	if err := op.SetCurrency(ctx); err != nil {
+		return nil, err
+	}
+
 	return &npool.Order{}, fmt.Errorf("NOT IMPLEMENTED")
 }
