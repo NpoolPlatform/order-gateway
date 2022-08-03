@@ -22,7 +22,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) (*npool.CreateOrderResponse, error) {
+func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) (*npool.CreateOrderResponse, error) { //nolint
 	var err error
 
 	_, span := otel.Tracer(constant.ServiceName).Start(ctx, "CreateOrder")
@@ -105,6 +105,7 @@ func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) 
 		FixAmountID:    in.FixAmountID,
 		DiscountID:     in.DiscountID,
 		SpecialOfferID: in.SpecialOfferID,
+		OrderType:      in.GetOrderType(),
 	})
 	if err != nil {
 		logger.Sugar().Errorw("CreateOrder", "error", err)

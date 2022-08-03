@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	// npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
+	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 
 	appcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/app"
 	usercli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
@@ -14,6 +14,7 @@ import (
 	ordercli "github.com/NpoolPlatform/cloud-hashing-order/pkg/client"
 	couponcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon"
 	oraclecli "github.com/NpoolPlatform/oracle-manager/pkg/client"
+	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 	coininfocli "github.com/NpoolPlatform/sphinx-coininfo/pkg/client"
 	sphinxproxycli "github.com/NpoolPlatform/sphinx-proxy/pkg/client"
 
@@ -23,10 +24,16 @@ import (
 
 	billingpb "github.com/NpoolPlatform/message/npool/cloud-hashing-billing"
 	couponpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/inspire/coupon"
+	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order/order"
+	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
+	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
 
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	currency "github.com/NpoolPlatform/oracle-manager/pkg/middleware/currency"
 	accountlock "github.com/NpoolPlatform/staker-manager/pkg/middleware/account"
+
+	stockcli "github.com/NpoolPlatform/stock-manager/pkg/client"
+	stockconst "github.com/NpoolPlatform/stock-manager/pkg/const"
 
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -43,18 +50,21 @@ type OrderCreate struct {
 	BalanceAmount *string
 
 	ParentOrderID *string
+	OrderType     string
 
 	FixAmountID    *string
 	DiscountID     *string
 	SpecialOfferID *string
 
-	paymentCoinName   string
-	paymentAmountUSD  decimal.Decimal
-	paymentAmountCoin decimal.Decimal
-	paymentAddress    string
-	paymentAccountID  string
+	goodPaymentID             string
+	paymentCoinName           string
+	paymentAmountUSD          decimal.Decimal
+	paymentAmountCoin         decimal.Decimal
+	paymentAddress            string
+	paymentAddressStartAmount decimal.Decimal
+	paymentAccountID          string
 
-	promotionID string
+	promotionID *string
 
 	price decimal.Decimal
 
@@ -64,9 +74,12 @@ type OrderCreate struct {
 
 	reductionAmount  decimal.Decimal
 	reductionPercent decimal.Decimal
+
+	start uint32
+	end   uint32
 }
 
-func (o *OrderCreate) ValidateInit(ctx context.Context) error {
+func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 	app, err := appcli.GetApp(ctx, o.AppID)
 	if err != nil {
 		return err
@@ -165,6 +178,17 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error {
 		return fmt.Errorf("too many unpaid orders")
 	}
 
+	switch o.OrderType {
+	case ordermgrpb.OrderType_Normal.String():
+	case ordermgrpb.OrderType_Offline.String():
+	case ordermgrpb.OrderType_Airdrop.String():
+	case orderconst.OrderTypeNormal:
+	case orderconst.OrderTypeOffline:
+	case orderconst.OrderTypeAirdrop:
+	default:
+		return fmt.Errorf("invalid order type")
+	}
+
 	// TODO: check app / user banned
 
 	return nil
@@ -202,7 +226,7 @@ func (o *OrderCreate) SetReduction(ctx context.Context) error {
 		}
 		o.reductionPercent = percent
 	}
-	if o.reductionPercent.Cmp(decimal.NewFromInt(100)) > 0 {
+	if o.reductionPercent.Cmp(decimal.NewFromInt(100)) > 0 { //nolint
 		return fmt.Errorf("invalid discount")
 	}
 
@@ -224,7 +248,7 @@ func (o *OrderCreate) SetReduction(ctx context.Context) error {
 	return nil
 }
 
-func (o *OrderCreate) setPrice(ctx context.Context) error {
+func (o *OrderCreate) SetPrice(ctx context.Context) error {
 	good, err := goodcli.GetGood(ctx, o.GoodID)
 	if err != nil {
 		return err
@@ -251,7 +275,7 @@ func (o *OrderCreate) setPrice(ctx context.Context) error {
 		return err
 	}
 	if promotion != nil {
-		o.promotionID = promotion.ID
+		o.promotionID = &promotion.ID
 	}
 
 	if promotion.Price <= 0 {
@@ -312,6 +336,8 @@ func (o *OrderCreate) SetCurrency(ctx context.Context) error {
 }
 
 func (o *OrderCreate) SetPaymentAmount(ctx context.Context) error {
+	// TODO: also add sub good order payment amount
+
 	o.paymentAmountUSD = o.price.Mul(decimal.NewFromInt(int64(o.Units)))
 	o.paymentAmountUSD = o.paymentAmountUSD.Sub(o.reductionAmount)
 	if o.paymentAmountUSD.Cmp(decimal.NewFromInt(0)) < 0 {
@@ -320,7 +346,7 @@ func (o *OrderCreate) SetPaymentAmount(ctx context.Context) error {
 
 	o.paymentAmountUSD = o.paymentAmountUSD.
 		Mul(o.reductionPercent).
-		Div(decimal.NewFromInt(100))
+		Div(decimal.NewFromInt(100)) //nolint
 
 	const accuracy = 1000000
 
@@ -371,7 +397,6 @@ func (o *OrderCreate) createAddresses(ctx context.Context) error {
 	}
 
 	return nil
-
 }
 
 func (o *OrderCreate) peekAddress(ctx context.Context) (*billingpb.CoinAccountInfo, error) {
@@ -393,12 +418,12 @@ func (o *OrderCreate) peekAddress(ctx context.Context) (*billingpb.CoinAccountIn
 
 		info, err := billingcli.GetGoodPayment(ctx, payment.ID)
 		if err != nil {
-			accountlock.Unlock(payment.AccountID) //nilint
+			accountlock.Unlock(payment.AccountID) //nolint
 			return nil, err
 		}
 
 		if !info.Idle {
-			accountlock.Unlock(payment.AccountID) //nilint
+			accountlock.Unlock(payment.AccountID) //nolint
 			continue
 		}
 
@@ -406,18 +431,20 @@ func (o *OrderCreate) peekAddress(ctx context.Context) (*billingpb.CoinAccountIn
 		info.OccupiedBy = billingconst.TransactionForPaying
 		_, err = billingcli.UpdateGoodPayment(ctx, info)
 		if err != nil {
-			accountlock.Unlock(payment.AccountID) //nilint
+			accountlock.Unlock(payment.AccountID) //nolint
 			return nil, err
 		}
 
 		account = info
-		accountlock.Unlock(payment.AccountID) //nilint
+		accountlock.Unlock(payment.AccountID) //nolint
 		break
 	}
 
 	if account == nil {
 		return nil, nil
 	}
+
+	o.goodPaymentID = account.ID
 
 	return billingcli.GetAccount(ctx, account.AccountID)
 }
@@ -445,19 +472,163 @@ func (o *OrderCreate) PeekAddress(ctx context.Context) error {
 	}
 
 	o.paymentAddress = account.Address
+	o.paymentAccountID = account.ID
+
 	return nil
 }
 
-/*
-func (o *OrderCreate) checkBalance(ctx context.Context) error {
+func (o *OrderCreate) ReleaseAddress(ctx context.Context) error {
+	if err := accountlock.Lock(o.paymentAccountID); err != nil {
+		return err
+	}
 
+	info, err := billingcli.GetGoodPayment(ctx, o.goodPaymentID)
+	if err != nil {
+		accountlock.Unlock(o.paymentAccountID) //nolint
+		return err
+	}
+
+	info.Idle = true
+	info.OccupiedBy = billingconst.TransactionForNotUsed
+	_, err = billingcli.UpdateGoodPayment(ctx, info)
+
+	accountlock.Unlock(o.paymentAccountID) //nolint
+	return err
 }
 
-func (o *OrderCreate) lockStock(ctx context) error {
+func (o *OrderCreate) SetBalance(ctx context.Context) error {
+	balance, err := sphinxproxycli.GetBalance(ctx, &sphinxproxypb.GetBalanceRequest{
+		Name:    o.paymentCoinName,
+		Address: o.paymentAddress,
+	})
+	if err != nil {
+		return err
+	}
+	if balance == nil {
+		return fmt.Errorf("invalid balance")
+	}
 
+	o.paymentAddressStartAmount, err = decimal.NewFromString(balance.BalanceStr)
+
+	return err
 }
 
-func (o *OrderCreate) create(ctx context.Context) (*npool.Order, error) {
-
+func (o *OrderCreate) createSubOrder(ctx context.Context) error { //nolint
+	// TODO: create sub order according to good's must select sub good
+	return nil
 }
-*/
+
+func (o *OrderCreate) LockStock(ctx context.Context) error {
+	stock, err := stockcli.GetStockOnly(
+		ctx,
+		cruder.NewFilterConds().
+			WithCond(
+				stockconst.StockFieldGoodID,
+				cruder.EQ,
+				structpb.NewStringValue(o.GoodID),
+			))
+	if err != nil {
+		return err
+	}
+	if stock == nil {
+		return fmt.Errorf("invalid good stock")
+	}
+
+	_, err = stockcli.AddStockFields(
+		ctx,
+		stock.ID,
+		cruder.NewFilterFields().
+			WithField(
+				stockconst.StockFieldLocked,
+				structpb.NewNumberValue(float64(o.Units)),
+			))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (o *OrderCreate) ReleaseStock(ctx context.Context) error {
+	stock, err := stockcli.GetStockOnly(
+		ctx,
+		cruder.NewFilterConds().
+			WithCond(
+				stockconst.StockFieldGoodID,
+				cruder.EQ,
+				structpb.NewStringValue(o.GoodID),
+			))
+	if err != nil {
+		return err
+	}
+	if stock == nil {
+		return fmt.Errorf("invalid good stock")
+	}
+
+	_, err = stockcli.AddStockFields(
+		ctx,
+		stock.ID,
+		cruder.NewFilterFields().
+			WithField(
+				stockconst.StockFieldLocked,
+				structpb.NewNumberValue(float64(int32(o.Units)*-1)),
+			))
+	return err
+}
+
+func (o *OrderCreate) ValidateBalance(ctx context.Context) error {
+	// TODO: validate balance
+	return nil
+}
+
+func (o *OrderCreate) Create(ctx context.Context) (*npool.Order, error) {
+	switch o.OrderType {
+	case ordermgrpb.OrderType_Normal.String():
+	case ordermgrpb.OrderType_Offline.String():
+	case ordermgrpb.OrderType_Airdrop.String():
+	default:
+		return nil, fmt.Errorf("invalid order type")
+	}
+
+	orderType := ordermgrpb.OrderType(ordermgrpb.OrderType_value[o.OrderType])
+	paymentAmount := o.paymentAmountCoin.String()
+	startAmount := o.paymentAddressStartAmount.String()
+	coinCurrency := o.coinCurrency.String()
+	liveCurrency := o.liveCurrency.String()
+	localCurrency := o.localCurrency.String()
+
+	// Top order never pay with parent, only sub order may
+
+	ord, err := ordermwcli.CreateOrder(ctx, &ordermwpb.OrderReq{
+		AppID:     &o.AppID,
+		UserID:    &o.UserID,
+		GoodID:    &o.GoodID,
+		Units:     &o.Units,
+		OrderType: &orderType,
+
+		ParentOrderID: o.ParentOrderID,
+
+		PaymentCoinID:             &o.PaymentCoinID,
+		PayWithBalanceAmount:      o.BalanceAmount,
+		PaymentAccountID:          &o.paymentAccountID,
+		PaymentAmount:             &paymentAmount,
+		PaymentAccountStartAmount: &startAmount,
+		PaymentCoinUSDCurrency:    &coinCurrency,
+		PaymentLiveUSDCurrency:    &liveCurrency,
+		PaymentLocalUSDCurrency:   &localCurrency,
+
+		FixAmountID:    o.FixAmountID,
+		DiscountID:     o.DiscountID,
+		SpecialOfferID: o.SpecialOfferID,
+
+		Start: &o.start,
+		End:   &o.end,
+
+		PromotionID: o.promotionID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return GetOrder(ctx, ord.ID)
+}
