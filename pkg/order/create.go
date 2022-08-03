@@ -3,6 +3,7 @@ package order
 import (
 	"context"
 	"fmt"
+	"time"
 
 	// npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 
@@ -206,50 +207,53 @@ func (o *OrderCreate) SetReduction(ctx context.Context) error {
 	return nil
 }
 
-/*
 func (o *OrderCreate) setPrice(ctx context.Context) error {
-	ag, err := goodcli.GetAppGood(ctx, in.GetAppID(), in.GetGoodID())
+	good, err := goodcli.GetGood(ctx, o.GoodID)
 	if err != nil {
-		return  err
+		return err
+	}
+	if good == nil {
+		return fmt.Errorf("invalid good")
+	}
+
+	ag, err := goodcli.GetAppGood(ctx, o.AppID, o.GoodID)
+	if err != nil {
+		return err
 	}
 	if ag == nil {
-		return  fmt.Errorf("permission denied")
+		return fmt.Errorf("permission denied")
 	}
 	if !ag.Online {
-		return  fmt.Errorf("good offline")
+		return fmt.Errorf("good offline")
 	}
 	if ag.Price <= 0 {
-		return  fmt.Errorf("invalid good price")
+		return fmt.Errorf("invalid good price")
 	}
 	if ag.Price < good.Price {
-		return  fmt.Errorf("invalid app good price")
-	}
-	if ag.PurchaseLimit > 0 && in.GetUnits() > uint32(ag.PurchaseLimit) {
-		return  fmt.Errorf("too many units")
+		return fmt.Errorf("invalid app good price")
 	}
 
-	promotionID := uuid.UUID{}.String()
-	promotion, err := goodcli.GetCurrentPromotion(
-		ctx,
-		in.GetAppID(), in.GetGoodID(),
-		uint32(time.Now().Unix()),
-	)
+	o.price = decimal.NewFromFloat(ag.Price)
+
+	promotion, err := goodcli.GetCurrentPromotion(ctx, o.AppID, o.GoodID, uint32(time.Now().Unix()))
 	if err != nil {
-		return  err
+		return err
 	}
 	if promotion != nil {
-		promotionID = promotion.ID
+		o.promotionID = promotion.ID
 	}
 
-	price := ag.Price
+	if promotion.Price <= 0 {
+		return fmt.Errorf("invalid price")
+	}
 	if promotion != nil {
-		price = promotion.Price
+		o.price = decimal.NewFromFloat(promotion.Price)
 	}
-	if promotion.Price == 0 {
-		return  fmt.Errorf("invalid price")
-	}
+
+	return nil
 }
 
+/*
 func (o *OrderCreate) setCurrency(ctx context.Context) error {
 	liveCurrency, err := currency.USDPrice(ctx, coin.Name)
 	if err != nil {
