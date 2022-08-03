@@ -44,9 +44,10 @@ type OrderCreate struct {
 	DiscountID     *string
 	SpecialOfferID *string
 
-	paymentAmount    decimal.Decimal
-	paymentAddress   string
-	paymentAccountID string
+	paymentAmountUSD  decimal.Decimal
+	paymentAmountCoin decimal.Decimal
+	paymentAddress    string
+	paymentAccountID  string
 
 	promotionID string
 
@@ -56,7 +57,8 @@ type OrderCreate struct {
 	localCurrency decimal.Decimal
 	coinCurrency  decimal.Decimal
 
-	reduction decimal.Decimal
+	reductionAmount  decimal.Decimal
+	reductionPercent decimal.Decimal
 }
 
 func (o *OrderCreate) Validate(ctx context.Context) error {
@@ -162,7 +164,6 @@ func (o *OrderCreate) Validate(ctx context.Context) error {
 }
 
 func (o *OrderCreate) SetReduction(ctx context.Context) error {
-	o.reduction = decimal.NewFromInt(0)
 	var err error
 
 	var fixAmount *couponpb.Coupon
@@ -177,7 +178,7 @@ func (o *OrderCreate) SetReduction(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		o.reduction = o.reduction.Add(amount)
+		o.reductionAmount = o.reductionAmount.Add(amount)
 	}
 
 	var discount *couponpb.Coupon
@@ -188,11 +189,14 @@ func (o *OrderCreate) SetReduction(ctx context.Context) error {
 		}
 	}
 	if discount != nil {
-		amount, err := decimal.NewFromString(discount.Value)
+		percent, err := decimal.NewFromString(discount.Value)
 		if err != nil {
 			return err
 		}
-		o.reduction = o.reduction.Add(amount)
+		o.reductionPercent = percent
+	}
+	if o.reductionPercent.Cmp(decimal.NewFromInt(100)) > 0 {
+		return fmt.Errorf("invalid discount")
 	}
 
 	var specialOffer *couponpb.Coupon
@@ -207,7 +211,7 @@ func (o *OrderCreate) SetReduction(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		o.reduction = o.reduction.Add(amount)
+		o.reductionAmount = o.reductionAmount.Add(amount)
 	}
 
 	return nil
@@ -300,12 +304,29 @@ func (o *OrderCreate) SetCurrency(ctx context.Context) error {
 	return nil
 }
 
-/*
-func (o *OrderCreate) setAddress(ctx context.Context) error {
+func (o *OrderCreate) SetPaymentAmount(ctx context.Context) error {
+	o.paymentAmountUSD = o.price.Mul(decimal.NewFromInt(int64(o.Units)))
+	o.paymentAmountUSD = o.paymentAmountUSD.Sub(o.reductionAmount)
+	if o.paymentAmountUSD.Cmp(decimal.NewFromInt(0)) < 0 {
+		o.paymentAmountUSD = decimal.NewFromInt(0)
+	}
 
+	o.paymentAmountUSD = o.paymentAmountUSD.
+		Mul(o.reductionPercent).
+		Div(decimal.NewFromInt(100))
+
+	const accuracy = 1000000
+
+	o.paymentAmountCoin = o.paymentAmountUSD.Div(o.coinCurrency)
+	o.paymentAmountCoin = o.paymentAmountCoin.Mul(decimal.NewFromInt(accuracy))
+	o.paymentAmountCoin = o.paymentAmountCoin.Ceil()
+	o.paymentAmountCoin = o.paymentAmountCoin.Div(decimal.NewFromInt(accuracy))
+
+	return nil
 }
 
-func (o *OrderCreate) setPaymentAmount(ctx context.Context) error {
+/*
+func (o *OrderCreate) setAddress(ctx context.Context) error {
 
 }
 
