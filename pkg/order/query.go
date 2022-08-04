@@ -150,26 +150,26 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	return o, nil
 }
 
-func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) ([]*npool.Order, error) { //nolint
-	ords, err := ordercli.GetOrders(ctx, appID, userID, offset, limit)
+func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) ([]*npool.Order, uint32, error) { //nolint
+	ords, total, err := ordercli.GetOrders(ctx, appID, userID, offset, limit)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if len(ords) == 0 {
-		return []*npool.Order{}, nil
+		return []*npool.Order{}, 0, nil
 	}
 
 	user, err := usercli.GetUser(ctx, ords[0].AppID, ords[0].UserID)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if user == nil {
-		return nil, fmt.Errorf("invalid user")
+		return nil, 0, fmt.Errorf("invalid user")
 	}
 
 	goods, err := goodscli.GetGoods(ctx)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	goodMap := map[string]*goodspb.GoodInfo{}
@@ -179,7 +179,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 
 	coins, err := coininfocli.GetCoinInfos(ctx, cruder.NewFilterConds())
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	coinMap := map[string]*coininfopb.CoinInfo{}
@@ -190,7 +190,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 	// TODO: get accounts with specific account ID
 	accounts, err := billingcli.GetAccounts(ctx)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	accMap := map[string]*billingpb.CoinAccountInfo{}
@@ -210,7 +210,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 
 	coupons, err := couponcli.GetManyCoupons(ctx, ids, couponpb.CouponType_FixAmount)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	fixAmountMap := map[string]*couponpb.Coupon{}
@@ -220,7 +220,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 
 	coupons, err = couponcli.GetManyCoupons(ctx, ids, couponpb.CouponType_Discount)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	discountMap := map[string]*couponpb.Coupon{}
@@ -230,7 +230,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 
 	coupons, err = couponcli.GetManyCoupons(ctx, ids, couponpb.CouponType_SpecialOffer)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	specialOfferMap := map[string]*couponpb.Coupon{}
@@ -274,14 +274,14 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 
 		good, ok := goodMap[ord.GoodID]
 		if !ok {
-			return nil, fmt.Errorf("invalid good")
+			return nil, 0, fmt.Errorf("invalid good")
 		}
 
 		o.CoinTypeID = good.CoinInfoID
 
 		coin, ok := coinMap[o.CoinTypeID]
 		if !ok {
-			return nil, fmt.Errorf("invalid coin")
+			return nil, 0, fmt.Errorf("invalid coin")
 		}
 
 		o.CoinName = coin.Name
@@ -290,7 +290,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 
 		coin, ok = coinMap[ord.PaymentCoinTypeID]
 		if !ok {
-			return nil, fmt.Errorf("invalid payment coin")
+			return nil, 0, fmt.Errorf("invalid payment coin")
 		}
 
 		o.PaymentCoinName = coin.Name
@@ -299,7 +299,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 
 		acc, ok := accMap[ord.PaymentAccountID]
 		if !ok {
-			return nil, fmt.Errorf("invalid account")
+			return nil, 0, fmt.Errorf("invalid account")
 		}
 
 		o.PaymentAddress = acc.Address
@@ -312,7 +312,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 			o.DiscountName = coupon.Name
 			percent, err := decimal.NewFromString(coupon.Value)
 			if err != nil {
-				return nil, err
+				return nil, 0, err
 			}
 			o.DiscountPercent = uint32(percent.IntPart())
 		}
@@ -323,5 +323,5 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 		infos = append(infos, o)
 	}
 
-	return infos, nil
+	return infos, total, nil
 }
