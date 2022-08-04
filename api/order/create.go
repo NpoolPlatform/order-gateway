@@ -16,13 +16,14 @@ import (
 
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
+	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order/order"
 
 	"github.com/shopspring/decimal"
 
 	"github.com/google/uuid"
 )
 
-func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) (*npool.CreateOrderResponse, error) { //nolint
+func createOrder(ctx context.Context, in *npool.CreateOrderRequest) (*npool.Order, error) { //nolint
 	var err error
 
 	_, span := otel.Tracer(constant.ServiceName).Start(ctx, "CreateOrder")
@@ -37,57 +38,57 @@ func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) 
 
 	if _, err := uuid.Parse(in.GetAppID()); err != nil {
 		logger.Sugar().Errorw("CreateOrder", "AppID", in.GetAppID(), "error", err)
-		return &npool.CreateOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	if _, err := uuid.Parse(in.GetUserID()); err != nil {
 		logger.Sugar().Errorw("CreateOrder", "UserID", in.GetUserID(), "error", err)
-		return &npool.CreateOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	if _, err := uuid.Parse(in.GetGoodID()); err != nil {
 		logger.Sugar().Errorw("CreateOrder", "GoodID", in.GetGoodID(), "error", err)
-		return &npool.CreateOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	if in.GetUnits() == 0 {
 		logger.Sugar().Errorw("CreateOrder", "Units", in.GetUnits())
-		return &npool.CreateOrderResponse{}, status.Error(codes.InvalidArgument, "Units is 0")
+		return nil, status.Error(codes.InvalidArgument, "Units is 0")
 	}
 	if _, err := uuid.Parse(in.GetPaymentCoinID()); err != nil {
 		logger.Sugar().Errorw("CreateOrder", "PaymentCoinID", in.GetPaymentCoinID(), "error", err)
-		return &npool.CreateOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	if in.ParentOrderID != nil {
 		if _, err := uuid.Parse(in.GetParentOrderID()); err != nil {
 			logger.Sugar().Errorw("CreateOrder", "ParentOrderID", in.GetParentOrderID(), "error", err)
-			return &npool.CreateOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 	}
 	if in.PayWithBalanceAmount != nil {
 		amount, err := decimal.NewFromString(in.GetPayWithBalanceAmount())
 		if err != nil {
 			logger.Sugar().Errorw("CreateOrder", "PayWithBalanceAmount", in.GetPayWithBalanceAmount(), "error", err)
-			return &npool.CreateOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 		if amount.Cmp(decimal.NewFromInt(0)) < 0 {
 			logger.Sugar().Errorw("CreateOrder", "PayWithBalanceAmount", in.GetPayWithBalanceAmount())
-			return &npool.CreateOrderResponse{}, status.Error(codes.InvalidArgument, "PayWithBalanceAmount less than 0")
+			return nil, status.Error(codes.InvalidArgument, "PayWithBalanceAmount less than 0")
 		}
 	}
 	if in.FixAmountID != nil {
 		if _, err := uuid.Parse(in.GetFixAmountID()); err != nil {
 			logger.Sugar().Errorw("CreateOrder", "FixAmountID", in.GetFixAmountID(), "error", err)
-			return &npool.CreateOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 	}
 	if in.DiscountID != nil {
 		if _, err := uuid.Parse(in.GetDiscountID()); err != nil {
 			logger.Sugar().Errorw("CreateOrder", "DiscountID", in.GetDiscountID(), "error", err)
-			return &npool.CreateOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 	}
 	if in.SpecialOfferID != nil {
 		if _, err := uuid.Parse(in.GetSpecialOfferID()); err != nil {
 			logger.Sugar().Errorw("CreateOrder", "SpecialOfferID", in.GetSpecialOfferID(), "error", err)
-			return &npool.CreateOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 	}
 
@@ -109,10 +110,63 @@ func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) 
 	})
 	if err != nil {
 		logger.Sugar().Errorw("CreateOrder", "error", err)
-		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
+	return info, nil
+}
+
+func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) (*npool.CreateOrderResponse, error) {
+	in.OrderType = ordermgrpb.OrderType_Normal
+	ord, err := createOrder(ctx, in)
+	if err != nil {
+		return &npool.CreateOrderResponse{}, err
+	}
 	return &npool.CreateOrderResponse{
-		Info: info,
+		Info: ord,
+	}, nil
+}
+
+func (s *Server) CreateUserOrder(ctx context.Context, in *npool.CreateUserOrderRequest) (*npool.CreateUserOrderResponse, error) {
+	ord, err := createOrder(ctx, &npool.CreateOrderRequest{
+		AppID:                in.AppID,
+		UserID:               in.TargetUserID,
+		GoodID:               in.GoodID,
+		PaymentCoinID:        in.PaymentCoinID,
+		Units:                in.Units,
+		ParentOrderID:        in.ParentOrderID,
+		PayWithBalanceAmount: in.PayWithBalanceAmount,
+		FixAmountID:          in.FixAmountID,
+		DiscountID:           in.DiscountID,
+		SpecialOfferID:       in.SpecialOfferID,
+		OrderType:            in.OrderType,
+	})
+	if err != nil {
+		return &npool.CreateUserOrderResponse{}, err
+	}
+	return &npool.CreateUserOrderResponse{
+		Info: ord,
+	}, nil
+}
+
+func (s *Server) CreateAppUserOrder(ctx context.Context, in *npool.CreateAppUserOrderRequest) (*npool.CreateAppUserOrderResponse, error) {
+	ord, err := createOrder(ctx, &npool.CreateOrderRequest{
+		AppID:                in.TargetAppID,
+		UserID:               in.TargetUserID,
+		GoodID:               in.GoodID,
+		PaymentCoinID:        in.PaymentCoinID,
+		Units:                in.Units,
+		ParentOrderID:        in.ParentOrderID,
+		PayWithBalanceAmount: in.PayWithBalanceAmount,
+		FixAmountID:          in.FixAmountID,
+		DiscountID:           in.DiscountID,
+		SpecialOfferID:       in.SpecialOfferID,
+		OrderType:            in.OrderType,
+	})
+	if err != nil {
+		return &npool.CreateAppUserOrderResponse{}, err
+	}
+	return &npool.CreateAppUserOrderResponse{
+		Info: ord,
 	}, nil
 }
