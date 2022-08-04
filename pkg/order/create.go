@@ -360,6 +360,19 @@ func (o *OrderCreate) SetPaymentAmount(ctx context.Context) error {
 	o.paymentAmountCoin = o.paymentAmountCoin.Ceil()
 	o.paymentAmountCoin = o.paymentAmountCoin.Div(decimal.NewFromInt(accuracy))
 
+	if o.BalanceAmount != nil {
+		amount, err := decimal.NewFromString(*o.BalanceAmount)
+		if err != nil {
+			return err
+		}
+		if amount.Cmp(o.paymentAmountCoin) > 0 {
+			amount = o.paymentAmountCoin
+			amountStr := amount.String()
+			o.BalanceAmount = &amountStr
+		}
+		o.paymentAmountCoin = o.paymentAmountCoin.Sub(amount)
+	}
+
 	return nil
 }
 
