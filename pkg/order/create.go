@@ -630,7 +630,7 @@ func (o *OrderCreate) LockBalance(ctx context.Context) error {
 		return err
 	}
 	if general == nil {
-		return nil
+		return fmt.Errorf("insufficient balance")
 	}
 
 	spendable, err := decimal.NewFromString(general.Spendable)
@@ -688,7 +688,7 @@ func (o *OrderCreate) ReleaseBalance(ctx context.Context) error {
 		return err
 	}
 	if general == nil {
-		return nil
+		return fmt.Errorf("insufficuent funds")
 	}
 
 	lockedMinus := fmt.Sprintf("-%v", o.BalanceAmount)
