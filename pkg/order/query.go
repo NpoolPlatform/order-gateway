@@ -19,8 +19,6 @@ import (
 
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 
-	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
-
 	"github.com/shopspring/decimal"
 
 	"github.com/google/uuid"
