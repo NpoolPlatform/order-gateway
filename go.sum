@@ -147,8 +147,8 @@ github.com/NpoolPlatform/message v0.0.0-20220606130737-824c3198b695/go.mod h1:3E
 github.com/NpoolPlatform/message v0.0.0-20220614023533-f7ae7ffcc1a2/go.mod h1:3Enb49K3JrhlSwA+6bcsBuTdTzVxVKhdkllDGgv0n3M=
 github.com/NpoolPlatform/message v0.0.0-20220706015448-414cc87a22d1/go.mod h1:mzveZUmOwAsS1QAcmeUCdQjmyZKf52i0xwij58KF5K4=
 github.com/NpoolPlatform/message v0.0.0-20220714075917-2ba73782c509/go.mod h1:mzveZUmOwAsS1QAcmeUCdQjmyZKf52i0xwij58KF5K4=
-github.com/NpoolPlatform/message v0.0.0-20220806163916-ff107e672ff3 h1:PqNtUjpZ2JxQLtwCdFQv1WjC2Bt3Gddbncq2Nr3jJbY=
-github.com/NpoolPlatform/message v0.0.0-20220806163916-ff107e672ff3/go.mod h1:8YXp4MghMHLZ9bBdQQyfjcRtLI2RbEHAQoNCejT2nZU=
+github.com/NpoolPlatform/message v0.0.0-20220806170005-a93ecdf53719 h1:satG32mVyWqSwBSXYBpspOXyjbfp21sq/0/9/fgEnic=
+github.com/NpoolPlatform/message v0.0.0-20220806170005-a93ecdf53719/go.mod h1:8YXp4MghMHLZ9bBdQQyfjcRtLI2RbEHAQoNCejT2nZU=
 github.com/NpoolPlatform/oracle-manager v0.0.0-20220615040511-dc235b31fa14 h1:I+vtZheHl4SeKqi8UEoraqlMgWtxP2wgj8ERjNxWk94=
 github.com/NpoolPlatform/oracle-manager v0.0.0-20220615040511-dc235b31fa14/go.mod h1:f9Seypsw5N+Kc0P13IurAD/WNHXhzYsBt+d/R17oLfA=
 github.com/NpoolPlatform/order-middleware v0.0.0-20220806164351-3d6b403c1d5a h1:XDwLEU2ecCtLDA3W6qUBjELy4Dp/YRrcW9T6twPR8sw=

@@ -17,6 +17,8 @@ import (
 )
 
 func (s *Server) UpdateOrder(ctx context.Context, in *npool.UpdateOrderRequest) (*npool.UpdateOrderResponse, error) {
+	// TODO: who create, who update
+
 	if _, err := uuid.Parse(in.GetID()); err != nil {
 		logger.Sugar().Errorw("UpdateOrder", "ID", in.GetID(), "error", err)
 		return nil, status.Error(codes.InvalidArgument, err.Error())
