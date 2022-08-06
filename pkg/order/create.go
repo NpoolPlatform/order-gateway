@@ -283,10 +283,10 @@ func (o *OrderCreate) SetPrice(ctx context.Context) error {
 		o.promotionID = &promotion.ID
 	}
 
-	if promotion.Price <= 0 {
-		return fmt.Errorf("invalid price")
-	}
 	if promotion != nil {
+		if promotion.Price <= 0 {
+			return fmt.Errorf("invalid price")
+		}
 		o.price = decimal.NewFromFloat(promotion.Price)
 	}
 
@@ -304,12 +304,13 @@ func (o *OrderCreate) SetCurrency(ctx context.Context) error {
 		return err
 	}
 
-	o.coinCurrency = decimal.NewFromFloat(liveCurrency)
+	o.liveCurrency = decimal.NewFromFloat(liveCurrency)
 
-	if o.coinCurrency.Cmp(decimal.NewFromInt(0)) <= 0 ||
-		o.liveCurrency.Cmp(decimal.NewFromInt(0)) <= 0 {
-		return fmt.Errorf("invalid coin currency")
+	if o.liveCurrency.Cmp(decimal.NewFromInt(0)) <= 0 {
+		return fmt.Errorf("invalid live coin currency")
 	}
+
+	o.coinCurrency = o.liveCurrency
 
 	pc, err := oraclecli.GetCurrencyOnly(ctx,
 		cruder.NewFilterConds().
@@ -345,13 +346,15 @@ func (o *OrderCreate) SetPaymentAmount(ctx context.Context) error {
 
 	o.paymentAmountUSD = o.price.Mul(decimal.NewFromInt(int64(o.Units)))
 	o.paymentAmountUSD = o.paymentAmountUSD.Sub(o.reductionAmount)
+
 	if o.paymentAmountUSD.Cmp(decimal.NewFromInt(0)) < 0 {
 		o.paymentAmountUSD = decimal.NewFromInt(0)
 	}
 
 	o.paymentAmountUSD = o.paymentAmountUSD.
-		Mul(o.reductionPercent).
-		Div(decimal.NewFromInt(100)) //nolint
+		Sub(o.paymentAmountUSD.
+			Mul(o.reductionPercent).
+			Div(decimal.NewFromInt(100))) //nolint
 
 	const accuracy = 1000000
 
@@ -418,7 +421,7 @@ func (o *OrderCreate) createAddresses(ctx context.Context) error {
 }
 
 func (o *OrderCreate) peekAddress(ctx context.Context) (*billingpb.CoinAccountInfo, error) {
-	payments, err := billingcli.GetIdleGoodPayments(ctx, o.AppID, o.GoodID)
+	payments, err := billingcli.GetIdleGoodPayments(ctx, o.GoodID, o.PaymentCoinID)
 	if err != nil {
 		return nil, err
 	}
@@ -474,6 +477,7 @@ func (o *OrderCreate) PeekAddress(ctx context.Context) error {
 	}
 	if account != nil {
 		o.paymentAddress = account.Address
+		o.paymentAccountID = account.ID
 		return nil
 	}
 
@@ -638,7 +642,7 @@ func (o *OrderCreate) LockBalance(ctx context.Context) error {
 		return fmt.Errorf("insufficient balance")
 	}
 
-	spendableMinus := fmt.Sprintf("-%v", o.BalanceAmount)
+	spendableMinus := fmt.Sprintf("-%v", *o.BalanceAmount)
 
 	_, err = ledgermgrcli.AddGeneral(ctx, &ledgermgrpb.GeneralReq{
 		ID:         &general.ID,

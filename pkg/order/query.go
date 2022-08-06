@@ -64,6 +64,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	if err != nil {
 		return nil, err
 	}
+
 	if user == nil {
 		return nil, fmt.Errorf("invalid user")
 	}
@@ -75,6 +76,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	if err != nil {
 		return nil, err
 	}
+
 	if good == nil {
 		return nil, fmt.Errorf("invalid good")
 	}
@@ -85,6 +87,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	if err != nil {
 		return nil, err
 	}
+
 	if coin == nil {
 		return nil, fmt.Errorf("invalid good coin")
 	}
@@ -98,6 +101,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	if err != nil {
 		return nil, err
 	}
+
 	if coin == nil {
 		return nil, fmt.Errorf("invalid payment coin")
 	}
@@ -110,6 +114,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	if err != nil {
 		return nil, err
 	}
+
 	// TODO: for old placeholder payment
 	if account == nil {
 		return nil, fmt.Errorf("invalid account")
@@ -118,9 +123,11 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	o.PaymentAddress = account.Address
 
 	coupon, err := couponcli.GetCoupon(ctx, ord.FixAmountID, couponpb.CouponType_FixAmount)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if coupon != nil {
 		o.FixAmountName = coupon.Name
 		o.FixAmountAmount = coupon.Value
@@ -130,6 +137,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	if err != nil {
 		return nil, err
 	}
+
 	if coupon != nil {
 		o.DiscountName = coupon.Name
 		v, err := decimal.NewFromString(coupon.Value)
@@ -143,6 +151,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	if err != nil {
 		return nil, err
 	}
+
 	if coupon != nil {
 		o.SpecialOfferAmount = coupon.Value
 	}
