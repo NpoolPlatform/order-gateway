@@ -642,7 +642,7 @@ func (o *OrderCreate) LockBalance(ctx context.Context) error {
 		return fmt.Errorf("insufficient balance")
 	}
 
-	spendableMinus := fmt.Sprintf("-%v", o.BalanceAmount)
+	spendableMinus := fmt.Sprintf("-%v", *o.BalanceAmount)
 
 	_, err = ledgermgrcli.AddGeneral(ctx, &ledgermgrpb.GeneralReq{
 		ID:         &general.ID,
