@@ -29,6 +29,9 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	if err != nil {
 		return nil, err
 	}
+	if ord == nil {
+		return nil, err
+	}
 
 	o := &npool.Order{
 		ID:     ord.ID,
