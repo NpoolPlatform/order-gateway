@@ -201,17 +201,27 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 	return nil
 }
 
+// nolint
 func (o *OrderCreate) SetReduction(ctx context.Context) error {
-	var err error
-
 	var fixAmount *couponpb.Coupon
 	if o.FixAmountID != nil {
+		ord, err := ordercli.GetCouponOrder(ctx, o.AppID, o.UserID, *o.FixAmountID, orderconst.FixAmountCoupon)
+		if err != nil {
+			return err
+		}
+		if ord != nil {
+			return fmt.Errorf("used coupon")
+		}
+
 		fixAmount, err = couponcli.GetCoupon(ctx, *o.FixAmountID, couponpb.CouponType_FixAmount)
 		if err != nil {
 			return err
 		}
 	}
 	if fixAmount != nil {
+		if !fixAmount.Valid || fixAmount.Expired || fixAmount.AppID != o.AppID || fixAmount.UserID != o.UserID {
+			return fmt.Errorf("invalid coupon")
+		}
 		amount, err := decimal.NewFromString(fixAmount.Value)
 		if err != nil {
 			return err
@@ -221,12 +231,23 @@ func (o *OrderCreate) SetReduction(ctx context.Context) error {
 
 	var discount *couponpb.Coupon
 	if o.DiscountID != nil {
+		ord, err := ordercli.GetCouponOrder(ctx, o.AppID, o.UserID, *o.DiscountID, orderconst.DiscountCoupon)
+		if err != nil {
+			return err
+		}
+		if ord != nil {
+			return fmt.Errorf("used coupon")
+		}
+
 		discount, err = couponcli.GetCoupon(ctx, *o.DiscountID, couponpb.CouponType_Discount)
 		if err != nil {
 			return err
 		}
 	}
 	if discount != nil {
+		if !discount.Valid || discount.Expired || discount.AppID != o.AppID || discount.UserID != o.UserID {
+			return fmt.Errorf("invalid coupon")
+		}
 		percent, err := decimal.NewFromString(discount.Value)
 		if err != nil {
 			return err
@@ -239,12 +260,23 @@ func (o *OrderCreate) SetReduction(ctx context.Context) error {
 
 	var specialOffer *couponpb.Coupon
 	if o.SpecialOfferID != nil {
+		ord, err := ordercli.GetCouponOrder(ctx, o.AppID, o.UserID, *o.SpecialOfferID, orderconst.UserSpecialReductionCoupon)
+		if err != nil {
+			return err
+		}
+		if ord != nil {
+			return fmt.Errorf("used coupon")
+		}
+
 		specialOffer, err = couponcli.GetCoupon(ctx, *o.SpecialOfferID, couponpb.CouponType_SpecialOffer)
 		if err != nil {
 			return err
 		}
 	}
 	if specialOffer != nil {
+		if !specialOffer.Valid || specialOffer.Expired || specialOffer.AppID != o.AppID || specialOffer.UserID != o.UserID {
+			return fmt.Errorf("invalid coupon")
+		}
 		amount, err := decimal.NewFromString(specialOffer.Value)
 		if err != nil {
 			return err
