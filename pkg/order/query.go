@@ -32,6 +32,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 
 	o := &npool.Order{
 		ID:     ord.ID,
+		AppID:  ord.AppID,
 		UserID: ord.UserID,
 		GoodID: ord.GoodID,
 		Units:  ord.Units,
@@ -270,6 +271,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 	for _, ord := range ords {
 		o := &npool.Order{
 			ID:           ord.ID,
+			AppID:        ord.AppID,
 			UserID:       ord.UserID,
 			EmailAddress: user.EmailAddress,
 			PhoneNO:      user.PhoneNO,
