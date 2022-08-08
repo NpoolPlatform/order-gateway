@@ -17,7 +17,15 @@ import (
 )
 
 func (s *Server) UpdateOrder(ctx context.Context, in *npool.UpdateOrderRequest) (*npool.UpdateOrderResponse, error) {
-	// TODO: who create, who update
+	if _, err := uuid.Parse(in.GetAppID()); err != nil {
+		logger.Sugar().Errorw("UpdateOrder", "AppID", in.GetAppID(), "error", err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	if _, err := uuid.Parse(in.GetUserID()); err != nil {
+		logger.Sugar().Errorw("UpdateOrder", "UserID", in.GetUserID(), "error", err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
 
 	if _, err := uuid.Parse(in.GetID()); err != nil {
 		logger.Sugar().Errorw("UpdateOrder", "ID", in.GetID(), "error", err)
@@ -35,6 +43,8 @@ func (s *Server) UpdateOrder(ctx context.Context, in *npool.UpdateOrderRequest) 
 	}
 
 	ord, err := order1.UpdateOrder(ctx, &ordermwpb.OrderReq{
+		AppID:     &in.AppID,
+		UserID:    &in.UserID,
 		ID:        &in.ID,
 		PaymentID: &in.PaymentID,
 		Canceled:  in.Canceled,

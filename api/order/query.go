@@ -70,3 +70,35 @@ func (s *Server) GetAppUserOrders(ctx context.Context, in *npool.GetAppUserOrder
 		Total: resp.Total,
 	}, nil
 }
+
+func (s *Server) GetOrder(ctx context.Context, in *npool.GetOrderRequest) (*npool.GetOrderResponse, error) {
+	if _, err := uuid.Parse(in.GetAppID()); err != nil {
+		logger.Sugar().Errorw("GetOrder", "AppID", in.GetAppID(), "error", err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	if _, err := uuid.Parse(in.GetUserID()); err != nil {
+		logger.Sugar().Errorw("GetOrder", "UserID", in.GetUserID(), "error", err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	if _, err := uuid.Parse(in.GetID()); err != nil {
+		logger.Sugar().Errorw("GetOrder", "ID", in.GetID(), "error", err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	ord, err := order1.GetOrder(ctx, in.GetID())
+	if err != nil {
+		logger.Sugar().Errorw("GetOrder", "error", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	if ord.AppID != in.GetAppID() || ord.UserID != in.GetUserID() {
+		logger.Sugar().Errorw("GetOrder", "error", "permission denied")
+		return nil, status.Error(codes.PermissionDenied, "permission denied")
+	}
+
+	return &npool.GetOrderResponse{
+		Info: ord,
+	}, nil
+}
