@@ -248,6 +248,7 @@ func (o *OrderCreate) SetReduction(ctx context.Context) error {
 		if !discount.Valid || discount.Expired || discount.AppID != o.AppID || discount.UserID != o.UserID {
 			return fmt.Errorf("invalid coupon")
 		}
+
 		percent, err := decimal.NewFromString(discount.Value)
 		if err != nil {
 			return err
@@ -379,7 +380,12 @@ func (o *OrderCreate) SetPaymentAmount(ctx context.Context) error {
 	// TODO: also add sub good order payment amount
 
 	o.paymentAmountUSD = o.price.Mul(decimal.NewFromInt(int64(o.Units)))
-	logger.Sugar().Infow("CreateOrder", "PaymentAmountUSD", o.paymentAmountUSD, "ReductionAmount", o.reductionAmount)
+	logger.Sugar().Infow(
+		"CreateOrder",
+		"PaymentAmountUSD", o.paymentAmountUSD,
+		"ReductionAmount", o.reductionAmount,
+		"ReductionPercent", o.reductionPercent,
+	)
 	o.paymentAmountUSD = o.paymentAmountUSD.Sub(o.reductionAmount)
 
 	if o.paymentAmountUSD.Cmp(decimal.NewFromInt(0)) < 0 {
