@@ -1,6 +1,8 @@
 package order
 
 import (
+	"context"
+
 	"github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -16,5 +18,5 @@ func Register(server grpc.ServiceRegistrar) {
 }
 
 func RegisterGateway(mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) error {
-	return nil
+	return order.RegisterGatewayHandlerFromEndpoint(context.Background(), mux, endpoint, opts)
 }
