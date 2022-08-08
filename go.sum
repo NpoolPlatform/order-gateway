@@ -151,8 +151,8 @@ github.com/NpoolPlatform/message v0.0.0-20220808093541-0309003ed5a8 h1:KPBCa1Iwh
 github.com/NpoolPlatform/message v0.0.0-20220808093541-0309003ed5a8/go.mod h1:8YXp4MghMHLZ9bBdQQyfjcRtLI2RbEHAQoNCejT2nZU=
 github.com/NpoolPlatform/oracle-manager v0.0.0-20220615040511-dc235b31fa14 h1:I+vtZheHl4SeKqi8UEoraqlMgWtxP2wgj8ERjNxWk94=
 github.com/NpoolPlatform/oracle-manager v0.0.0-20220615040511-dc235b31fa14/go.mod h1:f9Seypsw5N+Kc0P13IurAD/WNHXhzYsBt+d/R17oLfA=
-github.com/NpoolPlatform/order-middleware v0.0.0-20220807111936-fc013baf80d3 h1:1qicRpTPkvYkBhbZaC25Undn4IihmV3tuYMYKz2mM8w=
-github.com/NpoolPlatform/order-middleware v0.0.0-20220807111936-fc013baf80d3/go.mod h1:a7VT+lAi9Mfc23/NQN3QdAL+pRRdX5OWWwyVgctK6IA=
+github.com/NpoolPlatform/order-middleware v0.0.0-20220808093045-33fb07af8627 h1:YXS2qOm/TyAobSY6e0iJxqg8bc4Et/AdxAcOBfjlcl4=
+github.com/NpoolPlatform/order-middleware v0.0.0-20220808093045-33fb07af8627/go.mod h1:zsjsj8yCidvajYI5K2SfS/nIqp8emI/Qq0FYqSgWIJ8=
 github.com/NpoolPlatform/sphinx-coininfo v0.0.0-20211206035652-888de6e20996/go.mod h1:w203lHGAaRvZqEMLxJI8wBxAoVvE3RHMU3jtwN/AdgE=
 github.com/NpoolPlatform/sphinx-coininfo v0.0.0-20211208035009-5ad2768d2290/go.mod h1:bTUqQx4IRCf+o6B6jvdMmsiKfjmCc16swwBza7DVZuA=
 github.com/NpoolPlatform/sphinx-coininfo v0.0.0-20220731103603-21004f4341dc h1:kbbN6VOsTY9Si1nCLAG6TQ+A2gIo4I2yxhWQIYs7aW8=
