@@ -42,8 +42,8 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 		PaymentID:               ord.PaymentID,
 		PaymentCoinTypeID:       ord.PaymentCoinTypeID,
 		PaymentCoinUSDCurrency:  ord.PaymentCoinUSDCurrency,
-		PaymentLiveUSDCurrency:  ord.PaymentLiveCoinUSDCurrency,
-		PaymentLocalUSDCurrency: ord.PaymentLocalCoinUSDCurrency,
+		PaymentLiveUSDCurrency:  ord.PaymentLiveUSDCurrency,
+		PaymentLocalUSDCurrency: ord.PaymentLocalUSDCurrency,
 		PaymentAmount:           ord.PaymentAmount,
 		PayWithParent:           ord.PayWithParent,
 		PayWithBalanceAmount:    ord.PayWithBalanceAmount,
@@ -227,6 +227,14 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 		fixAmountMap[coupon.ID] = coupon
 	}
 
+	ids = []string{}
+	for _, ord := range ords {
+		if ord.DiscountID == invalidID {
+			continue
+		}
+		ids = append(ids, ord.DiscountID)
+	}
+
 	coupons, err = couponcli.GetManyCoupons(ctx, ids, couponpb.CouponType_Discount)
 	if err != nil {
 		return nil, 0, err
@@ -235,6 +243,14 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 	discountMap := map[string]*couponpb.Coupon{}
 	for _, coupon := range coupons {
 		discountMap[coupon.ID] = coupon
+	}
+
+	ids = []string{}
+	for _, ord := range ords {
+		if ord.SpecialOfferID == invalidID {
+			continue
+		}
+		ids = append(ids, ord.SpecialOfferID)
 	}
 
 	coupons, err = couponcli.GetManyCoupons(ctx, ids, couponpb.CouponType_SpecialOffer)
@@ -263,8 +279,8 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 			PaymentID:               ord.PaymentID,
 			PaymentCoinTypeID:       ord.PaymentCoinTypeID,
 			PaymentCoinUSDCurrency:  ord.PaymentCoinUSDCurrency,
-			PaymentLiveUSDCurrency:  ord.PaymentLiveCoinUSDCurrency,
-			PaymentLocalUSDCurrency: ord.PaymentLocalCoinUSDCurrency,
+			PaymentLiveUSDCurrency:  ord.PaymentLiveUSDCurrency,
+			PaymentLocalUSDCurrency: ord.PaymentLocalUSDCurrency,
 			PaymentAmount:           ord.PaymentAmount,
 			PayWithParent:           ord.PayWithParent,
 			PayWithBalanceAmount:    ord.PayWithBalanceAmount,

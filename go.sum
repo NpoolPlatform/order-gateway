@@ -147,12 +147,12 @@ github.com/NpoolPlatform/message v0.0.0-20220606130737-824c3198b695/go.mod h1:3E
 github.com/NpoolPlatform/message v0.0.0-20220614023533-f7ae7ffcc1a2/go.mod h1:3Enb49K3JrhlSwA+6bcsBuTdTzVxVKhdkllDGgv0n3M=
 github.com/NpoolPlatform/message v0.0.0-20220706015448-414cc87a22d1/go.mod h1:mzveZUmOwAsS1QAcmeUCdQjmyZKf52i0xwij58KF5K4=
 github.com/NpoolPlatform/message v0.0.0-20220714075917-2ba73782c509/go.mod h1:mzveZUmOwAsS1QAcmeUCdQjmyZKf52i0xwij58KF5K4=
-github.com/NpoolPlatform/message v0.0.0-20220806170005-a93ecdf53719 h1:satG32mVyWqSwBSXYBpspOXyjbfp21sq/0/9/fgEnic=
-github.com/NpoolPlatform/message v0.0.0-20220806170005-a93ecdf53719/go.mod h1:8YXp4MghMHLZ9bBdQQyfjcRtLI2RbEHAQoNCejT2nZU=
+github.com/NpoolPlatform/message v0.0.0-20220808071234-4b5398abdc67 h1:UCzFy2NLFV4dwW/EHkBJsgq+FdLqDC/yBSKtg1xPGQk=
+github.com/NpoolPlatform/message v0.0.0-20220808071234-4b5398abdc67/go.mod h1:8YXp4MghMHLZ9bBdQQyfjcRtLI2RbEHAQoNCejT2nZU=
 github.com/NpoolPlatform/oracle-manager v0.0.0-20220615040511-dc235b31fa14 h1:I+vtZheHl4SeKqi8UEoraqlMgWtxP2wgj8ERjNxWk94=
 github.com/NpoolPlatform/oracle-manager v0.0.0-20220615040511-dc235b31fa14/go.mod h1:f9Seypsw5N+Kc0P13IurAD/WNHXhzYsBt+d/R17oLfA=
-github.com/NpoolPlatform/order-middleware v0.0.0-20220806164351-3d6b403c1d5a h1:XDwLEU2ecCtLDA3W6qUBjELy4Dp/YRrcW9T6twPR8sw=
-github.com/NpoolPlatform/order-middleware v0.0.0-20220806164351-3d6b403c1d5a/go.mod h1:fgC9PuV+ZrUE6/4czF8YiVqEAq9IYZGFaMlo0HLKs/s=
+github.com/NpoolPlatform/order-middleware v0.0.0-20220807111936-fc013baf80d3 h1:1qicRpTPkvYkBhbZaC25Undn4IihmV3tuYMYKz2mM8w=
+github.com/NpoolPlatform/order-middleware v0.0.0-20220807111936-fc013baf80d3/go.mod h1:a7VT+lAi9Mfc23/NQN3QdAL+pRRdX5OWWwyVgctK6IA=
 github.com/NpoolPlatform/sphinx-coininfo v0.0.0-20211206035652-888de6e20996/go.mod h1:w203lHGAaRvZqEMLxJI8wBxAoVvE3RHMU3jtwN/AdgE=
 github.com/NpoolPlatform/sphinx-coininfo v0.0.0-20211208035009-5ad2768d2290/go.mod h1:bTUqQx4IRCf+o6B6jvdMmsiKfjmCc16swwBza7DVZuA=
 github.com/NpoolPlatform/sphinx-coininfo v0.0.0-20220731103603-21004f4341dc h1:kbbN6VOsTY9Si1nCLAG6TQ+A2gIo4I2yxhWQIYs7aW8=

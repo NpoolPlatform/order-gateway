@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
+
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 
 	appcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/app"
@@ -345,6 +347,7 @@ func (o *OrderCreate) SetPaymentAmount(ctx context.Context) error {
 	// TODO: also add sub good order payment amount
 
 	o.paymentAmountUSD = o.price.Mul(decimal.NewFromInt(int64(o.Units)))
+	logger.Sugar().Infow("CreateOrder", "PaymentAmountUSD", o.paymentAmountUSD, "ReductionAmount", o.reductionAmount)
 	o.paymentAmountUSD = o.paymentAmountUSD.Sub(o.reductionAmount)
 
 	if o.paymentAmountUSD.Cmp(decimal.NewFromInt(0)) < 0 {
