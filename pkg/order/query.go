@@ -52,6 +52,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 		DiscountID:     ord.DiscountID,
 		SpecialOfferID: ord.SpecialOfferID,
 
+		OrderType: ord.OrderType,
 		CreatedAt: ord.CreatedAt,
 		PaidAt:    ord.PaidAt,
 		State:     ord.State,
@@ -82,6 +83,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	}
 
 	o.GoodName = good.Title
+	o.GoodUnit = good.Unit
 
 	coin, err := coininfocli.GetCoinInfo(ctx, good.CoinInfoID)
 	if err != nil {
@@ -264,6 +266,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 	}
 
 	infos := []*npool.Order{}
+
 	for _, ord := range ords {
 		o := &npool.Order{
 			ID:           ord.ID,
@@ -289,6 +292,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 			DiscountID:     ord.DiscountID,
 			SpecialOfferID: ord.SpecialOfferID,
 
+			OrderType: ord.OrderType,
 			CreatedAt: ord.CreatedAt,
 			PaidAt:    ord.PaidAt,
 			State:     ord.State,
@@ -303,6 +307,8 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 		}
 
 		o.CoinTypeID = good.CoinInfoID
+		o.GoodName = good.Title
+		o.GoodUnit = good.Unit
 
 		coin, ok := coinMap[o.CoinTypeID]
 		if !ok {
