@@ -5,11 +5,11 @@ go 1.17
 require (
 	github.com/NpoolPlatform/api-manager v0.0.0-20220421114434-bf0e069b0c83
 	github.com/NpoolPlatform/appuser-middleware v0.0.0-20220806165514-009fc289bbc5
-	github.com/NpoolPlatform/cloud-hashing-billing v0.0.0-20220804060148-51f159d58267
+	github.com/NpoolPlatform/cloud-hashing-billing v0.0.0-20220806102703-0570e7231a6c
 	github.com/NpoolPlatform/cloud-hashing-goods v0.0.0-20220802122741-81b3c9f75a98
 	github.com/NpoolPlatform/cloud-hashing-order v0.0.0-20220808080811-cf27cc5779ac
 	github.com/NpoolPlatform/go-service-framework v0.0.0-20220807091054-871fc936ff5e
-	github.com/NpoolPlatform/inspire-middleware v0.0.0-20220808081959-c2deb9b2ce85
+	github.com/NpoolPlatform/inspire-middleware v0.0.0-20220808085657-9354bb053cfb
 	github.com/NpoolPlatform/ledger-manager v0.0.0-20220801083606-458fa4cd2fbe
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20220801075201-cab5db8b6290
 	github.com/NpoolPlatform/message v0.0.0-20220808093541-0309003ed5a8
