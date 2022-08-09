@@ -48,10 +48,12 @@ import (
 )
 
 type OrderCreate struct {
-	AppID  string
-	UserID string
-	GoodID string
-	Units  uint32
+	AppID            string
+	UserID           string
+	GoodID           string
+	GoodStart        uint32
+	GoodDurationDays uint32
+	Units            uint32
 
 	PaymentCoinID string
 	BalanceAmount *string
@@ -110,6 +112,9 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 	if good == nil {
 		return fmt.Errorf("invalid good")
 	}
+
+	o.GoodStart = good.StartAt
+	o.GoodDurationDays = uint32(good.DurationDays)
 
 	gcoin, err := coininfocli.GetCoinInfo(ctx, good.CoinInfoID)
 	if err != nil {
@@ -751,6 +756,12 @@ func (o *OrderCreate) ReleaseBalance(ctx context.Context) error {
 	return err
 }
 
+func tomorrowStart() time.Time {
+	now := time.Now()
+	y, m, d := now.Date()
+	return time.Date(y, m, d+1, 0, 0, 0, 0, now.Location())
+}
+
 func (o *OrderCreate) Create(ctx context.Context) (*npool.Order, error) {
 	switch o.OrderType.String() {
 	case ordermgrpb.OrderType_Normal.String():
@@ -773,6 +784,13 @@ func (o *OrderCreate) Create(ctx context.Context) (*npool.Order, error) {
 	localCurrency := o.localCurrency.String()
 
 	// Top order never pay with parent, only sub order may
+
+	o.start = uint32(tomorrowStart().Unix())
+	if o.GoodStart < o.start {
+		o.start = o.GoodStart
+	}
+	const secondsPerDay = 24 * 60 * 60
+	o.end = o.start + secondsPerDay
 
 	ord, err := ordermwcli.CreateOrder(ctx, &ordermwpb.OrderReq{
 		AppID:     &o.AppID,
