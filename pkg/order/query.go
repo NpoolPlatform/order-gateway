@@ -88,6 +88,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 
 	o.GoodName = good.Title
 	o.GoodUnit = good.Unit
+	o.GoodServicePeriodDays = uint32(good.DurationDays)
 
 	coin, err := coininfocli.GetCoinInfo(ctx, good.CoinInfoID)
 	if err != nil {
@@ -102,6 +103,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	o.CoinName = coin.Name
 	o.CoinLogo = coin.Logo
 	o.CoinUnit = coin.Unit
+	o.CoinPresale = coin.PreSale
 
 	coin, err = coininfocli.GetCoinInfo(ctx, ord.PaymentCoinTypeID)
 	if err != nil {
