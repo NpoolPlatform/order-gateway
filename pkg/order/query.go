@@ -344,7 +344,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 			o.FixAmountName = coupon.Name
 			o.FixAmountAmount = coupon.Value
 		}
-		if coupon, ok := fixAmountMap[ord.DiscountID]; ok {
+		if coupon, ok := discountMap[ord.DiscountID]; ok {
 			o.DiscountName = coupon.Name
 			percent, err := decimal.NewFromString(coupon.Value)
 			if err != nil {
@@ -352,7 +352,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 			}
 			o.DiscountPercent = uint32(percent.IntPart())
 		}
-		if coupon, ok := fixAmountMap[ord.SpecialOfferID]; ok {
+		if coupon, ok := specialOfferMap[ord.SpecialOfferID]; ok {
 			o.SpecialOfferAmount = coupon.Value
 		}
 
