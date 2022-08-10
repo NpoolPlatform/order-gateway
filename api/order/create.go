@@ -48,7 +48,7 @@ func createOrder(ctx context.Context, in *npool.CreateOrderRequest) (*npool.Orde
 		logger.Sugar().Errorw("CreateOrder", "GoodID", in.GetGoodID(), "error", err)
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	if in.GetUnits() == 0 {
+	if in.GetUnits() <= 0 {
 		logger.Sugar().Errorw("CreateOrder", "Units", in.GetUnits())
 		return nil, status.Error(codes.InvalidArgument, "Units is 0")
 	}
