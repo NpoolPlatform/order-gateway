@@ -51,7 +51,7 @@ type OrderCreate struct {
 	AppID            string
 	UserID           string
 	GoodID           string
-	GoodStart        uint32
+	GoodDelivery     uint32
 	GoodDurationDays uint32
 	Units            uint32
 
@@ -113,7 +113,7 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		return fmt.Errorf("invalid good")
 	}
 
-	o.GoodStart = good.StartAt
+	o.GoodDelivery = good.DeliveryAt
 	o.GoodDurationDays = uint32(good.DurationDays)
 
 	gcoin, err := coininfocli.GetCoinInfo(ctx, good.CoinInfoID)
@@ -786,8 +786,8 @@ func (o *OrderCreate) Create(ctx context.Context) (*npool.Order, error) {
 	// Top order never pay with parent, only sub order may
 
 	o.start = uint32(tomorrowStart().Unix())
-	if o.GoodStart < o.start {
-		o.start = o.GoodStart
+	if o.GoodDelivery > o.start {
+		o.start = o.GoodDelivery
 	}
 	const secondsPerDay = 24 * 60 * 60
 	o.end = o.start + secondsPerDay
