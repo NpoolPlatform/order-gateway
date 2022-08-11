@@ -316,6 +316,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 		o.CoinTypeID = good.CoinInfoID
 		o.GoodName = good.Title
 		o.GoodUnit = good.Unit
+		o.GoodServicePeriodDays = uint32(good.DurationDays)
 
 		coin, ok := coinMap[o.CoinTypeID]
 		if !ok {
