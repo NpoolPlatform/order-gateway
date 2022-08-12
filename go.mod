@@ -8,7 +8,7 @@ require (
 	github.com/NpoolPlatform/cloud-hashing-billing v0.0.0-20220806102703-0570e7231a6c
 	github.com/NpoolPlatform/cloud-hashing-goods v0.0.0-20220802122741-81b3c9f75a98
 	github.com/NpoolPlatform/cloud-hashing-order v0.0.0-20220808080811-cf27cc5779ac
-	github.com/NpoolPlatform/go-service-framework v0.0.0-20220807091054-871fc936ff5e
+	github.com/NpoolPlatform/go-service-framework v0.0.0-20220812032117-44ecffa2bb95
 	github.com/NpoolPlatform/inspire-middleware v0.0.0-20220808085657-9354bb053cfb
 	github.com/NpoolPlatform/ledger-manager v0.0.0-20220801083606-458fa4cd2fbe
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20220801075201-cab5db8b6290
@@ -23,7 +23,6 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.10.0
 	github.com/shopspring/decimal v1.3.1
-	github.com/streadway/amqp v1.0.0
 	github.com/stretchr/testify v1.7.1
 	github.com/urfave/cli/v2 v2.5.0
 	go.opentelemetry.io/otel v1.8.0
