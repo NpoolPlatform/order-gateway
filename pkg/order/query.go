@@ -16,6 +16,7 @@ import (
 	goodspb "github.com/NpoolPlatform/message/npool/cloud-hashing-goods"
 	coininfopb "github.com/NpoolPlatform/message/npool/coininfo"
 	couponpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/inspire/coupon"
+	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 
@@ -171,7 +172,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	return o, nil
 }
 
-func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) ([]*npool.Order, uint32, error) { //nolint
+func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) ([]*npool.Order, uint32, error) {
 	ords, total, err := ordercli.GetOrders(ctx, appID, userID, offset, limit)
 	if err != nil {
 		return nil, 0, err
@@ -180,17 +181,44 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 		return []*npool.Order{}, 0, nil
 	}
 
-	user, err := usercli.GetUser(ctx, ords[0].AppID, ords[0].UserID)
+	orders, err := expand(ctx, ords)
 	if err != nil {
 		return nil, 0, err
 	}
+
+	return orders, total, nil
+}
+
+func GetAppOrders(ctx context.Context, appID string, offset, limit int32) ([]*npool.Order, uint32, error) {
+	ords, total, err := ordercli.GetAppOrders(ctx, appID, offset, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(ords) == 0 {
+		return []*npool.Order{}, 0, nil
+	}
+
+	orders, err := expand(ctx, ords)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return orders, total, nil
+}
+
+// nolint
+func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error) {
+	user, err := usercli.GetUser(ctx, ords[0].AppID, ords[0].UserID)
+	if err != nil {
+		return nil, err
+	}
 	if user == nil {
-		return nil, 0, fmt.Errorf("invalid user")
+		return nil, fmt.Errorf("invalid user")
 	}
 
 	goods, err := goodscli.GetGoods(ctx)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	goodMap := map[string]*goodspb.GoodInfo{}
@@ -200,7 +228,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 
 	coins, err := coininfocli.GetCoinInfos(ctx, cruder.NewFilterConds())
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	coinMap := map[string]*coininfopb.CoinInfo{}
@@ -211,7 +239,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 	// TODO: get accounts with specific account ID
 	accounts, err := billingcli.GetAccounts(ctx)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	accMap := map[string]*billingpb.CoinAccountInfo{}
@@ -231,7 +259,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 
 	coupons, err := couponcli.GetManyCoupons(ctx, ids, couponpb.CouponType_FixAmount)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	fixAmountMap := map[string]*couponpb.Coupon{}
@@ -249,7 +277,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 
 	coupons, err = couponcli.GetManyCoupons(ctx, ids, couponpb.CouponType_Discount)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	discountMap := map[string]*couponpb.Coupon{}
@@ -267,7 +295,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 
 	coupons, err = couponcli.GetManyCoupons(ctx, ids, couponpb.CouponType_SpecialOffer)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	specialOfferMap := map[string]*couponpb.Coupon{}
@@ -314,7 +342,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 
 		good, ok := goodMap[ord.GoodID]
 		if !ok {
-			return nil, 0, fmt.Errorf("invalid good")
+			return nil, fmt.Errorf("invalid good")
 		}
 
 		o.CoinTypeID = good.CoinInfoID
@@ -328,7 +356,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 
 		coin, ok := coinMap[o.CoinTypeID]
 		if !ok {
-			return nil, 0, fmt.Errorf("invalid coin")
+			return nil, fmt.Errorf("invalid coin")
 		}
 
 		o.CoinName = coin.Name
@@ -337,7 +365,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 
 		coin, ok = coinMap[ord.PaymentCoinTypeID]
 		if !ok {
-			return nil, 0, fmt.Errorf("invalid payment coin")
+			return nil, fmt.Errorf("invalid payment coin")
 		}
 
 		o.PaymentCoinName = coin.Name
@@ -346,7 +374,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 
 		acc, ok := accMap[ord.PaymentAccountID]
 		if !ok {
-			return nil, 0, fmt.Errorf("invalid account")
+			return nil, fmt.Errorf("invalid account")
 		}
 
 		o.PaymentAddress = acc.Address
@@ -359,7 +387,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 			o.DiscountName = coupon.Name
 			percent, err := decimal.NewFromString(coupon.Value)
 			if err != nil {
-				return nil, 0, err
+				return nil, err
 			}
 			o.DiscountPercent = uint32(percent.IntPart())
 		}
@@ -370,5 +398,5 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 		infos = append(infos, o)
 	}
 
-	return infos, total, nil
+	return infos, nil
 }
