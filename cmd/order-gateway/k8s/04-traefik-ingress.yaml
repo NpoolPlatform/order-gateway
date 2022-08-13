@@ -37,11 +37,11 @@ spec:
 apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
-  name: order-gateway-traefik-app-ingress
+  name: order-gateway-traefik-app-user-ingress
   namespace: kube-system
   annotations:
-    k8s.kuboard.cn/displayName: order-gateway-traefik-app
-    k8s.kuboard.cn/workload: order-gateway-traefik-app
+    k8s.kuboard.cn/displayName: order-gateway-traefik-app-user
+    k8s.kuboard.cn/workload: order-gateway-traefik-app-user
     kubernetes.io/ingress.class: "traefik-internet"
     traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
     traefik.ingress.kubernetes.io/router.middlewares:
