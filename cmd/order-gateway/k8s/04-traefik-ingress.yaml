@@ -68,11 +68,7 @@ spec:
             backend:
               serviceName: order-gateway
               servicePort: 50430
-          - path: /api/order/v1/get/order
-            backend:
-              serviceName: order-gateway
-              servicePort: 50430
-          - path: /api/order/v1/get/orders
+          - path: /api/order/v1/get
             backend:
               serviceName: order-gateway
               servicePort: 50430
@@ -84,14 +80,6 @@ spec:
               serviceName: order-gateway
               servicePort: 50430
           - path: /api/order/v1/create/app/user/order
-            backend:
-              serviceName: order-gateway
-              servicePort: 50430
-          - path: /api/order/v1/get/user/orders
-            backend:
-              serviceName: order-gateway
-              servicePort: 50430
-          - path: /api/order/v1/get/app/user/orders
             backend:
               serviceName: order-gateway
               servicePort: 50430
