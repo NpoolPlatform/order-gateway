@@ -60,38 +60,38 @@ spec:
           ######
           # Enable for all users
           ######
-          - path: /api/order/create/order
+          - path: /api/order/v1/create/order
             backend:
               serviceName: order-gateway
               servicePort: 50430
-          - path: /api/order/update/order
+          - path: /api/order/v1/update/order
             backend:
               serviceName: order-gateway
               servicePort: 50430
-          - path: /api/order/get/order
+          - path: /api/order/v1/get/order
             backend:
               serviceName: order-gateway
               servicePort: 50430
-          - path: /api/order/get/orders
+          - path: /api/order/v1/get/orders
             backend:
               serviceName: order-gateway
               servicePort: 50430
           ######
           # Only enable for app admin
           ######
-          - path: /api/order/create/user/order
+          - path: /api/order/v1/create/user/order
             backend:
               serviceName: order-gateway
               servicePort: 50430
-          - path: /api/order/create/app/user/order
+          - path: /api/order/v1/create/app/user/order
             backend:
               serviceName: order-gateway
               servicePort: 50430
-          - path: /api/order/get/user/orders
+          - path: /api/order/v1/get/user/orders
             backend:
               serviceName: order-gateway
               servicePort: 50430
-          - path: /api/order/get/app/user/orders
+          - path: /api/order/v1/get/app/user/orders
             backend:
               serviceName: order-gateway
               servicePort: 50430
