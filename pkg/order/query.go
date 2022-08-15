@@ -1,3 +1,4 @@
+//nolint:dupl
 package order
 
 import (
@@ -12,6 +13,7 @@ import (
 	ordercli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 	coininfocli "github.com/NpoolPlatform/sphinx-coininfo/pkg/client"
 
+	userpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 	billingpb "github.com/NpoolPlatform/message/npool/cloud-hashing-billing"
 	goodspb "github.com/NpoolPlatform/message/npool/cloud-hashing-goods"
 	coininfopb "github.com/NpoolPlatform/message/npool/coininfo"
@@ -209,12 +211,26 @@ func GetAppOrders(ctx context.Context, appID string, offset, limit int32) ([]*np
 
 // nolint
 func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error) {
-	user, err := usercli.GetUser(ctx, ords[0].AppID, ords[0].UserID)
+	if len(ords) == 0 {
+		return []*npool.Order{}, nil
+	}
+
+	uids := []string{}
+	for _, ord := range ords {
+		uids = append(uids, ord.UserID)
+	}
+
+	users, _, err := usercli.GetManyUsers(ctx, uids)
 	if err != nil {
 		return nil, err
 	}
-	if user == nil {
-		return nil, fmt.Errorf("invalid user")
+	if len(users) == 0 {
+		return nil, fmt.Errorf("invalid users")
+	}
+
+	userMap := map[string]*userpb.User{}
+	for _, user := range users {
+		userMap[user.ID] = user
 	}
 
 	goods, err := goodscli.GetGoods(ctx)
@@ -307,13 +323,11 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 
 	for _, ord := range ords {
 		o := &npool.Order{
-			ID:           ord.ID,
-			AppID:        ord.AppID,
-			UserID:       ord.UserID,
-			EmailAddress: user.EmailAddress,
-			PhoneNO:      user.PhoneNO,
-			GoodID:       ord.GoodID,
-			Units:        ord.Units,
+			ID:     ord.ID,
+			AppID:  ord.AppID,
+			UserID: ord.UserID,
+			GoodID: ord.GoodID,
+			Units:  ord.Units,
 
 			ParentOrderID:     ord.ParentOrderID,
 			ParentOrderGoodID: ord.ParentOrderGoodID,
@@ -339,6 +353,14 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 			Start: ord.Start,
 			End:   ord.End,
 		}
+
+		user, ok := userMap[ord.UserID]
+		if !ok {
+			return nil, fmt.Errorf("invalid user")
+		}
+
+		o.EmailAddress = user.EmailAddress
+		o.PhoneNO = user.PhoneNO
 
 		good, ok := goodMap[ord.GoodID]
 		if !ok {
