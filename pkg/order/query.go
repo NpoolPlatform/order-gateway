@@ -25,6 +25,8 @@ import (
 	"github.com/google/uuid"
 )
 
+var invalidID = uuid.UUID{}.String()
+
 func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	ord, err := ordercli.GetOrder(ctx, id)
 	if err != nil {
@@ -110,33 +112,32 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	o.CoinUnit = coin.Unit
 	o.CoinPresale = coin.PreSale
 
-	coin, err = coininfocli.GetCoinInfo(ctx, ord.PaymentCoinTypeID)
-	if err != nil {
-		return nil, err
+	if ord.PaymentID != invalidID && ord.PaymentID != "" {
+		coin, err = coininfocli.GetCoinInfo(ctx, ord.PaymentCoinTypeID)
+		if err != nil {
+			return nil, err
+		}
+
+		if coin == nil {
+			return nil, fmt.Errorf("invalid payment coin")
+		}
 	}
 
-	if coin == nil {
-		return nil, fmt.Errorf("invalid payment coin")
+	if coin != nil {
+		o.PaymentCoinName = coin.Name
+		o.PaymentCoinLogo = coin.Logo
+		o.PaymentCoinUnit = coin.Unit
 	}
-
-	o.PaymentCoinName = coin.Name
-	o.PaymentCoinLogo = coin.Logo
-	o.PaymentCoinUnit = coin.Unit
 
 	account, err := billingcli.GetAccount(ctx, ord.PaymentAccountID)
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO: for old placeholder payment
-	if account == nil {
-		return nil, fmt.Errorf("invalid account")
+	if account != nil {
+		o.PaymentAddress = account.Address
 	}
 
-	o.PaymentAddress = account.Address
-
 	coupon, err := couponcli.GetCoupon(ctx, ord.FixAmountID, couponpb.CouponType_FixAmount)
-
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +249,6 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 	}
 
 	ids := []string{}
-	invalidID := uuid.UUID{}.String()
 
 	for _, ord := range ords {
 		if ord.FixAmountID == invalidID {
@@ -363,21 +363,23 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 		o.CoinLogo = coin.Logo
 		o.CoinUnit = coin.Unit
 
-		coin, ok = coinMap[ord.PaymentCoinTypeID]
-		if !ok {
-			return nil, fmt.Errorf("invalid payment coin")
+		if ord.PaymentID != invalidID && ord.PaymentID != "" {
+			coin, ok = coinMap[ord.PaymentCoinTypeID]
+			if !ok {
+				return nil, fmt.Errorf("invalid payment coin")
+			}
 		}
 
-		o.PaymentCoinName = coin.Name
-		o.PaymentCoinLogo = coin.Logo
-		o.PaymentCoinUnit = coin.Unit
+		if coin != nil {
+			o.PaymentCoinName = coin.Name
+			o.PaymentCoinLogo = coin.Logo
+			o.PaymentCoinUnit = coin.Unit
+		}
 
 		acc, ok := accMap[ord.PaymentAccountID]
-		if !ok {
-			return nil, fmt.Errorf("invalid account")
+		if ok {
+			o.PaymentAddress = acc.Address
 		}
-
-		o.PaymentAddress = acc.Address
 
 		if coupon, ok := fixAmountMap[ord.FixAmountID]; ok {
 			o.FixAmountName = coupon.Name
