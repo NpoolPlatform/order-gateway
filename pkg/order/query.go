@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
+
 	usercli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	billingcli "github.com/NpoolPlatform/cloud-hashing-billing/pkg/client"
 	goodscli "github.com/NpoolPlatform/cloud-hashing-goods/pkg/client"
@@ -356,11 +358,13 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 
 		user, ok := userMap[ord.UserID]
 		if !ok {
-			return nil, fmt.Errorf("invalid user")
+			logger.Sugar().Warnw("expand", "UserID", ord.UserID, "OrderID", ord.ID)
 		}
 
-		o.EmailAddress = user.EmailAddress
-		o.PhoneNO = user.PhoneNO
+		if user != nil {
+			o.EmailAddress = user.EmailAddress
+			o.PhoneNO = user.PhoneNO
+		}
 
 		good, ok := goodMap[ord.GoodID]
 		if !ok {
