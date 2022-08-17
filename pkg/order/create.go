@@ -501,6 +501,7 @@ func (o *OrderCreate) peekAddress(ctx context.Context) (*billingpb.CoinAccountIn
 
 		info.Idle = false
 		info.OccupiedBy = billingconst.TransactionForPaying
+		info.UsedFor = billingconst.TransactionForPaying
 		_, err = billingcli.UpdateGoodPayment(ctx, info)
 		if err != nil {
 			accountlock.Unlock(payment.AccountID) //nolint
