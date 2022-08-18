@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/NpoolPlatform/order-gateway/api"
 
-	"github.com/NpoolPlatform/cloud-hashing-order/pkg/db"
 	"github.com/NpoolPlatform/order-gateway/pkg/migrator"
 
 	grpc2 "github.com/NpoolPlatform/go-service-framework/pkg/grpc"
@@ -25,10 +24,6 @@ var runCmd = &cli.Command{
 	Aliases: []string{"s"},
 	Usage:   "Run the daemon",
 	Action: func(c *cli.Context) error {
-		if err := db.Init(); err != nil {
-			return err
-		}
-
 		if err := migrator.Migrate(c.Context); err != nil {
 			return err
 		}
