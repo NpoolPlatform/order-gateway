@@ -791,7 +791,7 @@ func (o *OrderCreate) Create(ctx context.Context) (*npool.Order, error) {
 		o.start = o.GoodStartAt
 	}
 	const secondsPerDay = 24 * 60 * 60
-	o.end = o.start + secondsPerDay
+	o.end = o.start + o.GoodDurationDays*secondsPerDay
 
 	ord, err := ordermwcli.CreateOrder(ctx, &ordermwpb.OrderReq{
 		AppID:     &o.AppID,
