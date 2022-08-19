@@ -56,6 +56,8 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 		PaymentLiveUSDCurrency:  ord.PaymentLiveUSDCurrency,
 		PaymentLocalUSDCurrency: ord.PaymentLocalUSDCurrency,
 		PaymentAmount:           ord.PaymentAmount,
+		PaymentStartAmount:      ord.PaymentStartAmount,
+		PaymentFinishAmount:     ord.PaymentFinishAmount,
 		PayWithParent:           ord.PayWithParent,
 		PayWithBalanceAmount:    ord.PayWithBalanceAmount,
 
@@ -340,6 +342,8 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 			PaymentLiveUSDCurrency:  ord.PaymentLiveUSDCurrency,
 			PaymentLocalUSDCurrency: ord.PaymentLocalUSDCurrency,
 			PaymentAmount:           ord.PaymentAmount,
+			PaymentStartAmount:      ord.PaymentStartAmount,
+			PaymentFinishAmount:     ord.PaymentFinishAmount,
 			PayWithParent:           ord.PayWithParent,
 			PayWithBalanceAmount:    ord.PayWithBalanceAmount,
 
