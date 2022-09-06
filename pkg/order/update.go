@@ -52,7 +52,7 @@ func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq, fromAdmin bool) (*
 		return GetOrder(ctx, ord.ID)
 	}
 
-	if ord.OrderType.String() != orderconst.OrderTypeOffline && ord.OrderType == ordermgrpb.OrderType_Offline {
+	if ord.OrderType.String() != orderconst.OrderTypeOffline && ord.OrderType != ordermgrpb.OrderType_Offline {
 		return nil, fmt.Errorf("order type not offline")
 	}
 	if ord.State != orderstatepb.EState_Paid {
