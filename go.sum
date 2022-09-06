@@ -109,6 +109,8 @@ github.com/NpoolPlatform/appuser-manager v0.0.0-20220210093932-4b9db1361d89/go.m
 github.com/NpoolPlatform/appuser-manager v0.0.0-20220826155650-96d25626c01b h1:O8wJ4JN9QUSBlEtooOjk5iv1i4cHx77rOogdhaQbNZ8=
 github.com/NpoolPlatform/appuser-middleware v0.0.0-20220828053822-e809766566c6 h1:5KV50Twgylg6rRx78m31uy4YdRb4z0xC2urQhRNpDuU=
 github.com/NpoolPlatform/appuser-middleware v0.0.0-20220828053822-e809766566c6/go.mod h1:0A3rrYP9o9blBxgj/HvH629dsdA+pL/UwqCNgTmSzgc=
+github.com/NpoolPlatform/archivement-middleware v0.0.0-20220906070411-67ca1d6f070c h1:xJ9Q42P8y421q+LUAmd6vO1Dc1AKhVC384jcvKd7IdU=
+github.com/NpoolPlatform/archivement-middleware v0.0.0-20220906070411-67ca1d6f070c/go.mod h1:+tOsdkoKj9HgipTzpB09NHb6EPxQH9b7y3Ug4QxsrpU=
 github.com/NpoolPlatform/cloud-hashing-billing v0.0.0-20220211112041-cb90970f6df1/go.mod h1:XjIMD/UTr6zXfDDesd/Aez2XR+r6XFZuQVWCkpOIEbA=
 github.com/NpoolPlatform/cloud-hashing-billing v0.0.0-20220614030114-0f11beeee655/go.mod h1:dqbEbn4R2JEK8XmxpnwabdYtaK4wfkhSbOpW4kizpS0=
 github.com/NpoolPlatform/cloud-hashing-billing v0.0.0-20220806102703-0570e7231a6c h1:I3zn1vZrs8RPPEE0HFbEzlqkgKA9dFups6tMCKULXfs=
@@ -152,8 +154,8 @@ github.com/NpoolPlatform/message v0.0.0-20220614023533-f7ae7ffcc1a2/go.mod h1:3E
 github.com/NpoolPlatform/message v0.0.0-20220706015448-414cc87a22d1/go.mod h1:mzveZUmOwAsS1QAcmeUCdQjmyZKf52i0xwij58KF5K4=
 github.com/NpoolPlatform/message v0.0.0-20220714075917-2ba73782c509/go.mod h1:mzveZUmOwAsS1QAcmeUCdQjmyZKf52i0xwij58KF5K4=
 github.com/NpoolPlatform/message v0.0.0-20220819134247-1dc75c85fe43/go.mod h1:8YXp4MghMHLZ9bBdQQyfjcRtLI2RbEHAQoNCejT2nZU=
-github.com/NpoolPlatform/message v0.0.0-20220827093205-36af2dbbb946 h1:4+4cR9czgJHyNuTJ2DzmC7aSx9wGTekPlY93q9ftDeQ=
-github.com/NpoolPlatform/message v0.0.0-20220827093205-36af2dbbb946/go.mod h1:8YXp4MghMHLZ9bBdQQyfjcRtLI2RbEHAQoNCejT2nZU=
+github.com/NpoolPlatform/message v0.0.0-20220906063625-92673b512c74 h1:p+hhjUSo+LJZgD7HNCtNl2Nwy5u7dm8Sm9pyWic7xfo=
+github.com/NpoolPlatform/message v0.0.0-20220906063625-92673b512c74/go.mod h1:dJ9HB+nfu9iNKhhZjauFE7Hbsj/kJmJb3BwUnYGHEOk=
 github.com/NpoolPlatform/oracle-manager v0.0.0-20220615040511-dc235b31fa14/go.mod h1:f9Seypsw5N+Kc0P13IurAD/WNHXhzYsBt+d/R17oLfA=
 github.com/NpoolPlatform/oracle-manager v0.0.0-20220815075852-420bd75bafa7 h1:/VOiW1NZWFNHI9HcG3u14qPapczlZaWSm6XghFqm8sw=
 github.com/NpoolPlatform/oracle-manager v0.0.0-20220815075852-420bd75bafa7/go.mod h1:f9Seypsw5N+Kc0P13IurAD/WNHXhzYsBt+d/R17oLfA=
@@ -168,8 +170,9 @@ github.com/NpoolPlatform/sphinx-proxy v0.0.0-20220803040820-2b7bd4158e8b h1:p6fu
 github.com/NpoolPlatform/sphinx-proxy v0.0.0-20220803040820-2b7bd4158e8b/go.mod h1:WV8KW4JtPNg2auCRqkoUV+35jkyT4LPPqr+JqsNjHa4=
 github.com/NpoolPlatform/staker-manager v0.0.0-20220715052242-57491c7251b9 h1:gyX4ETJjN/ojiRecT/ATtRJ47ejNwxWVaLhNl3U/TSk=
 github.com/NpoolPlatform/staker-manager v0.0.0-20220715052242-57491c7251b9/go.mod h1:UpdwioV5nKVrDWKy7lm3+zLkBW1QPT0MJPOWGL6u+ok=
-github.com/NpoolPlatform/stock-manager v0.0.0-20220501144918-883eece82647 h1:erFhrIDGmIbRlIG38/2zokITwCTzyN+N6zN++IKSDD4=
 github.com/NpoolPlatform/stock-manager v0.0.0-20220501144918-883eece82647/go.mod h1:S1yJ9ElTOv0gJspG2IptpcEWzfuP+rrhBFnPlpWaDJ0=
+github.com/NpoolPlatform/stock-manager v0.0.0-20220828074819-805531b62d9c h1:iPXwrt+4Zbzif7x7EEQWs/HKcaRiisY8mlglohjqxnA=
+github.com/NpoolPlatform/stock-manager v0.0.0-20220828074819-805531b62d9c/go.mod h1:GSz4JxpSBAR042YY/DKa/dFuAf9qz/7QsJzAG7t+Ssw=
 github.com/OneOfOne/xxhash v1.2.2 h1:KMrpdQIwFcEqXDklaen+P1axHaj9BSKzvpUUfnHldSE=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/PuerkitoBio/purell v1.1.1/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
