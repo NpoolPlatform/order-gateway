@@ -48,7 +48,7 @@ func (s *Server) UpdateOrder(ctx context.Context, in *npool.UpdateOrderRequest) 
 		ID:        &in.ID,
 		PaymentID: &in.PaymentID,
 		Canceled:  in.Canceled,
-	})
+	}, false)
 	if err != nil {
 		logger.Sugar().Errorw("UpdateOrder", "error", err)
 		return nil, status.Error(codes.Internal, "fail update order")
@@ -85,13 +85,13 @@ func (s *Server) UpdateUserOrder(ctx context.Context, in *npool.UpdateUserOrderR
 		return nil, status.Error(codes.InvalidArgument, "nothing todo")
 	}
 
-	ord, err := order1.UpdateAppOrder(ctx, &ordermwpb.OrderReq{
+	ord, err := order1.UpdateOrder(ctx, &ordermwpb.OrderReq{
 		AppID:     &in.AppID,
 		UserID:    &in.TargetUserID,
 		ID:        &in.ID,
 		PaymentID: &in.PaymentID,
 		Canceled:  in.Canceled,
-	})
+	}, true)
 	if err != nil {
 		logger.Sugar().Errorw("UpdateUserOrder", "error", err)
 		return nil, status.Error(codes.Internal, "fail update order")
@@ -128,13 +128,13 @@ func (s *Server) UpdateAppUserOrder(ctx context.Context, in *npool.UpdateAppUser
 		return nil, status.Error(codes.InvalidArgument, "nothing todo")
 	}
 
-	ord, err := order1.UpdateAppOrder(ctx, &ordermwpb.OrderReq{
+	ord, err := order1.UpdateOrder(ctx, &ordermwpb.OrderReq{
 		AppID:     &in.TargetAppID,
 		UserID:    &in.TargetUserID,
 		ID:        &in.ID,
 		PaymentID: &in.PaymentID,
 		Canceled:  in.Canceled,
-	})
+	}, true)
 	if err != nil {
 		logger.Sugar().Errorw("UpdateAppUserOrder", "error", err)
 		return nil, status.Error(codes.Internal, "fail update order")

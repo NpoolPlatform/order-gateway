@@ -39,31 +39,22 @@ func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq, fromAdmin bool) (*
 		return nil, fmt.Errorf("invalid order")
 	}
 
-	if in.GetAppID() != ord.AppID || in.GetUserID() != ord.UserID {
-		return nil, fmt.Errorf("permission denied")
-	}
+	if !fromAdmin {
+		if in.GetAppID() != ord.AppID || in.GetUserID() != ord.UserID {
+			return nil, fmt.Errorf("permission denied")
+		}
 
-	ord, err = ordermwcli.UpdateOrder(ctx, in)
-	if err != nil {
-		return nil, err
-	}
+		ord, err = ordermwcli.UpdateOrder(ctx, in)
+		if err != nil {
+			return nil, err
+		}
 
-	return GetOrder(ctx, ord.ID)
-}
-
-func UpdateAppOrder(ctx context.Context, in *ordermwpb.OrderReq) (*npool.Order, error) {
-	ord, err := ordermwcli.GetOrder(ctx, in.GetID())
-	if err != nil {
-		return nil, err
-	}
-	if ord == nil {
-		return nil, fmt.Errorf("invalid order")
+		return GetOrder(ctx, ord.ID)
 	}
 
 	if ord.OrderType.String() != orderconst.OrderTypeOffline && ord.OrderType == ordermgrpb.OrderType_Offline {
 		return nil, fmt.Errorf("order type not offline")
 	}
-
 	if ord.State != orderstatepb.EState_Paid {
 		return nil, fmt.Errorf("order state not paid")
 	}
