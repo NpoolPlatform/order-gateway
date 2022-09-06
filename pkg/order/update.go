@@ -30,7 +30,7 @@ import (
 	archivementmwcli "github.com/NpoolPlatform/archivement-middleware/pkg/client/archivement"
 )
 
-func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq) (*npool.Order, error) {
+func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq, fromAdmin bool) (*npool.Order, error) {
 	ord, err := ordermwcli.GetOrder(ctx, in.GetID())
 	if err != nil {
 		return nil, err
