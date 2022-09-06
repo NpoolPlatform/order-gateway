@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/NpoolPlatform/api-manager v0.0.0-20220826022307-d72866fe3ec0
 	github.com/NpoolPlatform/appuser-middleware v0.0.0-20220828053822-e809766566c6
+	github.com/NpoolPlatform/archivement-middleware v0.0.0-20220906070411-67ca1d6f070c
 	github.com/NpoolPlatform/cloud-hashing-billing v0.0.0-20220806102703-0570e7231a6c
 	github.com/NpoolPlatform/cloud-hashing-goods v0.0.0-20220802122741-81b3c9f75a98
 	github.com/NpoolPlatform/cloud-hashing-order v0.0.0-20220808080811-cf27cc5779ac
@@ -12,13 +13,13 @@ require (
 	github.com/NpoolPlatform/inspire-middleware v0.0.0-20220808085657-9354bb053cfb
 	github.com/NpoolPlatform/ledger-manager v0.0.0-20220801083606-458fa4cd2fbe
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20220821121920-9559f5776d15
-	github.com/NpoolPlatform/message v0.0.0-20220827093205-36af2dbbb946
+	github.com/NpoolPlatform/message v0.0.0-20220906063625-92673b512c74
 	github.com/NpoolPlatform/oracle-manager v0.0.0-20220815075852-420bd75bafa7
 	github.com/NpoolPlatform/order-middleware v0.0.0-20220808093045-33fb07af8627
 	github.com/NpoolPlatform/sphinx-coininfo v0.0.0-20220731103603-21004f4341dc
 	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20220803040820-2b7bd4158e8b
 	github.com/NpoolPlatform/staker-manager v0.0.0-20220715052242-57491c7251b9
-	github.com/NpoolPlatform/stock-manager v0.0.0-20220501144918-883eece82647
+	github.com/NpoolPlatform/stock-manager v0.0.0-20220828074819-805531b62d9c
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/google/uuid v1.3.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.10.0
@@ -27,7 +28,7 @@ require (
 	github.com/urfave/cli/v2 v2.5.0
 	go.opentelemetry.io/otel v1.8.0
 	go.opentelemetry.io/otel/trace v1.8.0
-	google.golang.org/grpc v1.48.0
+	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.0
 )
 

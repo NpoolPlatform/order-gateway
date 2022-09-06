@@ -48,13 +48,99 @@ func (s *Server) UpdateOrder(ctx context.Context, in *npool.UpdateOrderRequest) 
 		ID:        &in.ID,
 		PaymentID: &in.PaymentID,
 		Canceled:  in.Canceled,
-	})
+	}, false)
 	if err != nil {
 		logger.Sugar().Errorw("UpdateOrder", "error", err)
 		return nil, status.Error(codes.Internal, "fail update order")
 	}
 
 	return &npool.UpdateOrderResponse{
+		Info: ord,
+	}, nil
+}
+
+func (s *Server) UpdateUserOrder(ctx context.Context, in *npool.UpdateUserOrderRequest) (*npool.UpdateUserOrderResponse, error) {
+	if _, err := uuid.Parse(in.GetAppID()); err != nil {
+		logger.Sugar().Errorw("UpdateUserOrder", "AppID", in.GetAppID(), "error", err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	if _, err := uuid.Parse(in.GetTargetUserID()); err != nil {
+		logger.Sugar().Errorw("UpdateUserOrder", "UserID", in.GetTargetUserID(), "error", err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	if _, err := uuid.Parse(in.GetID()); err != nil {
+		logger.Sugar().Errorw("UpdateUserOrder", "ID", in.GetID(), "error", err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	if _, err := uuid.Parse(in.GetPaymentID()); err != nil {
+		logger.Sugar().Errorw("UpdateUserOrder", "PaymentID", in.GetPaymentID(), "error", err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	if in.Canceled == nil {
+		logger.Sugar().Errorw("UpdateUserOrder", "error", "nothing todo")
+		return nil, status.Error(codes.InvalidArgument, "nothing todo")
+	}
+
+	ord, err := order1.UpdateOrder(ctx, &ordermwpb.OrderReq{
+		AppID:     &in.AppID,
+		UserID:    &in.TargetUserID,
+		ID:        &in.ID,
+		PaymentID: &in.PaymentID,
+		Canceled:  in.Canceled,
+	}, true)
+	if err != nil {
+		logger.Sugar().Errorw("UpdateUserOrder", "error", err)
+		return nil, status.Error(codes.Internal, "fail update order")
+	}
+
+	return &npool.UpdateUserOrderResponse{
+		Info: ord,
+	}, nil
+}
+
+func (s *Server) UpdateAppUserOrder(ctx context.Context, in *npool.UpdateAppUserOrderRequest) (*npool.UpdateAppUserOrderResponse, error) {
+	if _, err := uuid.Parse(in.GetTargetUserID()); err != nil {
+		logger.Sugar().Errorw("UpdateAppUserOrder", "AppID", in.GetTargetUserID(), "error", err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	if _, err := uuid.Parse(in.GetTargetUserID()); err != nil {
+		logger.Sugar().Errorw("UpdateAppUserOrder", "UserID", in.GetTargetUserID(), "error", err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	if _, err := uuid.Parse(in.GetID()); err != nil {
+		logger.Sugar().Errorw("UpdateAppUserOrder", "ID", in.GetID(), "error", err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	if _, err := uuid.Parse(in.GetPaymentID()); err != nil {
+		logger.Sugar().Errorw("UpdateAppUserOrder", "PaymentID", in.GetPaymentID(), "error", err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	if in.Canceled == nil {
+		logger.Sugar().Errorw("UpdateAppUserOrder", "error", "nothing todo")
+		return nil, status.Error(codes.InvalidArgument, "nothing todo")
+	}
+
+	ord, err := order1.UpdateOrder(ctx, &ordermwpb.OrderReq{
+		AppID:     &in.TargetAppID,
+		UserID:    &in.TargetUserID,
+		ID:        &in.ID,
+		PaymentID: &in.PaymentID,
+		Canceled:  in.Canceled,
+	}, true)
+	if err != nil {
+		logger.Sugar().Errorw("UpdateAppUserOrder", "error", err)
+		return nil, status.Error(codes.Internal, "fail update order")
+	}
+
+	return &npool.UpdateAppUserOrderResponse{
 		Info: ord,
 	}, nil
 }

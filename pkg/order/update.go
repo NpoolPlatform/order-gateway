@@ -4,13 +4,79 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
+
+	orderconst "github.com/NpoolPlatform/cloud-hashing-order/pkg/const"
+
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
+	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order/order"
+
+	stockcli "github.com/NpoolPlatform/stock-manager/pkg/client"
+	stockconst "github.com/NpoolPlatform/stock-manager/pkg/const"
+
+	"google.golang.org/protobuf/types/known/structpb"
 
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
+
+	ordercli "github.com/NpoolPlatform/cloud-hashing-order/pkg/client"
+
+	orderstatepb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order/state"
+
+	archivementmwcli "github.com/NpoolPlatform/archivement-middleware/pkg/client/archivement"
 )
 
-func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq) (*npool.Order, error) {
+func cancelOrder(ctx context.Context, ord *ordermwpb.Order) error {
+	switch ord.OrderType.String() {
+	case orderconst.OrderTypeOffline:
+	case ordermgrpb.OrderType_Offline.String():
+	default:
+		return fmt.Errorf("permission denied")
+	}
+
+	if ord.State != orderstatepb.EState_Paid {
+		return fmt.Errorf("order state not paid")
+	}
+
+	// TODO Distributed transactions should be used
+	stock, err := stockcli.GetStockOnly(ctx, cruder.NewFilterConds().
+		WithCond(stockconst.StockFieldGoodID, cruder.EQ, structpb.NewStringValue(ord.GoodID)))
+	if err != nil {
+		return err
+	}
+	if stock == nil {
+		return fmt.Errorf("invalid stock")
+	}
+
+	err = archivementmwcli.Delete(ctx, ord.ID)
+	if err != nil {
+		return err
+	}
+
+	fields := cruder.NewFilterFields().WithField(stockconst.StockFieldInService, structpb.NewNumberValue(float64(-int(ord.Units))))
+	_, err = stockcli.AddStockFields(ctx, stock.ID, fields)
+	if err != nil {
+		return err
+	}
+
+	payment, err := ordercli.GetOrderPayment(ctx, ord.ID)
+	if err != nil {
+		return err
+	}
+	if payment == nil {
+		return fmt.Errorf("invalid payment")
+	}
+
+	payment.State = orderconst.PaymentStateCanceled
+	_, err = ordercli.UpdatePayment(ctx, payment)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq, fromAdmin bool) (*npool.Order, error) {
 	ord, err := ordermwcli.GetOrder(ctx, in.GetID())
 	if err != nil {
 		return nil, err
@@ -23,9 +89,19 @@ func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq) (*npool.Order, err
 		return nil, fmt.Errorf("permission denied")
 	}
 
-	ord, err = ordermwcli.UpdateOrder(ctx, in)
-	if err != nil {
-		return nil, err
+	if !fromAdmin {
+		ord, err = ordermwcli.UpdateOrder(ctx, in)
+		if err != nil {
+			return nil, err
+		}
+		return GetOrder(ctx, ord.ID)
+	}
+
+	if in.GetCanceled() {
+		if err := cancelOrder(ctx, ord); err != nil {
+			return nil, err
+		}
+		return GetOrder(ctx, ord.ID)
 	}
 
 	return GetOrder(ctx, ord.ID)
