@@ -3,7 +3,6 @@ package order
 
 import (
 	"context"
-
 	commontracer "github.com/NpoolPlatform/order-gateway/pkg/tracer"
 
 	constant "github.com/NpoolPlatform/order-gateway/pkg/message/const"
@@ -128,6 +127,13 @@ func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) 
 }
 
 func (s *Server) CreateUserOrder(ctx context.Context, in *npool.CreateUserOrderRequest) (*npool.CreateUserOrderResponse, error) {
+	switch in.OrderType {
+	case ordermgrpb.OrderType_Offline:
+	case ordermgrpb.OrderType_Airdrop:
+	default:
+		return &npool.CreateUserOrderResponse{}, status.Errorf(codes.InvalidArgument, "order type invalid")
+	}
+
 	ord, err := createOrder(ctx, &npool.CreateOrderRequest{
 		AppID:                in.AppID,
 		UserID:               in.TargetUserID,
@@ -150,6 +156,13 @@ func (s *Server) CreateUserOrder(ctx context.Context, in *npool.CreateUserOrderR
 }
 
 func (s *Server) CreateAppUserOrder(ctx context.Context, in *npool.CreateAppUserOrderRequest) (*npool.CreateAppUserOrderResponse, error) {
+	switch in.OrderType {
+	case ordermgrpb.OrderType_Offline:
+	case ordermgrpb.OrderType_Airdrop:
+	default:
+		return &npool.CreateAppUserOrderResponse{}, status.Errorf(codes.InvalidArgument, "order type invalid")
+	}
+
 	ord, err := createOrder(ctx, &npool.CreateOrderRequest{
 		AppID:                in.TargetAppID,
 		UserID:               in.TargetUserID,
