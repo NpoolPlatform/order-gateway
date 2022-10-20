@@ -12,8 +12,8 @@ import (
 	appcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/app"
 	usercli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	billingcli "github.com/NpoolPlatform/cloud-hashing-billing/pkg/client"
-	goodcli "github.com/NpoolPlatform/cloud-hashing-goods/pkg/client"
 	ordercli "github.com/NpoolPlatform/cloud-hashing-order/pkg/client"
+	goodcli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
 	couponcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon"
 	oraclecli "github.com/NpoolPlatform/oracle-manager/pkg/client"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
@@ -116,7 +116,7 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 	o.GoodStartAt = good.StartAt
 	o.GoodDurationDays = uint32(good.DurationDays)
 
-	gcoin, err := coininfocli.GetCoinInfo(ctx, good.CoinInfoID)
+	gcoin, err := coininfocli.GetCoinInfo(ctx, good.CoinTypeID)
 	if err != nil {
 		return err
 	}
@@ -153,20 +153,23 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		}
 	}
 
-	ag, err := goodcli.GetAppGood(ctx, o.AppID, o.GoodID)
+	ag, err := goodcli.GetGood(ctx, o.GoodID)
 	if err != nil {
 		return err
 	}
-	if err != nil {
-		return err
-	}
+
 	if ag == nil {
 		return fmt.Errorf("permission denied")
 	}
 	if !ag.Online {
 		return fmt.Errorf("good offline")
 	}
-	if ag.Price <= 0 {
+
+	price, err := decimal.NewFromString(ag.Price)
+	if err != nil {
+		return err
+	}
+	if price.IntPart() <= 0 {
 		return fmt.Errorf("invalid good price")
 	}
 	if ag.Price < good.Price {
@@ -299,35 +302,38 @@ func (o *OrderCreate) SetPrice(ctx context.Context) error {
 		return err
 	}
 
-	ag, err := goodcli.GetAppGood(ctx, o.AppID, o.GoodID)
+	ag, err := goodcli.GetGood(ctx, o.GoodID)
 	if err != nil {
 		return err
 	}
 	if !ag.Online {
 		return fmt.Errorf("good offline")
 	}
-	if ag.Price <= 0 {
+	price, err := decimal.NewFromString(ag.Price)
+	if err != nil {
+		return err
+	}
+	if price.Cmp(decimal.NewFromInt(0)) <= 0 {
 		return fmt.Errorf("invalid good price")
 	}
 	if ag.Price < good.Price {
 		return fmt.Errorf("invalid app good price")
 	}
 
-	o.price = decimal.NewFromFloat(ag.Price)
-
-	promotion, err := goodcli.GetCurrentPromotion(ctx, o.AppID, o.GoodID, uint32(time.Now().Unix()))
+	o.price, err = decimal.NewFromString(ag.Price)
 	if err != nil {
 		return err
 	}
-	if promotion != nil {
-		o.promotionID = &promotion.ID
-	}
 
-	if promotion != nil {
-		if promotion.Price <= 0 {
+	if ag.PromotionPrice != nil {
+		promotionPrice, err := decimal.NewFromString(ag.GetPromotionPrice())
+		if err != nil {
+			return err
+		}
+		if promotionPrice.Cmp(decimal.NewFromInt(0)) <= 0 {
 			return fmt.Errorf("invalid price")
 		}
-		o.price = decimal.NewFromFloat(promotion.Price)
+		o.price = promotionPrice
 	}
 
 	return nil
