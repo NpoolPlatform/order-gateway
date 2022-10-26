@@ -3,6 +3,7 @@ package order
 import (
 	"context"
 	"fmt"
+
 	"time"
 
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
@@ -13,7 +14,9 @@ import (
 	usercli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	billingcli "github.com/NpoolPlatform/cloud-hashing-billing/pkg/client"
 	ordercli "github.com/NpoolPlatform/cloud-hashing-order/pkg/client"
-	goodcli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
+	goodcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
+
+	appgoodcli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
 	couponcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon"
 	oraclecli "github.com/NpoolPlatform/oracle-manager/pkg/client"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
@@ -23,6 +26,8 @@ import (
 	billingconst "github.com/NpoolPlatform/cloud-hashing-billing/pkg/const"
 	orderconst "github.com/NpoolPlatform/cloud-hashing-order/pkg/const"
 	oracleconst "github.com/NpoolPlatform/oracle-manager/pkg/const"
+
+	goodpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
 
 	billingpb "github.com/NpoolPlatform/message/npool/cloud-hashing-billing"
 	couponpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/inspire/coupon"
@@ -153,10 +158,24 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		}
 	}
 
-	ag, err := goodcli.GetGood(ctx, o.GoodID)
+	appGood, _, err := appgoodcli.GetGoods(ctx, &goodpb.Conds{
+		AppID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.AppID,
+		},
+		GoodID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.AppID,
+		},
+	}, 0, 1)
 	if err != nil {
 		return err
 	}
+	if len(appGood) == 0 {
+		return fmt.Errorf("invalid app good")
+	}
+
+	ag := appGood[0]
 
 	if ag == nil {
 		return fmt.Errorf("permission denied")
@@ -301,11 +320,24 @@ func (o *OrderCreate) SetPrice(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
-	ag, err := goodcli.GetGood(ctx, o.GoodID)
+	appGood, _, err := appgoodcli.GetGoods(ctx, &goodpb.Conds{
+		AppID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.AppID,
+		},
+		GoodID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.AppID,
+		},
+	}, 0, 1)
 	if err != nil {
 		return err
 	}
+	if len(appGood) == 0 {
+		return fmt.Errorf("invalid app good")
+	}
+
+	ag := appGood[0]
 	if !ag.Online {
 		return fmt.Errorf("good offline")
 	}
