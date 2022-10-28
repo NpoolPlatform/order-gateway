@@ -165,7 +165,7 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		},
 		GoodID: &commonpb.StringVal{
 			Op:    cruder.EQ,
-			Value: o.AppID,
+			Value: o.GoodID,
 		},
 	}, 0, 1)
 	if err != nil {
@@ -177,9 +177,6 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 
 	ag := appGood[0]
 
-	if ag == nil {
-		return fmt.Errorf("permission denied")
-	}
 	if !ag.Online {
 		return fmt.Errorf("good offline")
 	}
