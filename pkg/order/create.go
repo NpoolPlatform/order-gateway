@@ -324,7 +324,7 @@ func (o *OrderCreate) SetPrice(ctx context.Context) error {
 		},
 		GoodID: &commonpb.StringVal{
 			Op:    cruder.EQ,
-			Value: o.AppID,
+			Value: o.GoodID,
 		},
 	}, 0, 1)
 	if err != nil {
