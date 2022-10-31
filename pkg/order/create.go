@@ -27,7 +27,9 @@ import (
 	orderconst "github.com/NpoolPlatform/cloud-hashing-order/pkg/const"
 	oracleconst "github.com/NpoolPlatform/oracle-manager/pkg/const"
 
-	goodpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
+	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
+
+	appgoodpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
 
 	billingpb "github.com/NpoolPlatform/message/npool/cloud-hashing-billing"
 	couponpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/inspire/coupon"
@@ -38,9 +40,6 @@ import (
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	currency "github.com/NpoolPlatform/oracle-manager/pkg/middleware/currency"
 	accountlock "github.com/NpoolPlatform/staker-manager/pkg/middleware/account"
-
-	stockcli "github.com/NpoolPlatform/stock-manager/pkg/client"
-	stockconst "github.com/NpoolPlatform/stock-manager/pkg/const"
 
 	ledgermgrcli "github.com/NpoolPlatform/ledger-manager/pkg/client/general"
 	ledgermgrpb "github.com/NpoolPlatform/message/npool/ledger/mgr/v1/ledger/general"
@@ -158,7 +157,7 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		}
 	}
 
-	appGood, _, err := appgoodcli.GetGoods(ctx, &goodpb.Conds{
+	appGood, _, err := appgoodcli.GetGoods(ctx, &appgoodpb.Conds{
 		AppID: &commonpb.StringVal{
 			Op:    cruder.EQ,
 			Value: o.AppID,
@@ -317,7 +316,7 @@ func (o *OrderCreate) SetPrice(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	appGood, _, err := appgoodcli.GetGoods(ctx, &goodpb.Conds{
+	appGood, _, err := appgoodcli.GetGoods(ctx, &appgoodpb.Conds{
 		AppID: &commonpb.StringVal{
 			Op:    cruder.EQ,
 			Value: o.AppID,
@@ -628,61 +627,27 @@ func (o *OrderCreate) createSubOrder(ctx context.Context) error { //nolint
 }
 
 func (o *OrderCreate) LockStock(ctx context.Context) error {
-	stock, err := stockcli.GetStockOnly(
-		ctx,
-		cruder.NewFilterConds().
-			WithCond(
-				stockconst.StockFieldGoodID,
-				cruder.EQ,
-				structpb.NewStringValue(o.GoodID),
-			))
+	units := int32(o.Units)
+	_, err := goodcli.UpdateGood(ctx, &goodmwpb.GoodReq{
+		ID:     &o.GoodID,
+		Locked: &units,
+	})
 	if err != nil {
 		return err
 	}
-	if stock == nil {
-		return fmt.Errorf("invalid good stock")
-	}
-
-	_, err = stockcli.AddStockFields(
-		ctx,
-		stock.ID,
-		cruder.NewFilterFields().
-			WithField(
-				stockconst.StockFieldLocked,
-				structpb.NewNumberValue(float64(o.Units)),
-			))
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
 func (o *OrderCreate) ReleaseStock(ctx context.Context) error {
-	stock, err := stockcli.GetStockOnly(
-		ctx,
-		cruder.NewFilterConds().
-			WithCond(
-				stockconst.StockFieldGoodID,
-				cruder.EQ,
-				structpb.NewStringValue(o.GoodID),
-			))
+	units := int32(o.Units) * -1
+	_, err := goodcli.UpdateGood(ctx, &goodmwpb.GoodReq{
+		ID:     &o.GoodID,
+		Locked: &units,
+	})
 	if err != nil {
 		return err
 	}
-	if stock == nil {
-		return fmt.Errorf("invalid good stock")
-	}
-
-	_, err = stockcli.AddStockFields(
-		ctx,
-		stock.ID,
-		cruder.NewFilterFields().
-			WithField(
-				stockconst.StockFieldLocked,
-				structpb.NewNumberValue(float64(int32(o.Units)*-1)),
-			))
-	return err
+	return nil
 }
 
 func (o *OrderCreate) LockBalance(ctx context.Context) error {

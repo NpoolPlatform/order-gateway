@@ -3,18 +3,13 @@ package order
 import (
 	"context"
 	"fmt"
-
-	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
+	goodscli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
+	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
 
 	orderconst "github.com/NpoolPlatform/cloud-hashing-order/pkg/const"
 
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order/order"
-
-	stockcli "github.com/NpoolPlatform/stock-manager/pkg/client"
-	stockconst "github.com/NpoolPlatform/stock-manager/pkg/const"
-
-	"google.golang.org/protobuf/types/known/structpb"
 
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
@@ -38,23 +33,24 @@ func cancelOrder(ctx context.Context, ord *ordermwpb.Order) error {
 		return fmt.Errorf("order state not paid")
 	}
 
-	// TODO Distributed transactions should be used
-	stock, err := stockcli.GetStockOnly(ctx, cruder.NewFilterConds().
-		WithCond(stockconst.StockFieldGoodID, cruder.EQ, structpb.NewStringValue(ord.GoodID)))
+	good, err := goodscli.GetGood(ctx, ord.GetGoodID())
 	if err != nil {
 		return err
 	}
-	if stock == nil {
-		return fmt.Errorf("invalid stock")
+	if good == nil {
+		return fmt.Errorf("invalid good")
 	}
+	// TODO Distributed transactions should be used
 
 	err = archivementmwcli.Delete(ctx, ord.ID)
 	if err != nil {
 		return err
 	}
-
-	fields := cruder.NewFilterFields().WithField(stockconst.StockFieldInService, structpb.NewNumberValue(float64(-int(ord.Units))))
-	_, err = stockcli.AddStockFields(ctx, stock.ID, fields)
+	units := -int32(ord.Units)
+	_, err = goodscli.UpdateGood(ctx, &goodmwpb.GoodReq{
+		ID:        &good.ID,
+		InService: &units,
+	})
 	if err != nil {
 		return err
 	}
