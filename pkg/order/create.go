@@ -204,7 +204,7 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 	if err != nil {
 		return err
 	}
-	if len(payments) >= maxUnpaidOrders {
+	if len(payments) >= maxUnpaidOrders && o.OrderType == ordermgrpb.OrderType_Normal || o.OrderType.String() == orderconst.OrderTypeNormal {
 		return fmt.Errorf("too many unpaid orders")
 	}
 
