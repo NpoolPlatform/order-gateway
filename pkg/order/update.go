@@ -4,22 +4,17 @@ import (
 	"context"
 	"fmt"
 
+	archivementmwcli "github.com/NpoolPlatform/archivement-middleware/pkg/client/archivement"
+	ordercli "github.com/NpoolPlatform/cloud-hashing-order/pkg/client"
+	orderconst "github.com/NpoolPlatform/cloud-hashing-order/pkg/const"
 	goodscli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
-
-	orderconst "github.com/NpoolPlatform/cloud-hashing-order/pkg/const"
-
-	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order/order"
-
-	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
-	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
-
-	ordercli "github.com/NpoolPlatform/cloud-hashing-order/pkg/client"
-
 	orderstatepb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order/state"
 
-	archivementmwcli "github.com/NpoolPlatform/archivement-middleware/pkg/client/archivement"
+	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
+	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
+	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 )
 
 func cancelOrder(ctx context.Context, ord *ordermwpb.Order) error {
@@ -87,6 +82,24 @@ func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq, fromAdmin bool) (*
 	}
 
 	if !fromAdmin {
+		good, err := goodscli.GetGood(ctx, ord.GetGoodID())
+		if err != nil {
+			return nil, err
+		}
+
+		if good == nil {
+			return nil, fmt.Errorf("invalid good")
+		}
+
+		units := -int32(ord.Units)
+		_, err = goodscli.UpdateGood(ctx, &goodmwpb.GoodReq{
+			ID:     &good.ID,
+			Locked: &units,
+		})
+		if err != nil {
+			return nil, err
+		}
+
 		ord, err = ordermwcli.UpdateOrder(ctx, in)
 		if err != nil {
 			return nil, err
