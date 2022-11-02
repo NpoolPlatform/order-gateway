@@ -82,24 +82,6 @@ func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq, fromAdmin bool) (*
 	}
 
 	if !fromAdmin {
-		good, err := goodscli.GetGood(ctx, ord.GetGoodID())
-		if err != nil {
-			return nil, err
-		}
-
-		if good == nil {
-			return nil, fmt.Errorf("invalid good")
-		}
-
-		units := -int32(ord.Units)
-		_, err = goodscli.UpdateGood(ctx, &goodmwpb.GoodReq{
-			ID:     &good.ID,
-			Locked: &units,
-		})
-		if err != nil {
-			return nil, err
-		}
-
 		ord, err = ordermwcli.UpdateOrder(ctx, in)
 		if err != nil {
 			return nil, err
