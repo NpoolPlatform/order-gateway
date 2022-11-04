@@ -29,6 +29,8 @@ import (
 
 	appgoodsmgrpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
 
+	npoolpb "github.com/NpoolPlatform/message/npool"
+
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 
 	"github.com/shopspring/decimal"
@@ -263,15 +265,15 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 	}
 
 	// TODO: get accounts with specific account ID
-	//accounts, err := billingcli.GetAccounts(ctx)
-	//if err != nil {
-	//	return nil, err
-	//}
+	accounts, err := billingcli.GetAccounts(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	accMap := map[string]*billingpb.CoinAccountInfo{}
-	//for _, acc := range accounts {
-	//	accMap[acc.ID] = acc
-	//}
+	for _, acc := range accounts {
+		accMap[acc.ID] = acc
+	}
 
 	ids := []string{}
 
@@ -282,15 +284,15 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 		ids = append(ids, ord.FixAmountID)
 	}
 
-	//coupons, err := couponcli.GetManyCoupons(ctx, ids, couponpb.CouponType_FixAmount)
-	//if err != nil {
-	//	return nil, err
-	//}
+	coupons, err := couponcli.GetManyCoupons(ctx, ids, couponpb.CouponType_FixAmount)
+	if err != nil {
+		return nil, err
+	}
 
 	fixAmountMap := map[string]*couponpb.Coupon{}
-	//for _, coupon := range coupons {
-	//	fixAmountMap[coupon.ID] = coupon
-	//}
+	for _, coupon := range coupons {
+		fixAmountMap[coupon.ID] = coupon
+	}
 
 	ids = []string{}
 	for _, ord := range ords {
@@ -300,15 +302,15 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 		ids = append(ids, ord.DiscountID)
 	}
 
-	//coupons, err = couponcli.GetManyCoupons(ctx, ids, couponpb.CouponType_Discount)
-	//if err != nil {
-	//	return nil, err
-	//}
+	coupons, err = couponcli.GetManyCoupons(ctx, ids, couponpb.CouponType_Discount)
+	if err != nil {
+		return nil, err
+	}
 
 	discountMap := map[string]*couponpb.Coupon{}
-	//for _, coupon := range coupons {
-	//	discountMap[coupon.ID] = coupon
-	//}
+	for _, coupon := range coupons {
+		discountMap[coupon.ID] = coupon
+	}
 
 	ids = []string{}
 	for _, ord := range ords {
@@ -318,17 +320,27 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 		ids = append(ids, ord.SpecialOfferID)
 	}
 
-	//coupons, err = couponcli.GetManyCoupons(ctx, ids, couponpb.CouponType_SpecialOffer)
-	//if err != nil {
-	//	return nil, err
-	//}
+	coupons, err = couponcli.GetManyCoupons(ctx, ids, couponpb.CouponType_SpecialOffer)
+	if err != nil {
+		return nil, err
+	}
 
 	specialOfferMap := map[string]*couponpb.Coupon{}
-	//for _, coupon := range coupons {
-	//	specialOfferMap[coupon.ID] = coupon
-	//}
+	for _, coupon := range coupons {
+		specialOfferMap[coupon.ID] = coupon
+	}
 
-	appGoods, _, err := appgoodscli.GetGoods(ctx, &appgoodsmgrpb.Conds{}, 0, 0)
+	goodIDs := []string{}
+	for _, val := range ords {
+		goodIDs = append(goodIDs, val.GetGoodID())
+	}
+
+	appGoods, _, err := appgoodscli.GetGoods(ctx, &appgoodsmgrpb.Conds{
+		GoodIDs: &npoolpb.StringSliceVal{
+			Op:    cruder.IN,
+			Value: goodIDs,
+		},
+	}, 0, int32(len(goodIDs)))
 	if err != nil {
 		return nil, err
 	}
