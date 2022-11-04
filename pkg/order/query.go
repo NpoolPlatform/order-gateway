@@ -17,6 +17,8 @@ import (
 
 	goodspb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
 
+	goodsmgepb "github.com/NpoolPlatform/message/npool/good/mgr/v1/good"
+
 	userpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 	billingpb "github.com/NpoolPlatform/message/npool/cloud-hashing-billing"
 
@@ -244,7 +246,17 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 		userMap[user.ID] = user
 	}
 
-	goods, _, err := goodscli.GetGoods(ctx, nil, 0, 0)
+	goodIDs := []string{}
+	for _, val := range ords {
+		goodIDs = append(goodIDs, val.GetGoodID())
+	}
+
+	goods, _, err := goodscli.GetGoods(ctx, &goodsmgepb.Conds{
+		IDs: &npoolpb.StringSliceVal{
+			Op:    cruder.IN,
+			Value: goodIDs,
+		},
+	}, 0, int32(len(goodIDs)))
 	if err != nil {
 		return nil, err
 	}
@@ -328,11 +340,6 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 	specialOfferMap := map[string]*couponpb.Coupon{}
 	for _, coupon := range coupons {
 		specialOfferMap[coupon.ID] = coupon
-	}
-
-	goodIDs := []string{}
-	for _, val := range ords {
-		goodIDs = append(goodIDs, val.GetGoodID())
 	}
 
 	appGoods, _, err := appgoodscli.GetGoods(ctx, &appgoodsmgrpb.Conds{
