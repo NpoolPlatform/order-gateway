@@ -157,7 +157,7 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		}
 	}
 
-	appGood, _, err := appgoodcli.GetGoods(ctx, &appgoodpb.Conds{
+	ag, err := appgoodcli.GetOnlyGood(ctx, &appgoodpb.Conds{
 		AppID: &commonpb.StringVal{
 			Op:    cruder.EQ,
 			Value: o.AppID,
@@ -166,15 +166,13 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 			Op:    cruder.EQ,
 			Value: o.GoodID,
 		},
-	}, 0, 1)
+	})
 	if err != nil {
 		return err
 	}
-	if len(appGood) == 0 {
+	if ag == nil {
 		return fmt.Errorf("invalid app good")
 	}
-
-	ag := appGood[0]
 
 	if !ag.Online {
 		return fmt.Errorf("good offline")
@@ -316,7 +314,7 @@ func (o *OrderCreate) SetPrice(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	appGood, _, err := appgoodcli.GetGoods(ctx, &appgoodpb.Conds{
+	ag, err := appgoodcli.GetOnlyGood(ctx, &appgoodpb.Conds{
 		AppID: &commonpb.StringVal{
 			Op:    cruder.EQ,
 			Value: o.AppID,
@@ -325,15 +323,14 @@ func (o *OrderCreate) SetPrice(ctx context.Context) error {
 			Op:    cruder.EQ,
 			Value: o.GoodID,
 		},
-	}, 0, 1)
+	})
 	if err != nil {
 		return err
 	}
-	if len(appGood) == 0 {
+	if ag == nil {
 		return fmt.Errorf("invalid app good")
 	}
 
-	ag := appGood[0]
 	if !ag.Online {
 		return fmt.Errorf("good offline")
 	}

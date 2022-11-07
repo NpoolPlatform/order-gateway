@@ -9,11 +9,11 @@ require (
 	github.com/NpoolPlatform/cloud-hashing-billing v0.0.0-20220806102703-0570e7231a6c
 	github.com/NpoolPlatform/cloud-hashing-order v0.0.0-20220808080811-cf27cc5779ac
 	github.com/NpoolPlatform/go-service-framework v0.0.0-20221015040432-cd676d323379
-	github.com/NpoolPlatform/good-middleware v0.0.0-20221020081337-e2a047d5c1d7
+	github.com/NpoolPlatform/good-middleware v0.0.0-20221107072700-45a540874185
 	github.com/NpoolPlatform/inspire-middleware v0.0.0-20220808085657-9354bb053cfb
 	github.com/NpoolPlatform/ledger-manager v0.0.0-20220801083606-458fa4cd2fbe
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20220821121920-9559f5776d15
-	github.com/NpoolPlatform/message v0.0.0-20221017071502-d4692075a48f
+	github.com/NpoolPlatform/message v0.0.0-20221107065046-fde75f2c40ea
 	github.com/NpoolPlatform/oracle-manager v0.0.0-20220815075852-420bd75bafa7
 	github.com/NpoolPlatform/order-middleware v0.0.0-20220808093045-33fb07af8627
 	github.com/NpoolPlatform/sphinx-coininfo v0.0.0-20220731103603-21004f4341dc
@@ -27,7 +27,7 @@ require (
 	github.com/urfave/cli/v2 v2.5.0
 	go.opentelemetry.io/otel v1.8.0
 	go.opentelemetry.io/otel/trace v1.8.0
-	google.golang.org/grpc v1.50.0
+	google.golang.org/grpc v1.50.1
 	google.golang.org/protobuf v1.28.0
 )
 
