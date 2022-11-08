@@ -157,7 +157,7 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		}
 	}
 
-	ag, err := appgoodcli.GetOnlyGood(ctx, &appgoodpb.Conds{
+	ag, err := appgoodcli.GetGoodOnly(ctx, &appgoodpb.Conds{
 		AppID: &commonpb.StringVal{
 			Op:    cruder.EQ,
 			Value: o.AppID,
@@ -202,7 +202,7 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 	if err != nil {
 		return err
 	}
-	if len(payments) >= maxUnpaidOrders && (o.OrderType == ordermgrpb.OrderType_Normal || o.OrderType.String() == orderconst.OrderTypeNormal) {
+	if len(payments) >= maxUnpaidOrders && o.OrderType == ordermgrpb.OrderType_Normal {
 		return fmt.Errorf("too many unpaid orders")
 	}
 
@@ -314,7 +314,7 @@ func (o *OrderCreate) SetPrice(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	ag, err := appgoodcli.GetOnlyGood(ctx, &appgoodpb.Conds{
+	ag, err := appgoodcli.GetGoodOnly(ctx, &appgoodpb.Conds{
 		AppID: &commonpb.StringVal{
 			Op:    cruder.EQ,
 			Value: o.AppID,
