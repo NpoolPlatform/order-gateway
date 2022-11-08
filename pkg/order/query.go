@@ -406,7 +406,7 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 
 		good, ok := goodMap[ord.GoodID]
 		if !ok {
-			return nil, fmt.Errorf("invalid good")
+			continue
 		}
 
 		o.CoinTypeID = good.CoinTypeID
