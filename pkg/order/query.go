@@ -9,18 +9,29 @@ import (
 
 	usercli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	billingcli "github.com/NpoolPlatform/cloud-hashing-billing/pkg/client"
-	goodscli "github.com/NpoolPlatform/cloud-hashing-goods/pkg/client"
+	goodscli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	couponcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordercli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 	coininfocli "github.com/NpoolPlatform/sphinx-coininfo/pkg/client"
 
+	goodspb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
+
+	goodsmgepb "github.com/NpoolPlatform/message/npool/good/mgr/v1/good"
+
 	userpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 	billingpb "github.com/NpoolPlatform/message/npool/cloud-hashing-billing"
-	goodspb "github.com/NpoolPlatform/message/npool/cloud-hashing-goods"
+
 	coininfopb "github.com/NpoolPlatform/message/npool/coininfo"
 	couponpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/inspire/coupon"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
+
+	appgoodscli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
+	appgoodspb "github.com/NpoolPlatform/message/npool/good/mw/v1/appgood"
+
+	appgoodsmgrpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
+
+	npoolpb "github.com/NpoolPlatform/message/npool"
 
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 
@@ -98,12 +109,10 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	o.GoodName = good.Title
 	o.GoodUnit = good.Unit
 	o.GoodServicePeriodDays = uint32(good.DurationDays)
-	o.GoodUnitPrice = decimal.NewFromFloat(good.Price).String()
-	o.GoodValue = decimal.NewFromFloat(good.Price).
-		Mul(decimal.NewFromInt(int64(ord.Units))).
-		String()
+	o.GoodUnitPrice = good.Price
+	o.GoodValue = good.Price
 
-	coin, err := coininfocli.GetCoinInfo(ctx, good.CoinInfoID)
+	coin, err := coininfocli.GetCoinInfo(ctx, good.CoinTypeID)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +121,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 		return nil, fmt.Errorf("invalid good coin")
 	}
 
-	o.CoinTypeID = good.CoinInfoID
+	o.CoinTypeID = good.CoinTypeID
 	o.CoinName = coin.Name
 	o.CoinLogo = coin.Logo
 	o.CoinUnit = coin.Unit
@@ -237,12 +246,22 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 		userMap[user.ID] = user
 	}
 
-	goods, err := goodscli.GetGoods(ctx)
+	goodIDs := []string{}
+	for _, val := range ords {
+		goodIDs = append(goodIDs, val.GetGoodID())
+	}
+
+	goods, _, err := goodscli.GetGoods(ctx, &goodsmgepb.Conds{
+		IDs: &npoolpb.StringSliceVal{
+			Op:    cruder.IN,
+			Value: goodIDs,
+		},
+	}, 0, int32(len(goodIDs)))
 	if err != nil {
 		return nil, err
 	}
 
-	goodMap := map[string]*goodspb.GoodInfo{}
+	goodMap := map[string]*goodspb.Good{}
 	for _, good := range goods {
 		goodMap[good.ID] = good
 	}
@@ -323,6 +342,21 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 		specialOfferMap[coupon.ID] = coupon
 	}
 
+	appGoods, _, err := appgoodscli.GetGoods(ctx, &appgoodsmgrpb.Conds{
+		GoodIDs: &npoolpb.StringSliceVal{
+			Op:    cruder.IN,
+			Value: goodIDs,
+		},
+	}, 0, int32(len(goodIDs)))
+	if err != nil {
+		return nil, err
+	}
+
+	appGoodMap := map[string]*appgoodspb.Good{}
+	for _, appGood := range appGoods {
+		appGoodMap[appGood.AppID+appGood.GoodID] = appGood
+	}
+
 	infos := []*npool.Order{}
 
 	for _, ord := range ords {
@@ -375,14 +409,21 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 			return nil, fmt.Errorf("invalid good")
 		}
 
-		o.CoinTypeID = good.CoinInfoID
+		o.CoinTypeID = good.CoinTypeID
 		o.GoodName = good.Title
 		o.GoodUnit = good.Unit
 		o.GoodServicePeriodDays = uint32(good.DurationDays)
-		o.GoodUnitPrice = decimal.NewFromFloat(good.Price).String()
-		o.GoodValue = decimal.NewFromFloat(good.Price).
-			Mul(decimal.NewFromInt(int64(ord.Units))).
-			String()
+		o.GoodUnitPrice = good.Price
+
+		o.GoodValue = good.Price
+
+		appGood, ok := appGoodMap[ord.AppID+ord.GoodID]
+		if ok {
+			o.GoodValue = appGood.Price
+			if appGood.PromotionPrice != nil {
+				o.GoodValue = *appGood.PromotionPrice
+			}
+		}
 
 		coin, ok := coinMap[o.CoinTypeID]
 		if !ok {
