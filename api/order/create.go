@@ -16,7 +16,7 @@ import (
 
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
-	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order/order"
+	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order"
 
 	"github.com/shopspring/decimal"
 

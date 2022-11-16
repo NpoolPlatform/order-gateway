@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/NpoolPlatform/order-gateway/api"
-
 	"github.com/NpoolPlatform/order-gateway/pkg/migrator"
+	"github.com/NpoolPlatform/order-manager/pkg/db"
 
 	grpc2 "github.com/NpoolPlatform/go-service-framework/pkg/grpc"
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
@@ -24,6 +24,9 @@ var runCmd = &cli.Command{
 	Aliases: []string{"s"},
 	Usage:   "Run the daemon",
 	Action: func(c *cli.Context) error {
+		if err := db.Init(); err != nil {
+			return err
+		}
 		if err := migrator.Migrate(c.Context); err != nil {
 			return err
 		}
@@ -52,7 +55,7 @@ func rpcGatewayRegister(mux *runtime.ServeMux, endpoint string, opts []grpc.Dial
 		return err
 	}
 
-	apimgrcli.Register(mux) //nolint
+	_ = apimgrcli.Register(mux)
 
 	return nil
 }

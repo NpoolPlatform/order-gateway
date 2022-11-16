@@ -5,12 +5,9 @@ import (
 	"fmt"
 
 	archivementmwcli "github.com/NpoolPlatform/archivement-middleware/pkg/client/archivement"
-	ordercli "github.com/NpoolPlatform/cloud-hashing-order/pkg/client"
-	orderconst "github.com/NpoolPlatform/cloud-hashing-order/pkg/const"
 	goodscli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
-	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order/order"
-	orderstatepb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order/state"
+	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order"
 
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
@@ -19,13 +16,12 @@ import (
 
 func cancelOrder(ctx context.Context, ord *ordermwpb.Order) error {
 	switch ord.OrderType.String() {
-	case orderconst.OrderTypeOffline:
 	case ordermgrpb.OrderType_Offline.String():
 	default:
 		return fmt.Errorf("permission denied")
 	}
 
-	if ord.State != orderstatepb.EState_Paid {
+	if ord.OrderState != ordermgrpb.OrderState_Paid {
 		return fmt.Errorf("order state not paid")
 	}
 
@@ -51,16 +47,10 @@ func cancelOrder(ctx context.Context, ord *ordermwpb.Order) error {
 		return err
 	}
 
-	payment, err := ordercli.GetOrderPayment(ctx, ord.ID)
-	if err != nil {
-		return err
-	}
-	if payment == nil {
-		return fmt.Errorf("invalid payment")
-	}
-
-	payment.State = orderconst.PaymentStateCanceled
-	_, err = ordercli.UpdatePayment(ctx, payment)
+	cancle := true
+	_, err = ordermwcli.UpdateOrder(ctx, &ordermwpb.OrderReq{
+		Canceled: &cancle,
+	})
 	if err != nil {
 		return err
 	}

@@ -3,7 +3,6 @@ package order
 import (
 	"context"
 	"fmt"
-
 	"time"
 
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
@@ -13,7 +12,9 @@ import (
 	appcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/app"
 	usercli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	billingcli "github.com/NpoolPlatform/cloud-hashing-billing/pkg/client"
-	ordercli "github.com/NpoolPlatform/cloud-hashing-order/pkg/client"
+	ordercli "github.com/NpoolPlatform/order-manager/pkg/client/order"
+	paymentcli "github.com/NpoolPlatform/order-manager/pkg/client/payment"
+
 	goodcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 
 	appgoodcli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
@@ -24,7 +25,6 @@ import (
 	sphinxproxycli "github.com/NpoolPlatform/sphinx-proxy/pkg/client"
 
 	billingconst "github.com/NpoolPlatform/cloud-hashing-billing/pkg/const"
-	orderconst "github.com/NpoolPlatform/cloud-hashing-order/pkg/const"
 	oracleconst "github.com/NpoolPlatform/oracle-manager/pkg/const"
 
 	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
@@ -33,7 +33,8 @@ import (
 
 	billingpb "github.com/NpoolPlatform/message/npool/cloud-hashing-billing"
 	couponpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/inspire/coupon"
-	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order/order"
+	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order"
+	paymentmgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/payment"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
 
@@ -41,7 +42,7 @@ import (
 	currency "github.com/NpoolPlatform/oracle-manager/pkg/middleware/currency"
 	accountlock "github.com/NpoolPlatform/staker-manager/pkg/middleware/account"
 
-	ledgermgrcli "github.com/NpoolPlatform/ledger-manager/pkg/client/general"
+	ledgermgrcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/ledger/v2"
 	ledgermgrpb "github.com/NpoolPlatform/message/npool/ledger/mgr/v1/ledger/general"
 
 	commonpb "github.com/NpoolPlatform/message/npool"
@@ -194,11 +195,20 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 
 	const maxUnpaidOrders = 3
 
-	payments, err := ordercli.GetAppUserStatePayments(
-		ctx,
-		o.AppID, o.UserID,
-		orderconst.PaymentStateWait,
-	)
+	payments, _, err := paymentcli.GetPayments(ctx, &paymentmgrpb.Conds{
+		AppID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.AppID,
+		},
+		UserID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.UserID,
+		},
+		State: &commonpb.Uint32Val{
+			Op:    cruder.EQ,
+			Value: uint32(paymentmgrpb.PaymentState_Wait),
+		},
+	}, 0, maxUnpaidOrders)
 	if err != nil {
 		return err
 	}
@@ -206,13 +216,10 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		return fmt.Errorf("too many unpaid orders")
 	}
 
-	switch o.OrderType.String() {
-	case ordermgrpb.OrderType_Normal.String():
-	case ordermgrpb.OrderType_Offline.String():
-	case ordermgrpb.OrderType_Airdrop.String():
-	case orderconst.OrderTypeNormal:
-	case orderconst.OrderTypeOffline:
-	case orderconst.OrderTypeAirdrop:
+	switch o.OrderType {
+	case ordermgrpb.OrderType_Normal:
+	case ordermgrpb.OrderType_Offline:
+	case ordermgrpb.OrderType_Airdrop:
 	default:
 		return fmt.Errorf("invalid order type")
 	}
@@ -226,10 +233,21 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 func (o *OrderCreate) SetReduction(ctx context.Context) error {
 	var fixAmount *couponpb.Coupon
 	if o.FixAmountID != nil {
-		ord, err := ordercli.GetCouponOrder(ctx, o.AppID, o.UserID, *o.FixAmountID, orderconst.FixAmountCoupon)
-		if err != nil {
-			return err
-		}
+		ord, err := ordercli.GetOrderOnly(ctx, &ordermgrpb.Conds{
+			AppID: &commonpb.StringVal{
+				Op:    cruder.EQ,
+				Value: o.AppID,
+			},
+			UserID: &commonpb.StringVal{
+				Op:    cruder.EQ,
+				Value: o.UserID,
+			},
+			FixAmountCouponID: &commonpb.StringVal{
+				Op:    cruder.EQ,
+				Value: *o.FixAmountID,
+			},
+		})
+
 		if ord != nil {
 			return fmt.Errorf("used coupon")
 		}
@@ -252,10 +270,21 @@ func (o *OrderCreate) SetReduction(ctx context.Context) error {
 
 	var discount *couponpb.Coupon
 	if o.DiscountID != nil {
-		ord, err := ordercli.GetCouponOrder(ctx, o.AppID, o.UserID, *o.DiscountID, orderconst.DiscountCoupon)
-		if err != nil {
-			return err
-		}
+		ord, err := ordercli.GetOrderOnly(ctx, &ordermgrpb.Conds{
+			AppID: &commonpb.StringVal{
+				Op:    cruder.EQ,
+				Value: o.AppID,
+			},
+			UserID: &commonpb.StringVal{
+				Op:    cruder.EQ,
+				Value: o.UserID,
+			},
+			DiscountCouponID: &commonpb.StringVal{
+				Op:    cruder.EQ,
+				Value: *o.DiscountID,
+			},
+		})
+
 		if ord != nil {
 			return fmt.Errorf("used coupon")
 		}
@@ -282,10 +311,21 @@ func (o *OrderCreate) SetReduction(ctx context.Context) error {
 
 	var specialOffer *couponpb.Coupon
 	if o.SpecialOfferID != nil {
-		ord, err := ordercli.GetCouponOrder(ctx, o.AppID, o.UserID, *o.SpecialOfferID, orderconst.UserSpecialReductionCoupon)
-		if err != nil {
-			return err
-		}
+		ord, err := ordercli.GetOrderOnly(ctx, &ordermgrpb.Conds{
+			AppID: &commonpb.StringVal{
+				Op:    cruder.EQ,
+				Value: o.AppID,
+			},
+			UserID: &commonpb.StringVal{
+				Op:    cruder.EQ,
+				Value: o.UserID,
+			},
+			UserSpecialReductionID: &commonpb.StringVal{
+				Op:    cruder.EQ,
+				Value: *o.SpecialOfferID,
+			},
+		})
+
 		if ord != nil {
 			return fmt.Errorf("used coupon")
 		}
@@ -765,12 +805,6 @@ func (o *OrderCreate) Create(ctx context.Context) (*npool.Order, error) {
 	case ordermgrpb.OrderType_Normal.String():
 	case ordermgrpb.OrderType_Offline.String():
 	case ordermgrpb.OrderType_Airdrop.String():
-	case orderconst.OrderTypeNormal:
-		o.OrderType = ordermgrpb.OrderType_Normal
-	case orderconst.OrderTypeOffline:
-		o.OrderType = ordermgrpb.OrderType_Offline
-	case orderconst.OrderTypeAirdrop:
-		o.OrderType = ordermgrpb.OrderType_Airdrop
 	default:
 		return nil, fmt.Errorf("invalid order type")
 	}

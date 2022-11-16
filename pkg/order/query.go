@@ -15,6 +15,8 @@ import (
 	ordercli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 	coininfocli "github.com/NpoolPlatform/sphinx-coininfo/pkg/client"
 
+	mgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order"
+
 	goodspb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
 
 	goodsmgepb "github.com/NpoolPlatform/message/npool/good/mgr/v1/good"
@@ -79,7 +81,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 		OrderType: ord.OrderType,
 		CreatedAt: ord.CreatedAt,
 		PaidAt:    ord.PaidAt,
-		State:     ord.State,
+		State:     ord.OrderState,
 
 		Start: ord.Start,
 		End:   ord.End,
@@ -189,7 +191,16 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 }
 
 func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) ([]*npool.Order, uint32, error) {
-	ords, total, err := ordercli.GetOrders(ctx, appID, userID, offset, limit)
+	ords, total, err := ordercli.GetOrders(ctx, &mgrpb.Conds{
+		AppID: &npoolpb.StringVal{
+			Op:    cruder.EQ,
+			Value: appID,
+		},
+		UserID: &npoolpb.StringVal{
+			Op:    cruder.EQ,
+			Value: userID,
+		},
+	}, offset, limit)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -206,7 +217,12 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 }
 
 func GetAppOrders(ctx context.Context, appID string, offset, limit int32) ([]*npool.Order, uint32, error) {
-	ords, total, err := ordercli.GetAppOrders(ctx, appID, offset, limit)
+	ords, total, err := ordercli.GetOrders(ctx, &mgrpb.Conds{
+		AppID: &npoolpb.StringVal{
+			Op:    cruder.EQ,
+			Value: appID,
+		},
+	}, offset, limit)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -388,7 +404,7 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 			OrderType: ord.OrderType,
 			CreatedAt: ord.CreatedAt,
 			PaidAt:    ord.PaidAt,
-			State:     ord.State,
+			State:     ord.OrderState,
 
 			Start: ord.Start,
 			End:   ord.End,
