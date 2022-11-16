@@ -97,7 +97,6 @@ func migrationCloudGoods(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	fmt.Println(order)
 	if len(order) != 0 {
 		return nil
 	}
@@ -130,7 +129,6 @@ func migrationCloudGoods(ctx context.Context) (err error) {
 		Query().
 		All(ctx)
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 
