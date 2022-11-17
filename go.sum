@@ -130,8 +130,8 @@ github.com/NpoolPlatform/good-middleware v0.0.0-20221109024849-724709e2093e/go.m
 github.com/NpoolPlatform/inspire-middleware v0.0.0-20220808085657-9354bb053cfb h1:4RHJeBXA7QUNsGeWf5j97t7/ITKwD/bl8Hk4n2jEbYU=
 github.com/NpoolPlatform/inspire-middleware v0.0.0-20220808085657-9354bb053cfb/go.mod h1:5pltP/TUO2p88PjoVVUQ88DrSqCVR1Fm3WL5uzdyMok=
 github.com/NpoolPlatform/ledger-manager v0.0.0-20220903065726-179137cd687f h1:s/INeZNzCklgQeQhed75uq4m1OiDJK0Aof755zWyJEI=
-github.com/NpoolPlatform/ledger-middleware v0.0.0-20221114092806-9df06f6bba50 h1:xRvYPKtv3F/qpcho8/7mJ5GR0HjnOU+p53cY820h5ZI=
-github.com/NpoolPlatform/ledger-middleware v0.0.0-20221114092806-9df06f6bba50/go.mod h1:koi76wDEAw+77sXGh2JN2qLT+r7W+zZ284bQdn5VcM0=
+github.com/NpoolPlatform/ledger-middleware v0.0.0-20221116101840-fd73c8979e03 h1:KowzirPUtcit2PeXZVlGidPB4WnFffPQivjvoSg0P5o=
+github.com/NpoolPlatform/ledger-middleware v0.0.0-20221116101840-fd73c8979e03/go.mod h1:koi76wDEAw+77sXGh2JN2qLT+r7W+zZ284bQdn5VcM0=
 github.com/NpoolPlatform/libent-cruder v0.0.0-20220501112906-1fd771ed0198/go.mod h1:zvvqlRwbOdTUauPQ9dFDhDuxa91ILV0CQfVdPBZj+eA=
 github.com/NpoolPlatform/libent-cruder v0.0.0-20220526050249-956b54fac9f1/go.mod h1:zvvqlRwbOdTUauPQ9dFDhDuxa91ILV0CQfVdPBZj+eA=
 github.com/NpoolPlatform/libent-cruder v0.0.0-20221109023947-366125b690fb h1:IAQOJ0xQWdJS1BnimNdM6GZMLgTL/FnIa8C8K4xffUA=
