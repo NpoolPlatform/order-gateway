@@ -15,8 +15,6 @@ import (
 	ordercli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 	coininfocli "github.com/NpoolPlatform/sphinx-coininfo/pkg/client"
 
-	mgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order"
-
 	goodspb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
 
 	goodsmgepb "github.com/NpoolPlatform/message/npool/good/mgr/v1/good"
@@ -191,7 +189,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 }
 
 func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) ([]*npool.Order, uint32, error) {
-	ords, total, err := ordercli.GetOrders(ctx, &mgrpb.Conds{
+	ords, total, err := ordercli.GetOrders(ctx, &ordermwpb.Conds{
 		AppID: &npoolpb.StringVal{
 			Op:    cruder.EQ,
 			Value: appID,
@@ -217,7 +215,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 }
 
 func GetAppOrders(ctx context.Context, appID string, offset, limit int32) ([]*npool.Order, uint32, error) {
-	ords, total, err := ordercli.GetOrders(ctx, &mgrpb.Conds{
+	ords, total, err := ordercli.GetOrders(ctx, &ordermwpb.Conds{
 		AppID: &npoolpb.StringVal{
 			Op:    cruder.EQ,
 			Value: appID,

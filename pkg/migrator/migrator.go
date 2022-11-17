@@ -148,10 +148,8 @@ func migrationCloudGoods(ctx context.Context) (err error) {
 	err = db.WithTx(ctx, func(_ctx context.Context, tx *ent.Tx) error {
 		bulk := make([]*ent.OrderCreate, len(orderInfos))
 		for i, info := range orderInfos {
-			userSetCanceled := false
 			payState := peymentent.StateWait
 			if _, ok := paymentMap[info.ID]; ok {
-				userSetCanceled = paymentMap[info.ID].UserSetCanceled
 				payState = paymentMap[info.ID].State
 			}
 			bulk[i] = tx.Order.
@@ -173,7 +171,7 @@ func migrationCloudGoods(ctx context.Context) (err error) {
 				SetEndAt(info.End).
 				SetFixAmountCouponID(info.CouponID).
 				SetType(getOrderType(info.OrderType)).
-				SetState(getOrderState(payState.String(), userSetCanceled, info.Start, info.End))
+				SetState(getOrderState(payState.String(), info.Start, info.End))
 		}
 		_, err = tx.Order.CreateBulk(bulk...).Save(_ctx)
 		return err
@@ -263,7 +261,7 @@ func getOrderType(orderType string) string {
 	}
 }
 
-func getOrderState(payState string, userCanceled bool, start, end uint32) string {
+func getOrderState(payState string, start, end uint32) string {
 	state := ordermgrpb.OrderState_DefaultState.String()
 	switch payState {
 	case stant.PaymentStateTimeout:
@@ -274,10 +272,6 @@ func getOrderState(payState string, userCanceled bool, start, end uint32) string
 		state = ordermgrpb.OrderState_Paid.String()
 	case stant.PaymentStateCanceled:
 		state = ordermgrpb.OrderState_Canceled.String()
-	}
-
-	if state == ordermgrpb.OrderState_WaitPayment.String() && userCanceled {
-		state = ordermgrpb.OrderState_UserCanceled.String()
 	}
 
 	now := uint32(time.Now().Unix())
