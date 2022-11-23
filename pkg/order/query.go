@@ -96,7 +96,16 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	o.EmailAddress = user.EmailAddress
 	o.PhoneNO = user.PhoneNO
 
-	appGood, err := appgoodscli.GetGood(ctx, ord.GoodID)
+	appGood, err := appgoodscli.GetGoodOnly(ctx, &appgoodsmgrpb.Conds{
+		AppID: &npoolpb.StringVal{
+			Op:    cruder.EQ,
+			Value: ord.AppID,
+		},
+		GoodID: &npoolpb.StringVal{
+			Op:    cruder.EQ,
+			Value: ord.GoodID,
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
