@@ -429,8 +429,6 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 		o.GoodServicePeriodDays = uint32(good.DurationDays)
 		o.GoodUnitPrice = good.Price
 
-		o.GoodValue = good.Price
-
 		appGood, ok := appGoodMap[ord.AppID+ord.GoodID]
 		if ok {
 			o.GoodValue = appGood.Price
@@ -438,6 +436,13 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 				o.GoodValue = *appGood.PromotionPrice
 			}
 		}
+
+		appPrice, err := decimal.NewFromString(appGood.Price)
+		if err != nil {
+			return nil, err
+		}
+
+		o.GoodValue = appPrice.Mul(decimal.NewFromInt32(int32(o.Units))).String()
 
 		coin, ok := coinMap[o.CoinTypeID]
 		if !ok {
