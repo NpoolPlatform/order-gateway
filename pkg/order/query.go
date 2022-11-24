@@ -132,8 +132,6 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 		o.GoodValue = appGoodPromotionPrice.Mul(decimal.NewFromInt32(int32(ord.Units))).String()
 	}
 
-	o.GoodValue = appGood.Price
-
 	coin, err := coininfocli.GetCoinInfo(ctx, appGood.CoinTypeID)
 	if err != nil {
 		return nil, err
