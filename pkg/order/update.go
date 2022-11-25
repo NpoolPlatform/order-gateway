@@ -8,6 +8,7 @@ import (
 	goodscli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
 	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order"
+	paymentmgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/payment"
 
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
@@ -48,10 +49,14 @@ func cancelOrder(ctx context.Context, ord *ordermwpb.Order) error {
 	}
 
 	cancle := true
+	state := ordermgrpb.OrderState_Canceled
+	paymentState := paymentmgrpb.PaymentState_Canceled
 	_, err = ordermwcli.UpdateOrder(ctx, &ordermwpb.OrderReq{
-		ID:        &ord.ID,
-		PaymentID: &ord.PaymentID,
-		Canceled:  &cancle,
+		ID:           &ord.ID,
+		State:        &state,
+		PaymentState: &paymentState,
+		PaymentID:    &ord.PaymentID,
+		Canceled:     &cancle,
 	})
 	if err != nil {
 		return err
