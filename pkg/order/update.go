@@ -49,8 +49,9 @@ func cancelOrder(ctx context.Context, ord *ordermwpb.Order) error {
 
 	cancle := true
 	_, err = ordermwcli.UpdateOrder(ctx, &ordermwpb.OrderReq{
-		ID:       &ord.ID,
-		Canceled: &cancle,
+		ID:        &ord.ID,
+		PaymentID: &ord.PaymentID,
+		Canceled:  &cancle,
 	})
 	if err != nil {
 		return err
