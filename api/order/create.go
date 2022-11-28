@@ -136,17 +136,13 @@ func (s *Server) CreateUserOrder(ctx context.Context, in *npool.CreateUserOrderR
 	}
 
 	ord, err := createOrder(ctx, &npool.CreateOrderRequest{
-		AppID:                in.AppID,
-		UserID:               in.TargetUserID,
-		GoodID:               in.GoodID,
-		PaymentCoinID:        in.PaymentCoinID,
-		Units:                in.Units,
-		ParentOrderID:        in.ParentOrderID,
-		PayWithBalanceAmount: in.PayWithBalanceAmount,
-		FixAmountID:          in.FixAmountID,
-		DiscountID:           in.DiscountID,
-		SpecialOfferID:       in.SpecialOfferID,
-		OrderType:            in.OrderType,
+		AppID:         in.AppID,
+		UserID:        in.TargetUserID,
+		GoodID:        in.GoodID,
+		PaymentCoinID: in.PaymentCoinID,
+		Units:         in.Units,
+		ParentOrderID: in.ParentOrderID,
+		OrderType:     in.OrderType,
 	})
 	if err != nil {
 		return &npool.CreateUserOrderResponse{}, err
@@ -165,17 +161,13 @@ func (s *Server) CreateAppUserOrder(ctx context.Context, in *npool.CreateAppUser
 	}
 
 	ord, err := createOrder(ctx, &npool.CreateOrderRequest{
-		AppID:                in.TargetAppID,
-		UserID:               in.TargetUserID,
-		GoodID:               in.GoodID,
-		PaymentCoinID:        in.PaymentCoinID,
-		Units:                in.Units,
-		ParentOrderID:        in.ParentOrderID,
-		PayWithBalanceAmount: in.PayWithBalanceAmount,
-		FixAmountID:          in.FixAmountID,
-		DiscountID:           in.DiscountID,
-		SpecialOfferID:       in.SpecialOfferID,
-		OrderType:            in.OrderType,
+		AppID:         in.TargetAppID,
+		UserID:        in.TargetUserID,
+		GoodID:        in.GoodID,
+		PaymentCoinID: in.PaymentCoinID,
+		Units:         in.Units,
+		ParentOrderID: in.ParentOrderID,
+		OrderType:     in.OrderType,
 	})
 	if err != nil {
 		return &npool.CreateAppUserOrderResponse{}, err
