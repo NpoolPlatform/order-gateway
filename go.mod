@@ -14,7 +14,7 @@ require (
 	github.com/NpoolPlatform/inspire-middleware v0.0.0-20220808085657-9354bb053cfb
 	github.com/NpoolPlatform/ledger-middleware v0.0.0-20221116101840-fd73c8979e03
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20221109023947-366125b690fb
-	github.com/NpoolPlatform/message v0.0.0-20221117083318-f2150fb0c377
+	github.com/NpoolPlatform/message v0.0.0-20221125084135-b09cf490cb06
 	github.com/NpoolPlatform/oracle-manager v0.0.0-20220615040511-dc235b31fa14
 	github.com/NpoolPlatform/order-manager v0.0.0-20221116014019-9d3c7ce9e122
 	github.com/NpoolPlatform/order-middleware v0.0.0-20221117090447-f989baeeee3c
