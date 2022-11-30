@@ -14,10 +14,10 @@ require (
 	github.com/NpoolPlatform/inspire-middleware v0.0.0-20220808085657-9354bb053cfb
 	github.com/NpoolPlatform/ledger-middleware v0.0.0-20221116101840-fd73c8979e03
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20221109023947-366125b690fb
-	github.com/NpoolPlatform/message v0.0.0-20221125084135-b09cf490cb06
+	github.com/NpoolPlatform/message v0.0.0-20221130022700-6ea25e8422fd
 	github.com/NpoolPlatform/oracle-manager v0.0.0-20220615040511-dc235b31fa14
-	github.com/NpoolPlatform/order-manager v0.0.0-20221116014019-9d3c7ce9e122
-	github.com/NpoolPlatform/order-middleware v0.0.0-20221117090447-f989baeeee3c
+	github.com/NpoolPlatform/order-manager v0.0.0-20221130030111-16e879c04800
+	github.com/NpoolPlatform/order-middleware v0.0.0-20221130031001-7cbeedee9966
 	github.com/NpoolPlatform/sphinx-coininfo v0.0.0-20220731103603-21004f4341dc
 	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20220803040820-2b7bd4158e8b
 	github.com/NpoolPlatform/staker-manager v0.0.0-20220715052242-57491c7251b9
