@@ -72,7 +72,7 @@ pipeline {
 
             cd .apollo-base-config
             ./apollo-base-config.sh $APP_ID $TARGET_ENV $vhost
-            ./apollo-item-config.sh $APP_ID $TARGET_ENV $vhost database_name orders
+            ./apollo-item-config.sh $APP_ID $TARGET_ENV $vhost database_name order_manager
             cd -
           done
         '''.stripIndent())

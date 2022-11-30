@@ -5,10 +5,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
-
 	usercli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	billingcli "github.com/NpoolPlatform/cloud-hashing-billing/pkg/client"
+	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	goodscli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	couponcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
@@ -79,7 +78,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 		OrderType: ord.OrderType,
 		CreatedAt: ord.CreatedAt,
 		PaidAt:    ord.PaidAt,
-		State:     ord.State,
+		State:     ord.OrderState,
 
 		Start: ord.Start,
 		End:   ord.End,
@@ -97,22 +96,43 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	o.EmailAddress = user.EmailAddress
 	o.PhoneNO = user.PhoneNO
 
-	good, err := goodscli.GetGood(ctx, ord.GoodID)
+	appGood, err := appgoodscli.GetGoodOnly(ctx, &appgoodsmgrpb.Conds{
+		AppID: &npoolpb.StringVal{
+			Op:    cruder.EQ,
+			Value: ord.AppID,
+		},
+		GoodID: &npoolpb.StringVal{
+			Op:    cruder.EQ,
+			Value: ord.GoodID,
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	if good == nil {
-		return nil, fmt.Errorf("invalid good")
+	if appGood == nil {
+		return nil, fmt.Errorf("invalid app good")
 	}
 
-	o.GoodName = good.Title
-	o.GoodUnit = good.Unit
-	o.GoodServicePeriodDays = uint32(good.DurationDays)
-	o.GoodUnitPrice = good.Price
-	o.GoodValue = good.Price
+	o.GoodName = appGood.GoodName
+	o.GoodUnit = appGood.Unit
+	o.GoodServicePeriodDays = uint32(appGood.DurationDays)
+	o.GoodUnitPrice = appGood.Price
 
-	coin, err := coininfocli.GetCoinInfo(ctx, good.CoinTypeID)
+	appGoodPrice, err := decimal.NewFromString(appGood.Price)
+	if err != nil {
+		return nil, err
+	}
+	o.GoodValue = appGoodPrice.Mul(decimal.NewFromInt32(int32(ord.Units))).String()
+	if appGood.PromotionPrice != nil {
+		appGoodPromotionPrice, err := decimal.NewFromString(*appGood.PromotionPrice)
+		if err != nil {
+			return nil, err
+		}
+		o.GoodValue = appGoodPromotionPrice.Mul(decimal.NewFromInt32(int32(ord.Units))).String()
+	}
+
+	coin, err := coininfocli.GetCoinInfo(ctx, appGood.CoinTypeID)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +141,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 		return nil, fmt.Errorf("invalid good coin")
 	}
 
-	o.CoinTypeID = good.CoinTypeID
+	o.CoinTypeID = appGood.CoinTypeID
 	o.CoinName = coin.Name
 	o.CoinLogo = coin.Logo
 	o.CoinUnit = coin.Unit
@@ -189,7 +209,16 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 }
 
 func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) ([]*npool.Order, uint32, error) {
-	ords, total, err := ordercli.GetOrders(ctx, appID, userID, offset, limit)
+	ords, total, err := ordercli.GetOrders(ctx, &ordermwpb.Conds{
+		AppID: &npoolpb.StringVal{
+			Op:    cruder.EQ,
+			Value: appID,
+		},
+		UserID: &npoolpb.StringVal{
+			Op:    cruder.EQ,
+			Value: userID,
+		},
+	}, offset, limit)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -206,7 +235,12 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 }
 
 func GetAppOrders(ctx context.Context, appID string, offset, limit int32) ([]*npool.Order, uint32, error) {
-	ords, total, err := ordercli.GetAppOrders(ctx, appID, offset, limit)
+	ords, total, err := ordercli.GetOrders(ctx, &ordermwpb.Conds{
+		AppID: &npoolpb.StringVal{
+			Op:    cruder.EQ,
+			Value: appID,
+		},
+	}, offset, limit)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -388,7 +422,7 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 			OrderType: ord.OrderType,
 			CreatedAt: ord.CreatedAt,
 			PaidAt:    ord.PaidAt,
-			State:     ord.State,
+			State:     ord.OrderState,
 
 			Start: ord.Start,
 			End:   ord.End,
@@ -404,25 +438,29 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 			o.PhoneNO = user.PhoneNO
 		}
 
-		good, ok := goodMap[ord.GoodID]
+		appGood, ok := appGoodMap[ord.AppID+ord.GoodID]
 		if !ok {
 			continue
 		}
 
-		o.CoinTypeID = good.CoinTypeID
-		o.GoodName = good.Title
-		o.GoodUnit = good.Unit
-		o.GoodServicePeriodDays = uint32(good.DurationDays)
-		o.GoodUnitPrice = good.Price
+		o.CoinTypeID = appGood.CoinTypeID
+		o.GoodName = appGood.GoodName
+		o.GoodUnit = appGood.Unit
+		o.GoodServicePeriodDays = uint32(appGood.DurationDays)
+		o.GoodUnitPrice = appGood.Price
 
-		o.GoodValue = good.Price
+		appGoodPrice, err := decimal.NewFromString(appGood.Price)
+		if err != nil {
+			return nil, err
+		}
 
-		appGood, ok := appGoodMap[ord.AppID+ord.GoodID]
-		if ok {
-			o.GoodValue = appGood.Price
-			if appGood.PromotionPrice != nil {
-				o.GoodValue = *appGood.PromotionPrice
+		o.GoodValue = appGoodPrice.Mul(decimal.NewFromInt32(int32(ord.Units))).String()
+		if appGood.PromotionPrice != nil {
+			appGoodPromotionPrice, err := decimal.NewFromString(*appGood.PromotionPrice)
+			if err != nil {
+				return nil, err
 			}
+			o.GoodValue = appGoodPromotionPrice.Mul(decimal.NewFromInt32(int32(ord.Units))).String()
 		}
 
 		coin, ok := coinMap[o.CoinTypeID]
