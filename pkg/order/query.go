@@ -8,15 +8,10 @@ import (
 	usercli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	billingcli "github.com/NpoolPlatform/cloud-hashing-billing/pkg/client"
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
-	goodscli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	couponcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordercli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 	coininfocli "github.com/NpoolPlatform/sphinx-coininfo/pkg/client"
-
-	goodspb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
-
-	goodsmgepb "github.com/NpoolPlatform/message/npool/good/mgr/v1/good"
 
 	userpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 	billingpb "github.com/NpoolPlatform/message/npool/cloud-hashing-billing"
@@ -226,7 +221,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 		return []*npool.Order{}, 0, nil
 	}
 
-	orders, err := expand(ctx, ords)
+	orders, err := expand(ctx, ords, appID)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -248,7 +243,7 @@ func GetAppOrders(ctx context.Context, appID string, offset, limit int32) ([]*np
 		return []*npool.Order{}, 0, nil
 	}
 
-	orders, err := expand(ctx, ords)
+	orders, err := expand(ctx, ords, appID)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -257,7 +252,7 @@ func GetAppOrders(ctx context.Context, appID string, offset, limit int32) ([]*np
 }
 
 // nolint
-func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error) {
+func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npool.Order, error) {
 	if len(ords) == 0 {
 		return []*npool.Order{}, nil
 	}
@@ -283,21 +278,6 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 	goodIDs := []string{}
 	for _, val := range ords {
 		goodIDs = append(goodIDs, val.GetGoodID())
-	}
-
-	goods, _, err := goodscli.GetGoods(ctx, &goodsmgepb.Conds{
-		IDs: &npoolpb.StringSliceVal{
-			Op:    cruder.IN,
-			Value: goodIDs,
-		},
-	}, 0, int32(len(goodIDs)))
-	if err != nil {
-		return nil, err
-	}
-
-	goodMap := map[string]*goodspb.Good{}
-	for _, good := range goods {
-		goodMap[good.ID] = good
 	}
 
 	coins, err := coininfocli.GetCoinInfos(ctx, cruder.NewFilterConds())
@@ -381,6 +361,10 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 			Op:    cruder.IN,
 			Value: goodIDs,
 		},
+		AppID: &npoolpb.StringVal{
+			Op:    cruder.IN,
+			Value: appID,
+		},
 	}, 0, int32(len(goodIDs)))
 	if err != nil {
 		return nil, err
@@ -440,6 +424,7 @@ func expand(ctx context.Context, ords []*ordermwpb.Order) ([]*npool.Order, error
 
 		appGood, ok := appGoodMap[ord.AppID+ord.GoodID]
 		if !ok {
+			logger.Sugar().Warnw("good not exist", "AppID", ord.AppID, "GoodID", ord.GoodID)
 			continue
 		}
 
