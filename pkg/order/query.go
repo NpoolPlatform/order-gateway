@@ -6,17 +6,18 @@ import (
 	"fmt"
 
 	usercli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
+	appcoininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/appcoin"
+	coininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin"
 	billingcli "github.com/NpoolPlatform/cloud-hashing-billing/pkg/client"
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	couponcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordercli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
-	coininfocli "github.com/NpoolPlatform/sphinx-coininfo/pkg/client"
 
 	userpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 	billingpb "github.com/NpoolPlatform/message/npool/cloud-hashing-billing"
 
-	coininfopb "github.com/NpoolPlatform/message/npool/coininfo"
+	appcoinpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/appcoin"
 	couponpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/inspire/coupon"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 
@@ -127,7 +128,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 		o.GoodValue = appGoodPromotionPrice.Mul(decimal.NewFromInt32(int32(ord.Units))).String()
 	}
 
-	coin, err := coininfocli.GetCoinInfo(ctx, appGood.CoinTypeID)
+	coin, err := coininfocli.GetCoin(ctx, appGood.CoinTypeID)
 	if err != nil {
 		return nil, err
 	}
@@ -140,10 +141,10 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	o.CoinName = coin.Name
 	o.CoinLogo = coin.Logo
 	o.CoinUnit = coin.Unit
-	o.CoinPresale = coin.PreSale
+	o.CoinPresale = coin.Presale
 
 	if ord.PaymentID != invalidID && ord.PaymentID != "" {
-		coin, err = coininfocli.GetCoinInfo(ctx, ord.PaymentCoinTypeID)
+		coin, err = coininfocli.GetCoin(ctx, ord.PaymentCoinTypeID)
 		if err != nil {
 			return nil, err
 		}
@@ -280,12 +281,26 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 		goodIDs = append(goodIDs, val.GetGoodID())
 	}
 
-	coins, err := coininfocli.GetCoinInfos(ctx, cruder.NewFilterConds())
+	coinTypeIDs := []string{}
+	for _, val := range ords {
+		coinTypeIDs = append(coinTypeIDs, val.PaymentCoinTypeID)
+	}
+
+	coins, _, err := appcoininfocli.GetCoins(ctx, &appcoinpb.Conds{
+		AppID: &npoolpb.StringVal{
+			Op:    cruder.EQ,
+			Value: appID,
+		},
+		CoinTypeIDs: &npoolpb.StringSliceVal{
+			Op:    cruder.EQ,
+			Value: coinTypeIDs,
+		},
+	}, 0, int32(len(coinTypeIDs)))
 	if err != nil {
 		return nil, err
 	}
 
-	coinMap := map[string]*coininfopb.CoinInfo{}
+	coinMap := map[string]*appcoinpb.Coin{}
 	for _, coin := range coins {
 		coinMap[coin.ID] = coin
 	}

@@ -17,11 +17,11 @@ import (
 
 	goodcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 
+	coininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin"
 	appgoodcli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
 	couponcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon"
 	oraclecli "github.com/NpoolPlatform/oracle-manager/pkg/client"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
-	coininfocli "github.com/NpoolPlatform/sphinx-coininfo/pkg/client"
 	sphinxproxycli "github.com/NpoolPlatform/sphinx-proxy/pkg/client"
 
 	billingconst "github.com/NpoolPlatform/cloud-hashing-billing/pkg/const"
@@ -121,7 +121,7 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 	o.GoodStartAt = good.StartAt
 	o.GoodDurationDays = uint32(good.DurationDays)
 
-	gcoin, err := coininfocli.GetCoinInfo(ctx, good.CoinTypeID)
+	gcoin, err := coininfocli.GetCoin(ctx, good.CoinTypeID)
 	if err != nil {
 		return err
 	}
@@ -129,14 +129,14 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		return fmt.Errorf("invalid good coin")
 	}
 
-	coin, err := coininfocli.GetCoinInfo(ctx, o.PaymentCoinID)
+	coin, err := coininfocli.GetCoin(ctx, o.PaymentCoinID)
 	if err != nil {
 		return err
 	}
 	if coin == nil {
 		return fmt.Errorf("invalid coin")
 	}
-	if coin.PreSale {
+	if coin.Presale {
 		return fmt.Errorf("presale coin won't for payment")
 	}
 	if !coin.ForPay {
@@ -405,7 +405,7 @@ func (o *OrderCreate) SetPrice(ctx context.Context) error {
 }
 
 func (o *OrderCreate) SetCurrency(ctx context.Context) error {
-	coin, err := coininfocli.GetCoinInfo(ctx, o.PaymentCoinID)
+	coin, err := coininfocli.GetCoin(ctx, o.PaymentCoinID)
 	if err != nil {
 		return err
 	}

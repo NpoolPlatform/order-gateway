@@ -7,6 +7,7 @@ require (
 	github.com/NpoolPlatform/api-manager v0.0.0-20220826022307-d72866fe3ec0
 	github.com/NpoolPlatform/appuser-middleware v0.0.0-20220828053822-e809766566c6
 	github.com/NpoolPlatform/archivement-middleware v0.0.0-20220906070411-67ca1d6f070c
+	github.com/NpoolPlatform/chain-middleware v0.0.0-20221201084405-d3c3772efbc8
 	github.com/NpoolPlatform/cloud-hashing-billing v0.0.0-20220806102703-0570e7231a6c
 	github.com/NpoolPlatform/cloud-hashing-order v0.0.0-20221109034700-1f678d7c71ef
 	github.com/NpoolPlatform/go-service-framework v0.0.0-20221015040432-cd676d323379
@@ -14,11 +15,10 @@ require (
 	github.com/NpoolPlatform/inspire-middleware v0.0.0-20220808085657-9354bb053cfb
 	github.com/NpoolPlatform/ledger-middleware v0.0.0-20221116101840-fd73c8979e03
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20221109023947-366125b690fb
-	github.com/NpoolPlatform/message v0.0.0-20221130022700-6ea25e8422fd
+	github.com/NpoolPlatform/message v0.0.0-20221201081448-db4c8a641f1c
 	github.com/NpoolPlatform/oracle-manager v0.0.0-20220615040511-dc235b31fa14
 	github.com/NpoolPlatform/order-manager v0.0.0-20221130030111-16e879c04800
 	github.com/NpoolPlatform/order-middleware v0.0.0-20221130031001-7cbeedee9966
-	github.com/NpoolPlatform/sphinx-coininfo v0.0.0-20220731103603-21004f4341dc
 	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20220803040820-2b7bd4158e8b
 	github.com/NpoolPlatform/staker-manager v0.0.0-20220715052242-57491c7251b9
 	github.com/go-resty/resty/v2 v2.7.0
