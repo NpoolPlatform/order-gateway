@@ -5,18 +5,19 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
+
+	payaccmwcli "github.com/NpoolPlatform/account-middleware/pkg/client/payment"
 	usercli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	appcoininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/appcoin"
 	coininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin"
-	billingcli "github.com/NpoolPlatform/cloud-hashing-billing/pkg/client"
-	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	couponcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordercli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 
 	userpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
-	billingpb "github.com/NpoolPlatform/message/npool/cloud-hashing-billing"
 
+	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
 	appcoinpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/appcoin"
 	couponpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/inspire/coupon"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
@@ -26,11 +27,11 @@ import (
 
 	appgoodsmgrpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
 
-	npoolpb "github.com/NpoolPlatform/message/npool"
-
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 
 	"github.com/shopspring/decimal"
+
+	commonpb "github.com/NpoolPlatform/message/npool"
 
 	"github.com/google/uuid"
 )
@@ -93,11 +94,11 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	o.PhoneNO = user.PhoneNO
 
 	appGood, err := appgoodscli.GetGoodOnly(ctx, &appgoodsmgrpb.Conds{
-		AppID: &npoolpb.StringVal{
+		AppID: &commonpb.StringVal{
 			Op:    cruder.EQ,
 			Value: ord.AppID,
 		},
-		GoodID: &npoolpb.StringVal{
+		GoodID: &commonpb.StringVal{
 			Op:    cruder.EQ,
 			Value: ord.GoodID,
 		},
@@ -160,7 +161,12 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 		o.PaymentCoinUnit = coin.Unit
 	}
 
-	account, err := billingcli.GetAccount(ctx, ord.PaymentAccountID)
+	account, err := payaccmwcli.GetAccountOnly(ctx, &payaccmwpb.Conds{
+		AccountID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: ord.PaymentAccountID,
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -206,11 +212,11 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 
 func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) ([]*npool.Order, uint32, error) {
 	ords, total, err := ordercli.GetOrders(ctx, &ordermwpb.Conds{
-		AppID: &npoolpb.StringVal{
+		AppID: &commonpb.StringVal{
 			Op:    cruder.EQ,
 			Value: appID,
 		},
-		UserID: &npoolpb.StringVal{
+		UserID: &commonpb.StringVal{
 			Op:    cruder.EQ,
 			Value: userID,
 		},
@@ -232,7 +238,7 @@ func GetOrders(ctx context.Context, appID, userID string, offset, limit int32) (
 
 func GetAppOrders(ctx context.Context, appID string, offset, limit int32) ([]*npool.Order, uint32, error) {
 	ords, total, err := ordercli.GetOrders(ctx, &ordermwpb.Conds{
-		AppID: &npoolpb.StringVal{
+		AppID: &commonpb.StringVal{
 			Op:    cruder.EQ,
 			Value: appID,
 		},
@@ -287,11 +293,11 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 	}
 
 	coins, _, err := appcoininfocli.GetCoins(ctx, &appcoinpb.Conds{
-		AppID: &npoolpb.StringVal{
+		AppID: &commonpb.StringVal{
 			Op:    cruder.EQ,
 			Value: appID,
 		},
-		CoinTypeIDs: &npoolpb.StringSliceVal{
+		CoinTypeIDs: &commonpb.StringSliceVal{
 			Op:    cruder.EQ,
 			Value: coinTypeIDs,
 		},
@@ -305,15 +311,24 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 		coinMap[coin.ID] = coin
 	}
 
-	// TODO: get accounts with specific account ID
-	accounts, err := billingcli.GetAccounts(ctx)
+	accIDs := []string{}
+	for _, ord := range ords {
+		accIDs = append(accIDs, ord.PaymentAccountID)
+	}
+
+	accounts, _, err := payaccmwcli.GetAccounts(ctx, &payaccmwpb.Conds{
+		AccountIDs: &commonpb.StringSliceVal{
+			Op:    cruder.IN,
+			Value: accIDs,
+		},
+	}, 0, int32(len(accIDs)))
 	if err != nil {
 		return nil, err
 	}
 
-	accMap := map[string]*billingpb.CoinAccountInfo{}
+	accMap := map[string]*payaccmwpb.Account{}
 	for _, acc := range accounts {
-		accMap[acc.ID] = acc
+		accMap[acc.AccountID] = acc
 	}
 
 	ids := []string{}
@@ -372,11 +387,11 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 	}
 
 	appGoods, _, err := appgoodscli.GetGoods(ctx, &appgoodsmgrpb.Conds{
-		GoodIDs: &npoolpb.StringSliceVal{
+		GoodIDs: &commonpb.StringSliceVal{
 			Op:    cruder.IN,
 			Value: goodIDs,
 		},
-		AppID: &npoolpb.StringVal{
+		AppID: &commonpb.StringVal{
 			Op:    cruder.IN,
 			Value: appID,
 		},

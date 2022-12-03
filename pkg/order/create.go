@@ -9,29 +9,29 @@ import (
 
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 
+	payaccmwcli "github.com/NpoolPlatform/account-middleware/pkg/client/payment"
 	appcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/app"
 	usercli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
-	billingcli "github.com/NpoolPlatform/cloud-hashing-billing/pkg/client"
 	ordercli "github.com/NpoolPlatform/order-manager/pkg/client/order"
 	paymentcli "github.com/NpoolPlatform/order-manager/pkg/client/payment"
 
 	goodcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 
+	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/appcoin"
 	coininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin"
+	currvalmwcli "github.com/NpoolPlatform/chain-middleware/pkg/coin/currency/value"
 	appgoodcli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
 	couponcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon"
-	oraclecli "github.com/NpoolPlatform/oracle-manager/pkg/client"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 	sphinxproxycli "github.com/NpoolPlatform/sphinx-proxy/pkg/client"
 
-	billingconst "github.com/NpoolPlatform/cloud-hashing-billing/pkg/const"
-	oracleconst "github.com/NpoolPlatform/oracle-manager/pkg/const"
-
 	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
 
+	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/appcoin"
 	appgoodpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
 
-	billingpb "github.com/NpoolPlatform/message/npool/cloud-hashing-billing"
+	accountmgrpb "github.com/NpoolPlatform/message/npool/account/mgr/v1/account"
+	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
 	couponpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/inspire/coupon"
 	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order"
 	paymentmgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/payment"
@@ -39,15 +39,12 @@ import (
 	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
 
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
-	currency "github.com/NpoolPlatform/oracle-manager/pkg/middleware/currency"
 	accountlock "github.com/NpoolPlatform/staker-manager/pkg/middleware/account"
 
 	ledgermgrcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/ledger/v2"
 	ledgermgrpb "github.com/NpoolPlatform/message/npool/ledger/mgr/v1/ledger/general"
 
 	commonpb "github.com/NpoolPlatform/message/npool"
-
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/shopspring/decimal"
 )
@@ -70,12 +67,12 @@ type OrderCreate struct {
 	DiscountID     *string
 	SpecialOfferID *string
 
-	goodPaymentID             string
 	paymentCoinName           string
 	paymentAmountUSD          decimal.Decimal
 	paymentAmountCoin         decimal.Decimal
 	paymentAddress            string
 	paymentAddressStartAmount decimal.Decimal
+	goodPaymentID             string
 	paymentAccountID          string
 
 	promotionID *string
@@ -405,49 +402,50 @@ func (o *OrderCreate) SetPrice(ctx context.Context) error {
 }
 
 func (o *OrderCreate) SetCurrency(ctx context.Context) error {
-	coin, err := coininfocli.GetCoin(ctx, o.PaymentCoinID)
+	apc, err := appcoinmwcli.GetCoinOnly(ctx, &appcoinmwpb.Conds{
+		AppID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.AppID,
+		},
+		CoinTypeID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.PaymentCoinID,
+		},
+	})
 	if err != nil {
 		return err
 	}
+	if apc != nil {
+		curr, err := decimal.NewFromString(apc.SettleValue)
+		if err != nil {
+			return err
+		}
+		if curr.Cmp(decimal.NewFromInt(0)) <= 0 {
+			return fmt.Errorf("invalid settle value")
+		}
 
-	liveCurrency, err := currency.USDPrice(ctx, coin.Name)
-	if err != nil {
-		return err
-	}
+		o.coinCurrency = curr
 
-	o.liveCurrency = decimal.NewFromFloat(liveCurrency)
-
-	if o.liveCurrency.Cmp(decimal.NewFromInt(0)) <= 0 {
-		return fmt.Errorf("invalid live coin currency")
-	}
-
-	o.coinCurrency = o.liveCurrency
-
-	pc, err := oraclecli.GetCurrencyOnly(ctx,
-		cruder.NewFilterConds().
-			WithCond(
-				oracleconst.FieldAppID,
-				cruder.EQ,
-				structpb.NewStringValue(o.AppID),
-			).
-			WithCond(
-				oracleconst.FieldCoinTypeID,
-				cruder.EQ,
-				structpb.NewStringValue(o.PaymentCoinID),
-			))
-	if err != nil {
-		return err
-	}
-	if pc == nil {
 		return nil
 	}
 
-	if pc.AppPriceVSUSDT > 0 {
-		o.coinCurrency = decimal.NewFromFloat(pc.AppPriceVSUSDT)
+	curr, err := currvalmwcli.GetCoinCurrency(ctx, o.PaymentCoinID)
+	if err != nil {
+		return err
 	}
-	if pc.PriceVSUSDT > 0 {
-		o.localCurrency = decimal.NewFromFloat(pc.PriceVSUSDT)
+	if curr == nil {
+		return fmt.Errorf("invalid coin currency")
 	}
+
+	val, err := decimal.NewFromString(curr.MarketValueLow)
+	if err != nil {
+		return err
+	}
+	if val.Cmp(decimal.NewFromInt(0)) <= 0 {
+		return fmt.Errorf("invalid settle value")
+	}
+
+	o.coinCurrency = val
 
 	return nil
 }
@@ -509,19 +507,9 @@ func (o *OrderCreate) createAddresses(ctx context.Context) error {
 			return fmt.Errorf("invalid address")
 		}
 
-		account, err := billingcli.CreateAccount(ctx, &billingpb.CoinAccountInfo{
-			CoinTypeID:             o.PaymentCoinID,
-			Address:                address.Address,
-			PlatformHoldPrivateKey: true,
-		})
-		if err != nil {
-			return err
-		}
-
-		_, err = billingcli.CreateGoodPayment(ctx, &billingpb.GoodPayment{
-			GoodID:            o.GoodID,
-			PaymentCoinTypeID: o.PaymentCoinID,
-			AccountID:         account.ID,
+		_, err = payaccmwcli.CreateAccount(ctx, &payaccmwpb.AccountReq{
+			CoinTypeID: &o.PaymentCoinID,
+			Address:    &address.Address,
 		})
 		if err != nil {
 			return err
@@ -537,30 +525,43 @@ func (o *OrderCreate) createAddresses(ctx context.Context) error {
 	return nil
 }
 
-func (o *OrderCreate) peekAddress(ctx context.Context) (*billingpb.CoinAccountInfo, error) {
-	payments, err := billingcli.GetIdleGoodPayments(ctx, o.GoodID, o.PaymentCoinID)
+func (o *OrderCreate) peekAddress(ctx context.Context) (*payaccmwpb.Account, error) {
+	payments, _, err := payaccmwcli.GetAccounts(ctx, &payaccmwpb.Conds{
+		CoinTypeID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.PaymentCoinID,
+		},
+		Active: &commonpb.BoolVal{
+			Op:    cruder.EQ,
+			Value: true,
+		},
+		Locked: &commonpb.BoolVal{
+			Op:    cruder.EQ,
+			Value: false,
+		},
+		Blocked: &commonpb.BoolVal{
+			Op:    cruder.EQ,
+			Value: false,
+		},
+	}, 0, 5) //nolint
 	if err != nil {
 		return nil, err
 	}
 
-	var account *billingpb.GoodPayment
+	var account *payaccmwpb.Account
 
 	for _, payment := range payments {
-		if !payment.Idle {
-			continue
-		}
-
 		if err := accountlock.Lock(payment.AccountID); err != nil {
 			continue
 		}
 
-		info, err := billingcli.GetGoodPayment(ctx, payment.ID)
+		info, err := payaccmwcli.GetAccount(ctx, payment.ID)
 		if err != nil {
 			accountlock.Unlock(payment.AccountID) //nolint
 			return nil, err
 		}
 
-		if !info.Idle {
+		if info.Locked || !info.Active || info.Blocked {
 			accountlock.Unlock(payment.AccountID) //nolint
 			continue
 		}
@@ -570,10 +571,14 @@ func (o *OrderCreate) peekAddress(ctx context.Context) (*billingpb.CoinAccountIn
 			continue
 		}
 
-		info.Idle = false
-		info.OccupiedBy = billingconst.TransactionForPaying
-		info.UsedFor = billingconst.TransactionForPaying
-		_, err = billingcli.UpdateGoodPayment(ctx, info)
+		locked := true
+		lockedBy := accountmgrpb.LockedBy_Payment
+
+		info, err = payaccmwcli.UpdateAccount(ctx, &payaccmwpb.AccountReq{
+			ID:       &payment.ID,
+			Locked:   &locked,
+			LockedBy: &lockedBy,
+		})
 		if err != nil {
 			accountlock.Unlock(payment.AccountID) //nolint
 			return nil, err
@@ -590,7 +595,7 @@ func (o *OrderCreate) peekAddress(ctx context.Context) (*billingpb.CoinAccountIn
 
 	o.goodPaymentID = account.ID
 
-	return billingcli.GetAccount(ctx, account.AccountID)
+	return account, nil
 }
 
 func (o *OrderCreate) PeekAddress(ctx context.Context) error {
@@ -600,7 +605,7 @@ func (o *OrderCreate) PeekAddress(ctx context.Context) error {
 	}
 	if account != nil {
 		o.paymentAddress = account.Address
-		o.paymentAccountID = account.ID
+		o.paymentAccountID = account.AccountID
 		return nil
 	}
 
@@ -617,7 +622,7 @@ func (o *OrderCreate) PeekAddress(ctx context.Context) error {
 	}
 
 	o.paymentAddress = account.Address
-	o.paymentAccountID = account.ID
+	o.paymentAccountID = account.AccountID
 
 	return nil
 }
@@ -627,15 +632,12 @@ func (o *OrderCreate) ReleaseAddress(ctx context.Context) error {
 		return err
 	}
 
-	info, err := billingcli.GetGoodPayment(ctx, o.goodPaymentID)
-	if err != nil {
-		accountlock.Unlock(o.paymentAccountID) //nolint
-		return err
-	}
+	locked := false
 
-	info.Idle = true
-	info.OccupiedBy = billingconst.TransactionForNotUsed
-	_, err = billingcli.UpdateGoodPayment(ctx, info)
+	_, err := payaccmwcli.UpdateAccount(ctx, &payaccmwpb.AccountReq{
+		ID:     &o.goodPaymentID,
+		Locked: &locked,
+	})
 
 	accountlock.Unlock(o.paymentAccountID) //nolint
 	return err
@@ -825,14 +827,12 @@ func (o *OrderCreate) Create(ctx context.Context) (*npool.Order, error) {
 	o.end = o.start + o.GoodDurationDays*secondsPerDay
 
 	ord, err := ordermwcli.CreateOrder(ctx, &ordermwpb.OrderReq{
-		AppID:     &o.AppID,
-		UserID:    &o.UserID,
-		GoodID:    &o.GoodID,
-		Units:     &o.Units,
-		OrderType: &o.OrderType,
-
-		ParentOrderID: o.ParentOrderID,
-
+		AppID:                     &o.AppID,
+		UserID:                    &o.UserID,
+		GoodID:                    &o.GoodID,
+		Units:                     &o.Units,
+		OrderType:                 &o.OrderType,
+		ParentOrderID:             o.ParentOrderID,
 		PaymentCoinID:             &o.PaymentCoinID,
 		PayWithBalanceAmount:      o.BalanceAmount,
 		PaymentAccountID:          &o.paymentAccountID,
@@ -841,15 +841,12 @@ func (o *OrderCreate) Create(ctx context.Context) (*npool.Order, error) {
 		PaymentCoinUSDCurrency:    &coinCurrency,
 		PaymentLiveUSDCurrency:    &liveCurrency,
 		PaymentLocalUSDCurrency:   &localCurrency,
-
-		FixAmountID:    o.FixAmountID,
-		DiscountID:     o.DiscountID,
-		SpecialOfferID: o.SpecialOfferID,
-
-		Start: &o.start,
-		End:   &o.end,
-
-		PromotionID: o.promotionID,
+		FixAmountID:               o.FixAmountID,
+		DiscountID:                o.DiscountID,
+		SpecialOfferID:            o.SpecialOfferID,
+		Start:                     &o.start,
+		End:                       &o.end,
+		PromotionID:               o.promotionID,
 	})
 	if err != nil {
 		return nil, err
