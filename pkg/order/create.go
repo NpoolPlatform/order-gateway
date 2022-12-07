@@ -402,33 +402,6 @@ func (o *OrderCreate) SetPrice(ctx context.Context) error {
 }
 
 func (o *OrderCreate) SetCurrency(ctx context.Context) error {
-	apc, err := appcoinmwcli.GetCoinOnly(ctx, &appcoinmwpb.Conds{
-		AppID: &commonpb.StringVal{
-			Op:    cruder.EQ,
-			Value: o.AppID,
-		},
-		CoinTypeID: &commonpb.StringVal{
-			Op:    cruder.EQ,
-			Value: o.PaymentCoinID,
-		},
-	})
-	if err != nil {
-		return err
-	}
-	if apc != nil {
-		curr, err := decimal.NewFromString(apc.SettleValue)
-		if err != nil {
-			return err
-		}
-		if curr.Cmp(decimal.NewFromInt(0)) <= 0 {
-			return fmt.Errorf("invalid settle value")
-		}
-
-		o.coinCurrency = curr
-
-		return nil
-	}
-
 	curr, err := currvalmwcli.GetCoinCurrency(ctx, o.PaymentCoinID)
 	if err != nil {
 		return err
@@ -445,7 +418,34 @@ func (o *OrderCreate) SetCurrency(ctx context.Context) error {
 		return fmt.Errorf("invalid settle value")
 	}
 
-	o.coinCurrency = val
+	o.liveCurrency = val
+
+	apc, err := appcoinmwcli.GetCoinOnly(ctx, &appcoinmwpb.Conds{
+		AppID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.AppID,
+		},
+		CoinTypeID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.PaymentCoinID,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if apc == nil {
+		return fmt.Errorf("invalid appcoin")
+	}
+
+	currVal, err := decimal.NewFromString(apc.SettleValue)
+	if err != nil {
+		return err
+	}
+	if currVal.Cmp(decimal.NewFromInt(0)) <= 0 {
+		return fmt.Errorf("invalid settle value")
+	}
+
+	o.coinCurrency = currVal
 
 	return nil
 }
