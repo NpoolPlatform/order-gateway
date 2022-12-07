@@ -415,7 +415,7 @@ func (o *OrderCreate) SetCurrency(ctx context.Context) error {
 		return err
 	}
 	if val.Cmp(decimal.NewFromInt(0)) <= 0 {
-		return fmt.Errorf("invalid settle value")
+		return fmt.Errorf("invalid market value")
 	}
 
 	o.liveCurrency = val
@@ -442,21 +442,17 @@ func (o *OrderCreate) SetCurrency(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if currVal.Cmp(decimal.NewFromInt(0)) <= 0 {
-		return fmt.Errorf("invalid settle value")
+	if currVal.Cmp(decimal.NewFromInt(0)) > 0 {
+		o.coinCurrency = currVal
 	}
-
-	o.coinCurrency = currVal
 
 	currVal, err = decimal.NewFromString(apc.MarketValue)
 	if err != nil {
 		return err
 	}
-	if currVal.Cmp(decimal.NewFromInt(0)) <= 0 {
-		return fmt.Errorf("invalid market value")
+	if currVal.Cmp(decimal.NewFromInt(0)) > 0 {
+		o.localCurrency = currVal
 	}
-
-	o.localCurrency = currVal
 
 	return nil
 }
