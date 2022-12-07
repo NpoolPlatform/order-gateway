@@ -419,6 +419,7 @@ func (o *OrderCreate) SetCurrency(ctx context.Context) error {
 	}
 
 	o.liveCurrency = val
+	o.coinCurrency = val
 
 	apc, err := appcoinmwcli.GetCoinOnly(ctx, &appcoinmwpb.Conds{
 		AppID: &commonpb.StringVal{
@@ -434,7 +435,7 @@ func (o *OrderCreate) SetCurrency(ctx context.Context) error {
 		return err
 	}
 	if apc == nil {
-		return fmt.Errorf("invalid appcoin")
+		return nil
 	}
 
 	currVal, err := decimal.NewFromString(apc.SettleValue)
