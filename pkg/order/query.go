@@ -298,7 +298,7 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 			Value: appID,
 		},
 		CoinTypeIDs: &commonpb.StringSliceVal{
-			Op:    cruder.EQ,
+			Op:    cruder.IN,
 			Value: coinTypeIDs,
 		},
 	}, 0, int32(len(coinTypeIDs)))
@@ -308,7 +308,7 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 
 	coinMap := map[string]*appcoinpb.Coin{}
 	for _, coin := range coins {
-		coinMap[coin.ID] = coin
+		coinMap[coin.CoinTypeID] = coin
 	}
 
 	accIDs := []string{}
