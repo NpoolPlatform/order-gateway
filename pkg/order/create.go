@@ -448,6 +448,16 @@ func (o *OrderCreate) SetCurrency(ctx context.Context) error {
 
 	o.coinCurrency = currVal
 
+	currVal, err = decimal.NewFromString(apc.MarketValue)
+	if err != nil {
+		return err
+	}
+	if currVal.Cmp(decimal.NewFromInt(0)) <= 0 {
+		return fmt.Errorf("invalid market value")
+	}
+
+	o.localCurrency = currVal
+
 	return nil
 }
 
