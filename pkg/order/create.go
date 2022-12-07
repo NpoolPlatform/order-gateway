@@ -17,9 +17,9 @@ import (
 
 	goodcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 
-	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/appcoin"
+	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/appcoin"
 	coininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin"
-	currvalmwcli "github.com/NpoolPlatform/chain-middleware/pkg/coin/currency/value"
+	currvalmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin/currency/value"
 	appgoodcli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
 	couponcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
