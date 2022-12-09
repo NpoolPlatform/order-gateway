@@ -415,10 +415,11 @@ func (o *OrderCreate) SetCurrency(ctx context.Context) error {
 		return err
 	}
 	if val.Cmp(decimal.NewFromInt(0)) <= 0 {
-		return fmt.Errorf("invalid settle value")
+		return fmt.Errorf("invalid market value")
 	}
 
 	o.liveCurrency = val
+	o.coinCurrency = val
 
 	apc, err := appcoinmwcli.GetCoinOnly(ctx, &appcoinmwpb.Conds{
 		AppID: &commonpb.StringVal{
@@ -434,18 +435,24 @@ func (o *OrderCreate) SetCurrency(ctx context.Context) error {
 		return err
 	}
 	if apc == nil {
-		return fmt.Errorf("invalid appcoin")
+		return nil
 	}
 
 	currVal, err := decimal.NewFromString(apc.SettleValue)
 	if err != nil {
 		return err
 	}
-	if currVal.Cmp(decimal.NewFromInt(0)) <= 0 {
-		return fmt.Errorf("invalid settle value")
+	if currVal.Cmp(decimal.NewFromInt(0)) > 0 {
+		o.coinCurrency = currVal
 	}
 
-	o.coinCurrency = currVal
+	currVal, err = decimal.NewFromString(apc.MarketValue)
+	if err != nil {
+		return err
+	}
+	if currVal.Cmp(decimal.NewFromInt(0)) > 0 {
+		o.localCurrency = currVal
+	}
 
 	return nil
 }
