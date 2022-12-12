@@ -410,6 +410,11 @@ func (o *OrderCreate) SetCurrency(ctx context.Context) error {
 		return fmt.Errorf("invalid coin currency")
 	}
 
+	const maxElapsed = uint32(10 * 60)
+	if curr.UpdatedAt+maxElapsed < uint32(time.Now().Unix()) {
+		return fmt.Errorf("stale coin currency")
+	}
+
 	val, err := decimal.NewFromString(curr.MarketValueLow)
 	if err != nil {
 		return err
