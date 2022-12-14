@@ -581,13 +581,11 @@ func (o *OrderCreate) peekAddress(ctx context.Context) (*payaccmwpb.Account, err
 
 		if info.Locked || !info.Active || info.Blocked {
 			accountlock.Unlock(payment.AccountID) //nolint
-			logger.Sugar().Infow("peekAddress", "payment", info.Address, "ID", payment.ID, "Locked", info.Locked, "Active", info.Active, "Blocked", info.Blocked)
 			continue
 		}
 
 		if info.AvailableAt > uint32(time.Now().Unix()) {
 			accountlock.Unlock(payment.AccountID) //nolint
-			logger.Sugar().Infow("peekAddress", "payment", payment.Address, "ID", payment.ID, "Now", time.Now().Unix(), "AvailableAt", info.AvailableAt)
 			continue
 		}
 
