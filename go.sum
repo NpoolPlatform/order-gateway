@@ -108,9 +108,9 @@ github.com/NpoolPlatform/appuser-middleware v0.0.0-20220828053822-e809766566c6 h
 github.com/NpoolPlatform/appuser-middleware v0.0.0-20220828053822-e809766566c6/go.mod h1:0A3rrYP9o9blBxgj/HvH629dsdA+pL/UwqCNgTmSzgc=
 github.com/NpoolPlatform/archivement-middleware v0.0.0-20220906070411-67ca1d6f070c h1:xJ9Q42P8y421q+LUAmd6vO1Dc1AKhVC384jcvKd7IdU=
 github.com/NpoolPlatform/archivement-middleware v0.0.0-20220906070411-67ca1d6f070c/go.mod h1:+tOsdkoKj9HgipTzpB09NHb6EPxQH9b7y3Ug4QxsrpU=
-github.com/NpoolPlatform/chain-manager v0.0.0-20221204052658-ed5e4546be8a h1:8FeuQZTayALj41zQhd97Pc7VxdqTa681l/OmfFzgo2I=
-github.com/NpoolPlatform/chain-middleware v0.0.0-20221205095020-eee477e50f35 h1:g678BJ71EFb+3lzxCeC5GvtPfU5zeKUPd8/X56SR1KE=
-github.com/NpoolPlatform/chain-middleware v0.0.0-20221205095020-eee477e50f35/go.mod h1:gJEiKzFAm69Mv/OAXe2z55NeitUaVWxMdGHbtK9R3Ao=
+github.com/NpoolPlatform/chain-manager v0.0.0-20221211122205-5d3d0e268c98 h1:fbYl+mBfeNc6AcmBRy+yVKR2F51tH1UGrRY//yQzKk8=
+github.com/NpoolPlatform/chain-middleware v0.0.0-20221212074846-7db16f9626a6 h1:9n2GONP0Kawljwk0idmqWijMIF6zJFS3tbDChyNSSy4=
+github.com/NpoolPlatform/chain-middleware v0.0.0-20221212074846-7db16f9626a6/go.mod h1:qeMgkqDy2H7dBns3zHMGSsDK6MRcrqe9jBGYcmot1MI=
 github.com/NpoolPlatform/cloud-hashing-billing v0.0.0-20220211112041-cb90970f6df1/go.mod h1:XjIMD/UTr6zXfDDesd/Aez2XR+r6XFZuQVWCkpOIEbA=
 github.com/NpoolPlatform/cloud-hashing-billing v0.0.0-20220614030114-0f11beeee655/go.mod h1:dqbEbn4R2JEK8XmxpnwabdYtaK4wfkhSbOpW4kizpS0=
 github.com/NpoolPlatform/cloud-hashing-goods v0.0.0-20220224053549-7b30ca7c2e28/go.mod h1:ASSd0tr5C5b3lDto6QNE9KGyULdKHB++ulMt3wZA+Xk=
@@ -155,8 +155,8 @@ github.com/NpoolPlatform/message v0.0.0-20220614023533-f7ae7ffcc1a2/go.mod h1:3E
 github.com/NpoolPlatform/message v0.0.0-20220706015448-414cc87a22d1/go.mod h1:mzveZUmOwAsS1QAcmeUCdQjmyZKf52i0xwij58KF5K4=
 github.com/NpoolPlatform/message v0.0.0-20220714075917-2ba73782c509/go.mod h1:mzveZUmOwAsS1QAcmeUCdQjmyZKf52i0xwij58KF5K4=
 github.com/NpoolPlatform/message v0.0.0-20220819134247-1dc75c85fe43/go.mod h1:8YXp4MghMHLZ9bBdQQyfjcRtLI2RbEHAQoNCejT2nZU=
-github.com/NpoolPlatform/message v0.0.0-20221205094532-f8b4eb60bf62 h1:e3+ow0nrT1KiPyDudPHcexnDA7Wn37hclptI3K/1hMs=
-github.com/NpoolPlatform/message v0.0.0-20221205094532-f8b4eb60bf62/go.mod h1:G4b3QmQYYHn2okxu8KfD6INUALqno3369SLciqevhtQ=
+github.com/NpoolPlatform/message v0.0.0-20221213074750-5ab00a04b1e5 h1:7z6GBj4i4G7atEEnGnOTAD1pfhJUhxBf/kBAjEufg1A=
+github.com/NpoolPlatform/message v0.0.0-20221213074750-5ab00a04b1e5/go.mod h1:G4b3QmQYYHn2okxu8KfD6INUALqno3369SLciqevhtQ=
 github.com/NpoolPlatform/oracle-manager v0.0.0-20220615040511-dc235b31fa14/go.mod h1:f9Seypsw5N+Kc0P13IurAD/WNHXhzYsBt+d/R17oLfA=
 github.com/NpoolPlatform/order-manager v0.0.0-20221130030111-16e879c04800 h1:a2qbm/V7g46I4jei7cb6ggbxMjNczClW9DqWviFPRlU=
 github.com/NpoolPlatform/order-manager v0.0.0-20221130030111-16e879c04800/go.mod h1:vgGv8A3hIVE9lOhMxuCNArnkL84hsmeSe2BIc/gGMBA=

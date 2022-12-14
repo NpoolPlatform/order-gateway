@@ -555,6 +555,10 @@ func (o *OrderCreate) peekAddress(ctx context.Context) (*payaccmwpb.Account, err
 			Op:    cruder.EQ,
 			Value: false,
 		},
+		AvailableAt: &commonpb.Uint32Val{
+			Op:    cruder.LTE,
+			Value: uint32(time.Now().Unix()),
+		},
 	}, 0, 5) //nolint
 	if err != nil {
 		return nil, err
@@ -564,22 +568,26 @@ func (o *OrderCreate) peekAddress(ctx context.Context) (*payaccmwpb.Account, err
 
 	for _, payment := range payments {
 		if err := accountlock.Lock(payment.AccountID); err != nil {
+			logger.Sugar().Infow("peekAddress", "payment", payment.Address, "ID", payment.ID, "error", err)
 			continue
 		}
 
 		info, err := payaccmwcli.GetAccount(ctx, payment.ID)
 		if err != nil {
 			accountlock.Unlock(payment.AccountID) //nolint
+			logger.Sugar().Infow("peekAddress", "payment", payment.Address, "ID", payment.ID, "error", err)
 			return nil, err
 		}
 
 		if info.Locked || !info.Active || info.Blocked {
 			accountlock.Unlock(payment.AccountID) //nolint
+			logger.Sugar().Infow("peekAddress", "payment", info.Address, "ID", payment.ID, "Locked", info.Locked, "Active", info.Active, "Blocked", info.Blocked)
 			continue
 		}
 
-		if info.AvailableAt >= uint32(time.Now().Unix()) {
+		if info.AvailableAt > uint32(time.Now().Unix()) {
 			accountlock.Unlock(payment.AccountID) //nolint
+			logger.Sugar().Infow("peekAddress", "payment", payment.Address, "ID", payment.ID, "Now", time.Now().Unix(), "AvailableAt", info.AvailableAt)
 			continue
 		}
 
@@ -593,6 +601,7 @@ func (o *OrderCreate) peekAddress(ctx context.Context) (*payaccmwpb.Account, err
 		})
 		if err != nil {
 			accountlock.Unlock(payment.AccountID) //nolint
+			logger.Sugar().Infow("peekAddress", "payment", info.Address, "error", err)
 			return nil, err
 		}
 
