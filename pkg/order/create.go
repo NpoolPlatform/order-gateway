@@ -190,7 +190,7 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		return fmt.Errorf("too many units")
 	}
 
-	const maxUnpaidOrders = 3
+	const maxUnpaidOrders = 5
 
 	payments, _, err := paymentcli.GetPayments(ctx, &paymentmgrpb.Conds{
 		AppID: &commonpb.StringVal{
