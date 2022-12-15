@@ -454,7 +454,7 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 
 		appGood, ok := appGoodMap[ord.AppID+ord.GoodID]
 		if !ok {
-			logger.Sugar().Warnw("good not exist", "AppID", ord.AppID, "GoodID", ord.GoodID)
+			logger.Sugar().Warnw("expand", "AppID", ord.AppID, "GoodID", ord.GoodID)
 			continue
 		}
 
@@ -480,7 +480,7 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 
 		coin, ok := coinMap[o.CoinTypeID]
 		if !ok {
-			logger.Sugar().Warnw("app coin not exist", "AppID", o.AppID, "CoinTypeID", o.CoinTypeID)
+			logger.Sugar().Warnw("expand", "AppID", o.AppID, "CoinTypeID", o.CoinTypeID)
 			continue
 		}
 
@@ -491,7 +491,7 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 		if ord.PaymentID != invalidID && ord.PaymentID != "" {
 			coin, ok = coinMap[ord.PaymentCoinTypeID]
 			if !ok {
-				logger.Sugar().Warnw("app coin not exist", "AppID", o.AppID, "PaymentCoinTypeID", o.PaymentCoinTypeID)
+				logger.Sugar().Warnw("expand", "AppID", o.AppID, "PaymentCoinTypeID", o.PaymentCoinTypeID)
 				continue
 			}
 		}
