@@ -3,13 +3,11 @@ module github.com/NpoolPlatform/order-gateway
 go 1.17
 
 require (
-	entgo.io/ent v0.11.3
 	github.com/NpoolPlatform/account-middleware v0.0.0-20221216032556-c0953cebb9a4
 	github.com/NpoolPlatform/api-manager v0.0.0-20220826022307-d72866fe3ec0
 	github.com/NpoolPlatform/appuser-middleware v0.0.0-20220828053822-e809766566c6
 	github.com/NpoolPlatform/archivement-middleware v0.0.0-20220906070411-67ca1d6f070c
 	github.com/NpoolPlatform/chain-middleware v0.0.0-20221216021206-c73dbc7ea1ce
-	github.com/NpoolPlatform/cloud-hashing-order v0.0.0-20221109034700-1f678d7c71ef
 	github.com/NpoolPlatform/go-service-framework v0.0.0-20221015040432-cd676d323379
 	github.com/NpoolPlatform/good-middleware v0.0.0-20221216031911-f2715afb4b66
 	github.com/NpoolPlatform/inspire-middleware v0.0.0-20220808085657-9354bb053cfb
@@ -34,7 +32,7 @@ require (
 
 require (
 	ariga.io/atlas v0.7.2-0.20220927111110-867ee0cca56a // indirect
-	github.com/NpoolPlatform/cloud-hashing-inspire v0.0.0-20220731100543-621262acb09b // indirect
+	entgo.io/ent v0.11.3 // indirect
 	github.com/Shonminh/apollo-client v0.4.0 // indirect
 	github.com/agext/levenshtein v1.2.1 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
