@@ -289,6 +289,9 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 
 	accIDs := []string{}
 	for _, ord := range ords {
+		if _, err := uuid.Parse(ord.PaymentAccountID); err != nil {
+			continue
+		}
 		accIDs = append(accIDs, ord.PaymentAccountID)
 	}
 
