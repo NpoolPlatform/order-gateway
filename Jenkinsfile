@@ -287,7 +287,7 @@ pipeline {
           tag=$major.$minor.$patch
 
           set +e
-          docker images | grep order-gateway | grep $tag
+          docker images | grep order-gateway | awk '{print $2}' | grep $tag
           rc=$?
           set -e
           if [ 0 -eq $rc ]; then
