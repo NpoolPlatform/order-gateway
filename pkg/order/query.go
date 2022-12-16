@@ -379,33 +379,6 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 		return nil, err
 	}
 
-	appGoodMap := map[string]*appgoodspb.Good{}
-	for _, appGood := range appGoods {
-		appGoodMap[appGood.AppID+appGood.GoodID] = appGood
-	}
-
-	coinTypeIDs := []string{}
-	for _, val := range ords {
-		coinTypeIDs = append(coinTypeIDs, val.PaymentCoinTypeID)
-	}
-	for _, val := range appGoods {
-		coinTypeIDs = append(coinTypeIDs, val.CoinTypeID)
-	}
-
-	coins, _, err := appcoininfocli.GetCoins(ctx, &appcoinpb.Conds{
-		AppID: &commonpb.StringVal{
-			Op:    cruder.EQ,
-			Value: appID,
-		},
-		CoinTypeIDs: &commonpb.StringSliceVal{
-			Op:    cruder.IN,
-			Value: coinTypeIDs,
-		},
-	}, 0, int32(len(coinTypeIDs)))
-	if err != nil {
-		return nil, err
-	}
-
 	coinMap := map[string]*appcoinpb.Coin{}
 	for _, coin := range coins {
 		coinMap[coin.CoinTypeID] = coin
