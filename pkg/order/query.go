@@ -386,9 +386,15 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 
 	coinTypeIDs := []string{}
 	for _, val := range ords {
+		if _, err := uuid.Parse(val.PaymentCoinTypeID); err != nil {
+			continue
+		}
 		coinTypeIDs = append(coinTypeIDs, val.PaymentCoinTypeID)
 	}
 	for _, val := range appGoods {
+		if _, err := uuid.Parse(val.CoinTypeID); err != nil {
+			continue
+		}
 		coinTypeIDs = append(coinTypeIDs, val.CoinTypeID)
 	}
 
