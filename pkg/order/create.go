@@ -250,7 +250,18 @@ func (o *OrderCreate) SetReduction(ctx context.Context) error {
 		return fmt.Errorf("invalid coupon")
 	}
 
-	// TODO: check if coupon used by any order
+	exist, err := ordercli.ExistOrderConds(ctx, &ordermgrpb.Conds{
+		CouponIDs: &commonpb.StringSliceVal{
+			Op:    cruder.EQ,
+			Value: o.CouponIDs,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if exist {
+		return fmt.Errorf("coupon already used")
+	}
 
 	for _, coup := range coupons {
 		switch coup.CouponType {
