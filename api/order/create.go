@@ -91,6 +91,12 @@ func createOrder(ctx context.Context, in *npool.CreateOrderRequest) (*npool.Orde
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 	}
+	for _, id := range in.GetCouponIDs() {
+		if _, err := uuid.Parse(id); err != nil {
+			logger.Sugar().Errorw("CreateOrder", "error", err)
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+	}
 
 	span = commontracer.TraceInvoker(span, "order", "gateway", "CreateOrder")
 
@@ -107,6 +113,7 @@ func createOrder(ctx context.Context, in *npool.CreateOrderRequest) (*npool.Orde
 		DiscountID:     in.DiscountID,
 		SpecialOfferID: in.SpecialOfferID,
 		OrderType:      in.GetOrderType(),
+		CouponIDs:      in.CouponIDs,
 	})
 	if err != nil {
 		logger.Sugar().Errorw("CreateOrder", "error", err)

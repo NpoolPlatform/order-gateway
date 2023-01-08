@@ -6,17 +6,16 @@ require (
 	github.com/NpoolPlatform/account-middleware v0.0.0-20221216032556-c0953cebb9a4
 	github.com/NpoolPlatform/api-manager v0.0.0-20220826022307-d72866fe3ec0
 	github.com/NpoolPlatform/appuser-middleware v0.0.0-20220828053822-e809766566c6
-	github.com/NpoolPlatform/archivement-middleware v0.0.0-20220906070411-67ca1d6f070c
 	github.com/NpoolPlatform/chain-middleware v0.0.0-20221216021206-c73dbc7ea1ce
 	github.com/NpoolPlatform/cloud-hashing-order v0.0.0-20220706022206-f2cdf41ea8ed
-	github.com/NpoolPlatform/go-service-framework v0.0.0-20221015040432-cd676d323379
+	github.com/NpoolPlatform/go-service-framework v0.0.0-20230102062414-c71643aee0bd
 	github.com/NpoolPlatform/good-middleware v0.0.0-20221216031911-f2715afb4b66
-	github.com/NpoolPlatform/inspire-middleware v0.0.0-20220808085657-9354bb053cfb
+	github.com/NpoolPlatform/inspire-middleware v0.0.0-20230108055039-fe173f498a26
 	github.com/NpoolPlatform/ledger-middleware v0.0.0-20221116101840-fd73c8979e03
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20221109023947-366125b690fb
-	github.com/NpoolPlatform/message v0.0.0-20221216024225-e7572ae5c761
-	github.com/NpoolPlatform/order-manager v0.0.0-20221215035849-67d0e844cfd2
-	github.com/NpoolPlatform/order-middleware v0.0.0-20221215041035-9804ca4d3515
+	github.com/NpoolPlatform/message v0.0.0-20230108062124-a0690a28e42f
+	github.com/NpoolPlatform/order-manager v0.0.0-20230108060834-7a8344055927
+	github.com/NpoolPlatform/order-middleware v0.0.0-20230108061420-b8f698aceae2
 	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20221216033352-21a0a47434fe
 	github.com/NpoolPlatform/staker-manager v0.0.0-20220715052242-57491c7251b9
 	github.com/go-resty/resty/v2 v2.7.0

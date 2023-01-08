@@ -11,15 +11,16 @@ import (
 	usercli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	appcoininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/appcoin"
 	coininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin"
-	couponcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon"
+	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordercli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 
 	userpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 
 	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
-	appcoinpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/appcoin"
-	couponpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/inspire/coupon"
+	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/appcoin"
+	allocatedmgrpb "github.com/NpoolPlatform/message/npool/inspire/mgr/v1/coupon/allocated"
+	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 
 	appgoodscli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
@@ -174,37 +175,37 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 		o.PaymentAddress = account.Address
 	}
 
-	coupon, err := couponcli.GetCoupon(ctx, ord.FixAmountID, couponpb.CouponType_FixAmount)
+	coupons, _, err := allocatedmwcli.GetCoupons(ctx, &allocatedmgrpb.Conds{
+		AppID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: ord.AppID,
+		},
+		IDs: &commonpb.StringSliceVal{
+			Op:    cruder.IN,
+			Value: ord.CouponIDs,
+		},
+	}, int32(0), int32(len(ord.CouponIDs)))
 	if err != nil {
 		return nil, err
 	}
 
-	if coupon != nil {
-		o.FixAmountName = coupon.Name
-		o.FixAmountAmount = coupon.Value
+	couponMap := map[string]*allocatedmwpb.Coupon{}
+	for _, coup := range coupons {
+		couponMap[coup.ID] = coup
 	}
 
-	coupon, err = couponcli.GetCoupon(ctx, ord.DiscountID, couponpb.CouponType_Discount)
-	if err != nil {
-		return nil, err
-	}
-
-	if coupon != nil {
-		o.DiscountName = coupon.Name
-		v, err := decimal.NewFromString(coupon.Value)
-		if err != nil {
-			return nil, err
+	for _, id := range ord.CouponIDs {
+		coup, ok := couponMap[id]
+		if !ok {
+			continue
 		}
-		o.DiscountPercent = uint32(v.IntPart())
-	}
 
-	coupon, err = couponcli.GetCoupon(ctx, ord.SpecialOfferID, couponpb.CouponType_SpecialOffer)
-	if err != nil {
-		return nil, err
-	}
-
-	if coupon != nil {
-		o.SpecialOfferAmount = coupon.Value
+		o.Coupons = append(o.Coupons, &npool.Coupon{
+			CouponID:    id,
+			CouponType:  coup.CouponType,
+			CouponName:  coup.CouponName,
+			CouponValue: coup.Value,
+		})
 	}
 
 	return o, nil
@@ -311,58 +312,27 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 	}
 
 	ids := []string{}
-
 	for _, ord := range ords {
-		if ord.FixAmountID == invalidID {
-			continue
-		}
-		ids = append(ids, ord.FixAmountID)
+		ids = append(ids, ord.CouponIDs...)
 	}
 
-	coupons, err := couponcli.GetManyCoupons(ctx, ids, couponpb.CouponType_FixAmount)
+	coupons, _, err := allocatedmwcli.GetCoupons(ctx, &allocatedmgrpb.Conds{
+		AppID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: appID,
+		},
+		IDs: &commonpb.StringSliceVal{
+			Op:    cruder.IN,
+			Value: ids,
+		},
+	}, int32(0), int32(len(ids)))
 	if err != nil {
 		return nil, err
 	}
 
-	fixAmountMap := map[string]*couponpb.Coupon{}
-	for _, coupon := range coupons {
-		fixAmountMap[coupon.ID] = coupon
-	}
-
-	ids = []string{}
-	for _, ord := range ords {
-		if ord.DiscountID == invalidID {
-			continue
-		}
-		ids = append(ids, ord.DiscountID)
-	}
-
-	coupons, err = couponcli.GetManyCoupons(ctx, ids, couponpb.CouponType_Discount)
-	if err != nil {
-		return nil, err
-	}
-
-	discountMap := map[string]*couponpb.Coupon{}
-	for _, coupon := range coupons {
-		discountMap[coupon.ID] = coupon
-	}
-
-	ids = []string{}
-	for _, ord := range ords {
-		if ord.SpecialOfferID == invalidID {
-			continue
-		}
-		ids = append(ids, ord.SpecialOfferID)
-	}
-
-	coupons, err = couponcli.GetManyCoupons(ctx, ids, couponpb.CouponType_SpecialOffer)
-	if err != nil {
-		return nil, err
-	}
-
-	specialOfferMap := map[string]*couponpb.Coupon{}
-	for _, coupon := range coupons {
-		specialOfferMap[coupon.ID] = coupon
+	couponMap := map[string]*allocatedmwpb.Coupon{}
+	for _, coup := range coupons {
+		couponMap[coup.ID] = coup
 	}
 
 	appGoods, _, err := appgoodscli.GetGoods(ctx, &appgoodsmgrpb.Conds{
@@ -398,7 +368,7 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 		coinTypeIDs = append(coinTypeIDs, val.CoinTypeID)
 	}
 
-	coins, _, err := appcoininfocli.GetCoins(ctx, &appcoinpb.Conds{
+	coins, _, err := appcoininfocli.GetCoins(ctx, &appcoinmwpb.Conds{
 		AppID: &commonpb.StringVal{
 			Op:    cruder.EQ,
 			Value: appID,
@@ -412,7 +382,7 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 		return nil, err
 	}
 
-	coinMap := map[string]*appcoinpb.Coin{}
+	coinMap := map[string]*appcoinmwpb.Coin{}
 	for _, coin := range coins {
 		coinMap[coin.CoinTypeID] = coin
 	}
@@ -519,20 +489,18 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 			o.PaymentAddress = acc.Address
 		}
 
-		if coupon, ok := fixAmountMap[ord.FixAmountID]; ok {
-			o.FixAmountName = coupon.Name
-			o.FixAmountAmount = coupon.Value
-		}
-		if coupon, ok := discountMap[ord.DiscountID]; ok {
-			o.DiscountName = coupon.Name
-			percent, err := decimal.NewFromString(coupon.Value)
-			if err != nil {
-				return nil, err
+		for _, id := range ord.CouponIDs {
+			coup, ok := couponMap[id]
+			if !ok {
+				continue
 			}
-			o.DiscountPercent = uint32(percent.IntPart())
-		}
-		if coupon, ok := specialOfferMap[ord.SpecialOfferID]; ok {
-			o.SpecialOfferAmount = coupon.Value
+
+			o.Coupons = append(o.Coupons, &npool.Coupon{
+				CouponID:    id,
+				CouponType:  coup.CouponType,
+				CouponName:  coup.CouponName,
+				CouponValue: coup.Value,
+			})
 		}
 
 		infos = append(infos, o)
