@@ -153,8 +153,8 @@ github.com/NpoolPlatform/message v0.0.0-20220819134247-1dc75c85fe43/go.mod h1:8Y
 github.com/NpoolPlatform/message v0.0.0-20230108062124-a0690a28e42f h1:k+BI6vzROkUUHjpYCP7xDvP3lXZQi72d5bFRTqbLxO0=
 github.com/NpoolPlatform/message v0.0.0-20230108062124-a0690a28e42f/go.mod h1:G4b3QmQYYHn2okxu8KfD6INUALqno3369SLciqevhtQ=
 github.com/NpoolPlatform/oracle-manager v0.0.0-20220615040511-dc235b31fa14/go.mod h1:f9Seypsw5N+Kc0P13IurAD/WNHXhzYsBt+d/R17oLfA=
-github.com/NpoolPlatform/order-manager v0.0.0-20230108060834-7a8344055927 h1:ib0s4/+4gaSG2aLPWujuzAdwwaJEkaU9CvF/6TKbrQs=
-github.com/NpoolPlatform/order-manager v0.0.0-20230108060834-7a8344055927/go.mod h1:MkUOM/RV99+UMZz0KR2ba7+BcUiuNawIDuxn3wMpmSs=
+github.com/NpoolPlatform/order-manager v0.0.0-20230108073801-29fc9a6167f3 h1:EDLW9n8jrL0BXnOzfBXaxoRGkB0CRGebFEHzp9jLbhg=
+github.com/NpoolPlatform/order-manager v0.0.0-20230108073801-29fc9a6167f3/go.mod h1:MkUOM/RV99+UMZz0KR2ba7+BcUiuNawIDuxn3wMpmSs=
 github.com/NpoolPlatform/order-middleware v0.0.0-20230108061420-b8f698aceae2 h1:uhwxEke+/FPdRhWGs/IpxYeCg5P7NWD7A+fWZlbxpCQ=
 github.com/NpoolPlatform/order-middleware v0.0.0-20230108061420-b8f698aceae2/go.mod h1:sCrN69kUHtoHUxyWmQNI+m26YG/65QKE2ZpSqjPYq5o=
 github.com/NpoolPlatform/sphinx-coininfo v0.0.0-20211206035652-888de6e20996/go.mod h1:w203lHGAaRvZqEMLxJI8wBxAoVvE3RHMU3jtwN/AdgE=
