@@ -264,23 +264,19 @@ func (o *OrderCreate) SetReduction(ctx context.Context) error {
 	}
 
 	for _, coup := range coupons {
+		if !coup.Valid || coup.Expired || coup.AppID != o.AppID || coup.UserID != o.UserID {
+			return fmt.Errorf("invalid coupon")
+		}
 		switch coup.CouponType {
 		case allocatedmgrpb.CouponType_FixAmount:
 			fallthrough //nolint
 		case allocatedmgrpb.CouponType_SpecialOffer:
-			if !coup.Valid || coup.Expired || coup.AppID != o.AppID || coup.UserID != o.UserID {
-				return fmt.Errorf("invalid coupon")
-			}
 			amount, err := decimal.NewFromString(coup.Value)
 			if err != nil {
 				return err
 			}
 			o.reductionAmount = o.reductionAmount.Add(amount)
 		case allocatedmgrpb.CouponType_Discount:
-			if !coup.Valid || coup.Expired || coup.AppID != o.AppID || coup.UserID != o.UserID {
-				return fmt.Errorf("invalid coupon")
-			}
-
 			percent, err := decimal.NewFromString(coup.Value)
 			if err != nil {
 				return err
