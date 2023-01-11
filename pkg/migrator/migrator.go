@@ -33,7 +33,7 @@ func dsn(hostname string) (string, error) {
 
 	svc, err := config.PeekService(constant.MysqlServiceName)
 	if err != nil {
-		logger.Sugar().Warnw("dsb", "error", err)
+		logger.Sugar().Warnw("dsn", "error", err)
 		return "", err
 	}
 
