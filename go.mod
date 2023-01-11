@@ -3,20 +3,19 @@ module github.com/NpoolPlatform/order-gateway
 go 1.17
 
 require (
-	github.com/NpoolPlatform/account-middleware v0.0.0-20221216032556-c0953cebb9a4
+	github.com/NpoolPlatform/account-middleware v0.0.0-20221220111928-0c1abbca2829
 	github.com/NpoolPlatform/api-manager v0.0.0-20220826022307-d72866fe3ec0
-	github.com/NpoolPlatform/appuser-middleware v0.0.0-20220828053822-e809766566c6
-	github.com/NpoolPlatform/chain-middleware v0.0.0-20221216021206-c73dbc7ea1ce
-	github.com/NpoolPlatform/cloud-hashing-order v0.0.0-20220706022206-f2cdf41ea8ed
+	github.com/NpoolPlatform/appuser-middleware v0.0.0-20230111062013-f804f8850e22
+	github.com/NpoolPlatform/chain-middleware v0.0.0-20230111062408-7bc4b269c1d4
 	github.com/NpoolPlatform/go-service-framework v0.0.0-20230102062414-c71643aee0bd
-	github.com/NpoolPlatform/good-middleware v0.0.0-20221216031911-f2715afb4b66
-	github.com/NpoolPlatform/inspire-middleware v0.0.0-20230108055039-fe173f498a26
-	github.com/NpoolPlatform/ledger-middleware v0.0.0-20221116101840-fd73c8979e03
+	github.com/NpoolPlatform/good-middleware v0.0.0-20230111062156-9d26cfe25c94
+	github.com/NpoolPlatform/inspire-middleware v0.0.0-20230111061613-a6bccb1a45ba
+	github.com/NpoolPlatform/ledger-middleware v0.0.0-20230111062738-1054218618aa
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20221109023947-366125b690fb
-	github.com/NpoolPlatform/message v0.0.0-20230108062124-a0690a28e42f
-	github.com/NpoolPlatform/order-manager v0.0.0-20230108075456-84f578f5db99
-	github.com/NpoolPlatform/order-middleware v0.0.0-20230108061420-b8f698aceae2
-	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20221216033352-21a0a47434fe
+	github.com/NpoolPlatform/message v0.0.0-20230110162534-83df43757858
+	github.com/NpoolPlatform/order-manager v0.0.0-20230111061107-a2737f006192
+	github.com/NpoolPlatform/order-middleware v0.0.0-20230111062552-aa2af7d0c282
+	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20221216051435-3c588d703326
 	github.com/NpoolPlatform/staker-manager v0.0.0-20220715052242-57491c7251b9
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/google/uuid v1.3.0
