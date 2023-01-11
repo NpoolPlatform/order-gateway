@@ -15,13 +15,13 @@ import (
 	ordercli "github.com/NpoolPlatform/order-manager/pkg/client/order"
 	paymentcli "github.com/NpoolPlatform/order-manager/pkg/client/payment"
 
-	goodcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
+	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/appcoin"
 	coininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin"
 	currvalmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin/currency"
-	appgoodcli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
-	couponcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon"
+	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
+	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 	sphinxproxycli "github.com/NpoolPlatform/sphinx-proxy/pkg/client"
 
@@ -32,7 +32,7 @@ import (
 
 	accountmgrpb "github.com/NpoolPlatform/message/npool/account/mgr/v1/account"
 	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
-	couponpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/inspire/coupon"
+	allocatedmgrpb "github.com/NpoolPlatform/message/npool/inspire/mgr/v1/coupon/allocated"
 	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order"
 	paymentmgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/payment"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
@@ -66,6 +66,7 @@ type OrderCreate struct {
 	FixAmountID    *string
 	DiscountID     *string
 	SpecialOfferID *string
+	CouponIDs      []string
 
 	paymentCoinName           string
 	paymentAmountUSD          decimal.Decimal
@@ -107,7 +108,7 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		return fmt.Errorf("invalid user")
 	}
 
-	good, err := goodcli.GetGood(ctx, o.GoodID)
+	good, err := goodmwcli.GetGood(ctx, o.GoodID)
 	if err != nil {
 		return err
 	}
@@ -155,7 +156,7 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		}
 	}
 
-	ag, err := appgoodcli.GetGoodOnly(ctx, &appgoodpb.Conds{
+	ag, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodpb.Conds{
 		AppID: &commonpb.StringVal{
 			Op:    cruder.EQ,
 			Value: o.AppID,
@@ -228,130 +229,90 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 
 // nolint
 func (o *OrderCreate) SetReduction(ctx context.Context) error {
-	var fixAmount *couponpb.Coupon
-	if o.FixAmountID != nil {
-		ord, err := ordercli.GetOrderOnly(ctx, &ordermgrpb.Conds{
-			AppID: &commonpb.StringVal{
+	coupons, _, err := allocatedmwcli.GetCoupons(ctx, &allocatedmgrpb.Conds{
+		AppID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.AppID,
+		},
+		UserID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.UserID,
+		},
+		IDs: &commonpb.StringSliceVal{
+			Op:    cruder.IN,
+			Value: o.CouponIDs,
+		},
+	}, int32(0), int32(len(o.CouponIDs)))
+	if err != nil {
+		return err
+	}
+	if len(coupons) != len(o.CouponIDs) {
+		return fmt.Errorf("invalid coupon")
+	}
+
+	if len(o.CouponIDs) > 0 {
+		exist, err := ordercli.ExistOrderConds(ctx, &ordermgrpb.Conds{
+			CouponIDs: &commonpb.StringSliceVal{
 				Op:    cruder.EQ,
-				Value: o.AppID,
-			},
-			UserID: &commonpb.StringVal{
-				Op:    cruder.EQ,
-				Value: o.UserID,
-			},
-			FixAmountCouponID: &commonpb.StringVal{
-				Op:    cruder.EQ,
-				Value: *o.FixAmountID,
+				Value: o.CouponIDs,
 			},
 		})
-
-		if ord != nil {
-			return fmt.Errorf("used coupon")
-		}
-
-		fixAmount, err = couponcli.GetCoupon(ctx, *o.FixAmountID, couponpb.CouponType_FixAmount)
 		if err != nil {
 			return err
 		}
+		if exist {
+			return fmt.Errorf("coupon already used")
+		}
 	}
-	if fixAmount != nil {
-		if !fixAmount.Valid || fixAmount.Expired || fixAmount.AppID != o.AppID || fixAmount.UserID != o.UserID {
+
+	for _, coup := range coupons {
+		if !coup.Valid || coup.Expired || coup.AppID != o.AppID || coup.UserID != o.UserID {
 			return fmt.Errorf("invalid coupon")
 		}
-		amount, err := decimal.NewFromString(fixAmount.Value)
-		if err != nil {
-			return err
+		switch coup.CouponType {
+		case allocatedmgrpb.CouponType_FixAmount:
+			fallthrough //nolint
+		case allocatedmgrpb.CouponType_SpecialOffer:
+			amount, err := decimal.NewFromString(coup.Value)
+			if err != nil {
+				return err
+			}
+			o.reductionAmount = o.reductionAmount.Add(amount)
+		case allocatedmgrpb.CouponType_Discount:
+			percent, err := decimal.NewFromString(coup.Value)
+			if err != nil {
+				return err
+			}
+			if percent.Cmp(decimal.NewFromInt(100)) >= 0 {
+				return fmt.Errorf("invalid discount")
+			}
+			o.reductionPercent = percent
+		case allocatedmgrpb.CouponType_ThresholdFixAmount:
+			fallthrough //nolint
+		case allocatedmgrpb.CouponType_ThresholdDiscount:
+			fallthrough //nolint
+		case allocatedmgrpb.CouponType_GoodFixAmount:
+			fallthrough //nolint
+		case allocatedmgrpb.CouponType_GoodDiscount:
+			fallthrough //nolint
+		case allocatedmgrpb.CouponType_GoodThresholdFixAmount:
+			fallthrough //nolint
+		case allocatedmgrpb.CouponType_GoodThresholdDiscount:
+			return fmt.Errorf("not implemented")
+		default:
+			return fmt.Errorf("unknown coupon type")
 		}
-		o.reductionAmount = o.reductionAmount.Add(amount)
-	}
-
-	var discount *couponpb.Coupon
-	if o.DiscountID != nil {
-		ord, err := ordercli.GetOrderOnly(ctx, &ordermgrpb.Conds{
-			AppID: &commonpb.StringVal{
-				Op:    cruder.EQ,
-				Value: o.AppID,
-			},
-			UserID: &commonpb.StringVal{
-				Op:    cruder.EQ,
-				Value: o.UserID,
-			},
-			DiscountCouponID: &commonpb.StringVal{
-				Op:    cruder.EQ,
-				Value: *o.DiscountID,
-			},
-		})
-
-		if ord != nil {
-			return fmt.Errorf("used coupon")
-		}
-
-		discount, err = couponcli.GetCoupon(ctx, *o.DiscountID, couponpb.CouponType_Discount)
-		if err != nil {
-			return err
-		}
-	}
-	if discount != nil {
-		if !discount.Valid || discount.Expired || discount.AppID != o.AppID || discount.UserID != o.UserID {
-			return fmt.Errorf("invalid coupon")
-		}
-
-		percent, err := decimal.NewFromString(discount.Value)
-		if err != nil {
-			return err
-		}
-		o.reductionPercent = percent
-	}
-	if o.reductionPercent.Cmp(decimal.NewFromInt(100)) > 0 { //nolint
-		return fmt.Errorf("invalid discount")
-	}
-
-	var specialOffer *couponpb.Coupon
-	if o.SpecialOfferID != nil {
-		ord, err := ordercli.GetOrderOnly(ctx, &ordermgrpb.Conds{
-			AppID: &commonpb.StringVal{
-				Op:    cruder.EQ,
-				Value: o.AppID,
-			},
-			UserID: &commonpb.StringVal{
-				Op:    cruder.EQ,
-				Value: o.UserID,
-			},
-			UserSpecialReductionID: &commonpb.StringVal{
-				Op:    cruder.EQ,
-				Value: *o.SpecialOfferID,
-			},
-		})
-
-		if ord != nil {
-			return fmt.Errorf("used coupon")
-		}
-
-		specialOffer, err = couponcli.GetCoupon(ctx, *o.SpecialOfferID, couponpb.CouponType_SpecialOffer)
-		if err != nil {
-			return err
-		}
-	}
-	if specialOffer != nil {
-		if !specialOffer.Valid || specialOffer.Expired || specialOffer.AppID != o.AppID || specialOffer.UserID != o.UserID {
-			return fmt.Errorf("invalid coupon")
-		}
-		amount, err := decimal.NewFromString(specialOffer.Value)
-		if err != nil {
-			return err
-		}
-		o.reductionAmount = o.reductionAmount.Add(amount)
 	}
 
 	return nil
 }
 
 func (o *OrderCreate) SetPrice(ctx context.Context) error {
-	good, err := goodcli.GetGood(ctx, o.GoodID)
+	good, err := goodmwcli.GetGood(ctx, o.GoodID)
 	if err != nil {
 		return err
 	}
-	ag, err := appgoodcli.GetGoodOnly(ctx, &appgoodpb.Conds{
+	ag, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodpb.Conds{
 		AppID: &commonpb.StringVal{
 			Op:    cruder.EQ,
 			Value: o.AppID,
@@ -686,7 +647,7 @@ func (o *OrderCreate) createSubOrder(ctx context.Context) error { //nolint
 
 func (o *OrderCreate) LockStock(ctx context.Context) error {
 	units := int32(o.Units)
-	_, err := goodcli.UpdateGood(ctx, &goodmwpb.GoodReq{
+	_, err := goodmwcli.UpdateGood(ctx, &goodmwpb.GoodReq{
 		ID:     &o.GoodID,
 		Locked: &units,
 	})
@@ -698,7 +659,7 @@ func (o *OrderCreate) LockStock(ctx context.Context) error {
 
 func (o *OrderCreate) ReleaseStock(ctx context.Context) error {
 	units := int32(o.Units) * -1
-	_, err := goodcli.UpdateGood(ctx, &goodmwpb.GoodReq{
+	_, err := goodmwcli.UpdateGood(ctx, &goodmwpb.GoodReq{
 		ID:     &o.GoodID,
 		Locked: &units,
 	})

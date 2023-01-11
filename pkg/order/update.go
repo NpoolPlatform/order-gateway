@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	archivementmwcli "github.com/NpoolPlatform/archivement-middleware/pkg/client/archivement"
-	goodscli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
+	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
+	archivementmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/archivement"
 	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
 	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order"
 	paymentmgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/payment"
@@ -26,7 +26,7 @@ func cancelOrder(ctx context.Context, ord *ordermwpb.Order) error {
 		return fmt.Errorf("order state not paid")
 	}
 
-	good, err := goodscli.GetGood(ctx, ord.GetGoodID())
+	good, err := goodmwcli.GetGood(ctx, ord.GetGoodID())
 	if err != nil {
 		return err
 	}
@@ -35,12 +35,12 @@ func cancelOrder(ctx context.Context, ord *ordermwpb.Order) error {
 	}
 	// TODO Distributed transactions should be used
 
-	err = archivementmwcli.Delete(ctx, ord.ID)
+	err = archivementmwcli.Expropriate(ctx, ord.ID)
 	if err != nil {
 		return err
 	}
 	units := -int32(ord.Units)
-	_, err = goodscli.UpdateGood(ctx, &goodmwpb.GoodReq{
+	_, err = goodmwcli.UpdateGood(ctx, &goodmwpb.GoodReq{
 		ID:        &good.ID,
 		InService: &units,
 	})

@@ -13,8 +13,6 @@ import (
 	rabbitmqconst "github.com/NpoolPlatform/go-service-framework/pkg/rabbitmq/const"
 	redisconst "github.com/NpoolPlatform/go-service-framework/pkg/redis/const"
 
-	orderconst "github.com/NpoolPlatform/cloud-hashing-order/pkg/message/const"
-
 	cli "github.com/urfave/cli/v2"
 )
 
@@ -36,7 +34,6 @@ func main() {
 		mysqlconst.MysqlServiceName,
 		rabbitmqconst.RabbitMQServiceName,
 		redisconst.RedisServiceName,
-		orderconst.ServiceName,
 	)
 	if err != nil {
 		logger.Sugar().Errorf("fail to create %v: %v", servicename.ServiceName, err)
