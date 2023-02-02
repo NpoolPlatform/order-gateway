@@ -116,7 +116,29 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		return fmt.Errorf("invalid good")
 	}
 
-	o.GoodStartAt = good.StartAt
+	ag, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodpb.Conds{
+		AppID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.AppID,
+		},
+		GoodID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: o.GoodID,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if ag == nil {
+		return fmt.Errorf("invalid app good")
+	}
+
+	o.GoodStartAt = ag.ServiceStartAt
+
+	if ag.ServiceStartAt == 0 {
+		o.GoodStartAt = good.StartAt
+	}
+
 	o.GoodDurationDays = uint32(good.DurationDays)
 
 	gcoin, err := coininfocli.GetCoin(ctx, good.CoinTypeID)
@@ -154,23 +176,6 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		if order == nil {
 			return fmt.Errorf("invalid parent order")
 		}
-	}
-
-	ag, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodpb.Conds{
-		AppID: &commonpb.StringVal{
-			Op:    cruder.EQ,
-			Value: o.AppID,
-		},
-		GoodID: &commonpb.StringVal{
-			Op:    cruder.EQ,
-			Value: o.GoodID,
-		},
-	})
-	if err != nil {
-		return err
-	}
-	if ag == nil {
-		return fmt.Errorf("invalid app good")
 	}
 
 	if !ag.Online {
