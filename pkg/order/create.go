@@ -55,7 +55,7 @@ type OrderCreate struct {
 	GoodID           string
 	GoodStartAt      uint32
 	GoodDurationDays uint32
-	Units            uint32
+	Units            string
 
 	PaymentCoinID string
 	BalanceAmount *string
@@ -192,7 +192,11 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 	if ag.Price < good.Price {
 		return fmt.Errorf("invalid app good price")
 	}
-	if ag.PurchaseLimit > 0 && o.Units > uint32(ag.PurchaseLimit) {
+	units, err := decimal.NewFromString(o.Units)
+	if err != nil {
+		return err
+	}
+	if ag.PurchaseLimit > 0 && units.Cmp(decimal.NewFromInt32(ag.PurchaseLimit)) > 0 {
 		return fmt.Errorf("too many units")
 	}
 
@@ -430,8 +434,11 @@ func (o *OrderCreate) SetCurrency(ctx context.Context) error {
 
 func (o *OrderCreate) SetPaymentAmount(ctx context.Context) error {
 	// TODO: also add sub good order payment amount
-
-	o.paymentAmountUSD = o.price.Mul(decimal.NewFromInt(int64(o.Units)))
+	units, err := decimal.NewFromString(o.Units)
+	if err != nil {
+		return err
+	}
+	o.paymentAmountUSD = o.price.Mul(units)
 	logger.Sugar().Infow(
 		"CreateOrder",
 		"PaymentAmountUSD", o.paymentAmountUSD,
@@ -651,10 +658,9 @@ func (o *OrderCreate) createSubOrder(ctx context.Context) error { //nolint
 }
 
 func (o *OrderCreate) LockStock(ctx context.Context) error {
-	units := int32(o.Units)
 	_, err := goodmwcli.UpdateGood(ctx, &goodmwpb.GoodReq{
 		ID:     &o.GoodID,
-		Locked: &units,
+		Locked: &o.Units,
 	})
 	if err != nil {
 		return err
@@ -663,10 +669,14 @@ func (o *OrderCreate) LockStock(ctx context.Context) error {
 }
 
 func (o *OrderCreate) ReleaseStock(ctx context.Context) error {
-	units := int32(o.Units) * -1
-	_, err := goodmwcli.UpdateGood(ctx, &goodmwpb.GoodReq{
+	units, err := decimal.NewFromString(o.Units)
+	if err != nil {
+		return err
+	}
+	unitsStr := units.Neg().String()
+	_, err = goodmwcli.UpdateGood(ctx, &goodmwpb.GoodReq{
 		ID:     &o.GoodID,
-		Locked: &units,
+		Locked: &unitsStr,
 	})
 	if err != nil {
 		return err
