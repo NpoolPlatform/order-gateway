@@ -3,65 +3,48 @@ package migrator
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
-	"time"
-
-	"github.com/NpoolPlatform/go-service-framework/pkg/config"
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
+	"github.com/NpoolPlatform/order-manager/pkg/db/ent"
 
-	constant "github.com/NpoolPlatform/go-service-framework/pkg/mysql/const"
+	"github.com/shopspring/decimal"
+
+	"github.com/NpoolPlatform/order-manager/pkg/db"
 )
 
 func Migrate(ctx context.Context) error {
-	return nil
-}
+	var err error
 
-const (
-	keyUsername = "username"
-	keyPassword = "password"
-	keyDBName   = "database_name"
-	maxOpen     = 10
-	maxIdle     = 10
-	MaxLife     = 3
-)
-
-func dsn(hostname string) (string, error) {
-	username := config.GetStringValueWithNameSpace(constant.MysqlServiceName, keyUsername)
-	password := config.GetStringValueWithNameSpace(constant.MysqlServiceName, keyPassword)
-	dbname := config.GetStringValueWithNameSpace(hostname, keyDBName)
-
-	svc, err := config.PeekService(constant.MysqlServiceName)
-	if err != nil {
-		logger.Sugar().Warnw("dsn", "error", err)
-		return "", err
+	if err := db.Init(); err != nil {
+		return err
 	}
+	logger.Sugar().Infow("Migrate order", "Start", "...")
+	defer func() {
+		logger.Sugar().Infow("Migrate order", "Done", "...", "error", err)
+	}()
 
-	return fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?parseTime=true&interpolateParams=true",
-		username, password,
-		svc.Address,
-		svc.Port,
-		dbname,
-	), nil
-}
+	return db.WithClient(ctx, func(_ctx context.Context, cli *ent.Client) error {
+		infos, err := cli.
+			Order.
+			Query().
+			All(_ctx)
+		if err != nil {
+			return err
+		}
 
-func open(hostname string) (conn *sql.DB, err error) {
-	hdsn, err := dsn(hostname)
-	if err != nil {
-		return nil, err
-	}
-
-	conn, err = sql.Open("mysql", hdsn)
-	if err != nil {
-		return nil, err
-	}
-
-	// https://github.com/go-sql-driver/mysql
-	// See "Important settings" section.
-
-	conn.SetConnMaxLifetime(time.Minute * MaxLife)
-	conn.SetMaxOpenConns(maxOpen)
-	conn.SetMaxIdleConns(maxIdle)
-
-	return conn, nil
+		for _, info := range infos {
+			if info.Units == 0 {
+				continue
+			}
+			units := decimal.NewFromInt32(int32(info.Units))
+			_, err := cli.
+				Order.
+				UpdateOneID(info.ID).
+				SetUnitsV1(units).
+				Save(_ctx)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
