@@ -39,7 +39,7 @@ import (
 	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
 
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
-	accountlock "github.com/NpoolPlatform/staker-manager/pkg/middleware/account"
+	accountlock "github.com/NpoolPlatform/staker-manager/pkg/accountlock"
 
 	ledgermgrcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/ledger/v2"
 	ledgermgrpb "github.com/NpoolPlatform/message/npool/ledger/mgr/v1/ledger/general"
