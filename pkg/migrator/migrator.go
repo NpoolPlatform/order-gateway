@@ -8,7 +8,6 @@ import (
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	"github.com/NpoolPlatform/order-manager/pkg/db/ent"
 	orderent "github.com/NpoolPlatform/order-manager/pkg/db/ent/order"
-
 	"github.com/shopspring/decimal"
 
 	redis2 "github.com/NpoolPlatform/go-service-framework/pkg/redis"
@@ -41,12 +40,20 @@ func Migrate(ctx context.Context) error {
 	}
 
 	return db.WithTx(ctx, func(_ctx context.Context, tx *ent.Tx) error {
+		_, err := tx.
+			ExecContext(
+				ctx,
+				"update orders set units_v1='0' where units_v1 is NULL",
+			)
+		if err != nil {
+			return err
+		}
+
 		infos, err := tx.
 			Order.
 			Query().
-			Select(
-				orderent.FieldID,
-				orderent.FieldUnits,
+			Where(
+				orderent.UnitsV1(decimal.NewFromInt(0)),
 			).
 			All(_ctx)
 		if err != nil {
@@ -54,15 +61,10 @@ func Migrate(ctx context.Context) error {
 		}
 
 		for _, info := range infos {
-			units := decimal.NewFromInt(0)
-			if info.Units != 0 {
-				units = decimal.NewFromInt32(int32(info.Units))
-			}
-
 			_, err := tx.
 				Order.
 				UpdateOneID(info.ID).
-				SetUnitsV1(units).
+				SetUnitsV1(decimal.NewFromInt32(int32(info.Units))).
 				Save(_ctx)
 			if err != nil {
 				return err
