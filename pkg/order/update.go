@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/shopspring/decimal"
+
 	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	archivementmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/archivement"
 	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
@@ -39,10 +41,15 @@ func cancelOrder(ctx context.Context, ord *ordermwpb.Order) error {
 	if err != nil {
 		return err
 	}
-	units := -int32(ord.Units)
+
+	units, err := decimal.NewFromString(ord.Units)
+	if err != nil {
+		return err
+	}
+	unitsStr := units.Neg().String()
 	_, err = goodmwcli.UpdateGood(ctx, &goodmwpb.GoodReq{
 		ID:        &good.ID,
-		InService: &units,
+		WaitStart: &unitsStr,
 	})
 	if err != nil {
 		return err

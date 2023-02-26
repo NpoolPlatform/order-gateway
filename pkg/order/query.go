@@ -121,13 +121,17 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	if err != nil {
 		return nil, err
 	}
-	o.GoodValue = appGoodPrice.Mul(decimal.NewFromInt32(int32(ord.Units))).String()
+	units, err := decimal.NewFromString(ord.Units)
+	if err != nil {
+		return nil, err
+	}
+	o.GoodValue = appGoodPrice.Mul(units).String()
 	if appGood.PromotionPrice != nil {
 		appGoodPromotionPrice, err := decimal.NewFromString(*appGood.PromotionPrice)
 		if err != nil {
 			return nil, err
 		}
-		o.GoodValue = appGoodPromotionPrice.Mul(decimal.NewFromInt32(int32(ord.Units))).String()
+		o.GoodValue = appGoodPromotionPrice.Mul(units).String()
 	}
 
 	coin, err := coininfocli.GetCoin(ctx, appGood.CoinTypeID)
@@ -451,13 +455,17 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 			return nil, err
 		}
 
-		o.GoodValue = appGoodPrice.Mul(decimal.NewFromInt32(int32(ord.Units))).String()
+		units, err := decimal.NewFromString(ord.Units)
+		if err != nil {
+			return nil, err
+		}
+		o.GoodValue = appGoodPrice.Mul(units).String()
 		if appGood.PromotionPrice != nil {
 			appGoodPromotionPrice, err := decimal.NewFromString(*appGood.PromotionPrice)
 			if err != nil {
 				return nil, err
 			}
-			o.GoodValue = appGoodPromotionPrice.Mul(decimal.NewFromInt32(int32(ord.Units))).String()
+			o.GoodValue = appGoodPromotionPrice.Mul(units).String()
 		}
 
 		coin, ok := coinMap[o.CoinTypeID]
