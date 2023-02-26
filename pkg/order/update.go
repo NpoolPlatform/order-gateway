@@ -49,7 +49,7 @@ func cancelOrder(ctx context.Context, ord *ordermwpb.Order) error {
 	unitsStr := units.Neg().String()
 	_, err = goodmwcli.UpdateGood(ctx, &goodmwpb.GoodReq{
 		ID:        &good.ID,
-		InService: &unitsStr,
+		WaitStart: &unitsStr,
 	})
 	if err != nil {
 		return err
