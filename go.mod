@@ -3,10 +3,10 @@ module github.com/NpoolPlatform/order-gateway
 go 1.17
 
 require (
-	github.com/NpoolPlatform/account-middleware v0.0.0-20221220111928-0c1abbca2829
+	github.com/NpoolPlatform/account-middleware v0.0.0-20230112023810-a1206cc8bb2e
 	github.com/NpoolPlatform/appuser-middleware v0.0.0-20230221095346-3f4e44fb0b41
 	github.com/NpoolPlatform/basal-middleware v0.0.0-20230221094657-688f81366495
-	github.com/NpoolPlatform/chain-middleware v0.0.0-20230111062408-7bc4b269c1d4
+	github.com/NpoolPlatform/chain-middleware v0.0.0-20230221100129-05c4e67a81db
 	github.com/NpoolPlatform/go-service-framework v0.0.0-20230102062414-c71643aee0bd
 	github.com/NpoolPlatform/good-middleware v0.0.0-20230226023613-1cd47e6f2fa2
 	github.com/NpoolPlatform/inspire-middleware v0.0.0-20230226031546-c7ca7aade32c
@@ -15,17 +15,17 @@ require (
 	github.com/NpoolPlatform/message v0.0.0-20230226021727-29812bde6ee5
 	github.com/NpoolPlatform/order-manager v0.0.0-20230226024220-9751e14c7cf9
 	github.com/NpoolPlatform/order-middleware v0.0.0-20230226025300-b335a4be0fbb
-	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20221216051435-3c588d703326
-	github.com/NpoolPlatform/staker-manager v0.0.0-20220715052242-57491c7251b9
+	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20230216075025-a90a86bfd19b
+	github.com/NpoolPlatform/staker-manager v0.0.0-20230221132803-e20e58323795
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/google/uuid v1.3.0
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.10.0
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.3
 	github.com/shopspring/decimal v1.3.1
 	github.com/stretchr/testify v1.8.0
-	github.com/urfave/cli/v2 v2.11.1
-	go.opentelemetry.io/otel v1.8.0
-	go.opentelemetry.io/otel/trace v1.8.0
-	google.golang.org/grpc v1.52.0
+	github.com/urfave/cli/v2 v2.16.3
+	go.opentelemetry.io/otel v1.10.0
+	go.opentelemetry.io/otel/trace v1.10.0
+	google.golang.org/grpc v1.53.0
 	google.golang.org/protobuf v1.28.1
 )
 
@@ -40,7 +40,7 @@ require (
 	github.com/armon/go-metrics v0.3.10 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
-	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be // indirect
 	github.com/coocood/freecache v1.0.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
@@ -104,11 +104,11 @@ require (
 	go.uber.org/ratelimit v0.2.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/net v0.4.0 // indirect
-	golang.org/x/sys v0.3.0 // indirect
-	golang.org/x/text v0.5.0 // indirect
+	golang.org/x/net v0.5.0 // indirect
+	golang.org/x/sys v0.4.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
-	google.golang.org/genproto v0.0.0-20221202195650-67e5cbc046fd // indirect
+	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
