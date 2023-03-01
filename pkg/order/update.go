@@ -37,17 +37,12 @@ const BeforeTime = 12 * time.Hour
 const BeforeBenefitTimeStart = 20 * time.Minute
 const BeforeBenefitTimeEnd = 20 * time.Minute
 
+var now = time.Now()
+var tomorrow = time.Now().Add(24 * time.Hour)
+var timeRangeStart = time.Date(now.Year(), now.Month(), now.Day(), 21, 0, 0, 0, now.Location())
+var timeRangeEnd = time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 2, 0, 0, 0, now.Location())
+
 func cancelOfflineOrder(ctx context.Context, ord *ordermwpb.Order) error {
-	switch ord.OrderType.String() {
-	case ordermgrpb.OrderType_Offline.String():
-	default:
-		return fmt.Errorf("permission denied")
-	}
-
-	if ord.OrderState != ordermgrpb.OrderState_Paid {
-		return fmt.Errorf("order state not paid")
-	}
-
 	good, err := goodmwcli.GetGood(ctx, ord.GetGoodID())
 	if err != nil {
 		return err
@@ -93,18 +88,6 @@ func cancelOfflineOrder(ctx context.Context, ord *ordermwpb.Order) error {
 }
 
 func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
-	if ord.OrderType != ordermgrpb.OrderType_Normal {
-		return fmt.Errorf("permission denied")
-	}
-
-	switch ord.OrderState {
-	case ordermgrpb.OrderState_WaitPayment:
-	case ordermgrpb.OrderState_Paid:
-	case ordermgrpb.OrderState_InService:
-	default:
-		return fmt.Errorf("order state uncancellable")
-	}
-
 	good, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodmwpb.Conds{
 		AppID: &commonpb.StringVal{
 			Op:    cruder.EQ,
@@ -122,11 +105,13 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 		return fmt.Errorf("invalid good")
 	}
 
+	cancellableBeforeStart := time.Duration(good.CancellableBeforeStart) * time.Second
+
 	switch good.CancelMode {
 	case appgoodmwpb.CancelMode_Uncancellable:
 		return fmt.Errorf("app good uncancellable")
 	case appgoodmwpb.CancelMode_CancellableBeforeStart:
-		if ord.Start <= uint32(time.Now().Add(-BeforeTime).Unix()) {
+		if ord.Start <= uint32(time.Now().Add(-cancellableBeforeStart).Unix()) {
 			return fmt.Errorf("cancellable time exceeded")
 		}
 	case appgoodmwpb.CancelMode_CancellableBeforeBenefit:
@@ -139,15 +124,17 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 		if err != nil {
 			return err
 		}
-		if total > 0 {
+		if total > 0 && ord.Start <= uint32(time.Now().Add(-cancellableBeforeStart).Unix()) {
 			return fmt.Errorf("app good uncancellable")
 		}
+
 		if ord.Start <= uint32(time.Now().Add(-BeforeBenefitTimeStart).Unix()) &&
 			ord.Start >= uint32(time.Now().Add(BeforeBenefitTimeEnd).Unix()) {
 			return fmt.Errorf("app good uncancellable")
 		}
+
 		startAt := time.Unix(int64(ord.Start), 0)
-		if !timeRange(startAt) {
+		if startAt.After(timeRangeStart) && startAt.Before(timeRangeEnd) {
 			return fmt.Errorf("app good uncancellable")
 		}
 	}
@@ -263,10 +250,17 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 		return err
 	}
 	unitsStr := units.Neg().String()
-	_, err = goodmwcli.UpdateGood(ctx, &goodmwpb.GoodReq{
-		ID:        &good.ID,
-		WaitStart: &unitsStr,
-	})
+
+	stockReq := &goodmwpb.GoodReq{
+		ID: &good.ID,
+	}
+	switch ord.OrderState {
+	case ordermgrpb.OrderState_Paid:
+		stockReq.WaitStart = &unitsStr
+	case ordermgrpb.OrderState_InService:
+		stockReq.InService = &unitsStr
+	}
+	_, err = goodmwcli.UpdateGood(ctx, stockReq)
 	if err != nil {
 		return err
 	}
@@ -287,17 +281,6 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 	return nil
 }
 
-func timeRange(time2 time.Time) bool {
-	now := time.Now()
-	y, m, d := now.Date()
-	start := time.Date(y, m, d, 21, 0, 0, 0, now.Location())
-	end := time.Date(y, m, d+1, 2, 0, 0, 0, now.Location())
-	if time2.After(start) && time2.Before(end) {
-		return false
-	}
-	return true
-}
-
 func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq, fromAdmin bool) (*npool.Order, error) {
 	ord, err := ordermwcli.GetOrder(ctx, in.GetID())
 	if err != nil {
@@ -316,19 +299,28 @@ func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq, fromAdmin bool) (*
 			if fromAdmin {
 				return nil, fmt.Errorf("permission denied")
 			}
-			if ord.OrderState == ordermgrpb.OrderState_WaitPayment {
+			switch ord.OrderState {
+			case ordermgrpb.OrderState_WaitPayment:
 				ord, err = ordermwcli.UpdateOrder(ctx, in)
 				if err != nil {
 					return nil, err
 				}
 				return GetOrder(ctx, ord.ID)
-			}
-			if err := cancelNormalOrder(ctx, ord); err != nil {
-				return nil, err
+			case ordermgrpb.OrderState_Paid:
+				fallthrough // nolint
+			case ordermgrpb.OrderState_InService:
+				if err := cancelNormalOrder(ctx, ord); err != nil {
+					return nil, err
+				}
+			default:
+				return nil, fmt.Errorf("order state uncancellable")
 			}
 		case ordermgrpb.OrderType_Offline:
 			if !fromAdmin {
 				return nil, fmt.Errorf("permission denied")
+			}
+			if ord.OrderState != ordermgrpb.OrderState_Paid {
+				return nil, fmt.Errorf("order state not paid")
 			}
 			if err := cancelOfflineOrder(ctx, ord); err != nil {
 				return nil, err
