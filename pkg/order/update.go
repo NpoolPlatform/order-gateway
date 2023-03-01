@@ -308,9 +308,6 @@ func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq, fromAdmin bool) (*
 	if in.GetCanceled() {
 		switch ord.OrderType {
 		case ordermgrpb.OrderType_Normal:
-			if fromAdmin {
-				return nil, fmt.Errorf("permission denied")
-			}
 			switch ord.OrderState {
 			case ordermgrpb.OrderState_WaitPayment:
 				ord, err = ordermwcli.UpdateOrder(ctx, in)
@@ -337,6 +334,8 @@ func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq, fromAdmin bool) (*
 			if err := cancelOfflineOrder(ctx, ord); err != nil {
 				return nil, err
 			}
+		default:
+			return nil, fmt.Errorf("order type uncancellable")
 		}
 	}
 	return GetOrder(ctx, ord.ID)
