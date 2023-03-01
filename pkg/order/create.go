@@ -257,8 +257,7 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 	if userPurchaseLimit.Cmp(decimal.NewFromInt(0)) > 0 && purchaseCount.Cmp(userPurchaseLimit) > 0 {
 		return fmt.Errorf("too many units")
 	}
-	fmt.Println(purchaseCount.String())
-	fmt.Println("*******end******")
+
 	const maxUnpaidOrders = 5
 
 	payments, _, err := paymentcli.GetPayments(ctx, &paymentmgrpb.Conds{

@@ -3,9 +3,11 @@ package order
 import (
 	"context"
 	"fmt"
+
+	"time"
+
 	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	commonpb "github.com/NpoolPlatform/message/npool"
-	"time"
 
 	"github.com/shopspring/decimal"
 
@@ -33,61 +35,11 @@ import (
 	ledgerdetailpb "github.com/NpoolPlatform/message/npool/ledger/mgr/v1/ledger/detail"
 )
 
-const BeforeTime = 12 * time.Hour
-const BeforeBenefitTimeStart = 20 * time.Minute
-const BeforeBenefitTimeEnd = 20 * time.Minute
-
 var now = time.Now()
-var tomorrow = time.Now().Add(24 * time.Hour)
 var timeRangeStart = time.Date(now.Year(), now.Month(), now.Day(), 21, 0, 0, 0, now.Location())
-var timeRangeEnd = time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 2, 0, 0, 0, now.Location())
+var timeRangeEnd = time.Date(now.Year(), now.Month(), now.Day()+1, 2, 0, 0, 0, now.Location())
 
-func cancelOfflineOrder(ctx context.Context, ord *ordermwpb.Order) error {
-	good, err := goodmwcli.GetGood(ctx, ord.GetGoodID())
-	if err != nil {
-		return err
-	}
-	if good == nil {
-		return fmt.Errorf("invalid good")
-	}
-	// TODO Distributed transactions should be used
-
-	err = archivementmwcli.Expropriate(ctx, ord.ID)
-	if err != nil {
-		return err
-	}
-
-	units, err := decimal.NewFromString(ord.Units)
-	if err != nil {
-		return err
-	}
-	unitsStr := units.Neg().String()
-	_, err = goodmwcli.UpdateGood(ctx, &goodmwpb.GoodReq{
-		ID:        &good.ID,
-		WaitStart: &unitsStr,
-	})
-	if err != nil {
-		return err
-	}
-
-	cancle := true
-	state := ordermgrpb.OrderState_Canceled
-	paymentState := paymentmgrpb.PaymentState_Canceled
-	_, err = ordermwcli.UpdateOrder(ctx, &ordermwpb.OrderReq{
-		ID:           &ord.ID,
-		State:        &state,
-		PaymentState: &paymentState,
-		PaymentID:    &ord.PaymentID,
-		Canceled:     &cancle,
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
+func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
 	good, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodmwpb.Conds{
 		AppID: &commonpb.StringVal{
 			Op:    cruder.EQ,
@@ -125,22 +77,73 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 			return err
 		}
 		if total > 0 && ord.Start <= uint32(time.Now().Add(-cancellableBeforeStart).Unix()) {
-			return fmt.Errorf("app good uncancellable")
-		}
-
-		if ord.Start <= uint32(time.Now().Add(-BeforeBenefitTimeStart).Unix()) &&
-			ord.Start >= uint32(time.Now().Add(BeforeBenefitTimeEnd).Unix()) {
-			return fmt.Errorf("app good uncancellable")
+			return fmt.Errorf("app good uncancellable order start at > cancellable before start")
 		}
 
 		startAt := time.Unix(int64(ord.Start), 0)
-		if startAt.After(timeRangeStart) && startAt.Before(timeRangeEnd) {
-			return fmt.Errorf("app good uncancellable")
+		if startAt.Before(now.Add(-cancellableBeforeStart)) && startAt.After(now.Add(cancellableBeforeStart)) {
+			return fmt.Errorf("uncancellable time frame")
 		}
+		if now.Before(timeRangeEnd) && now.After(timeRangeStart) {
+			return fmt.Errorf("uncancellable time frame")
+		}
+	default:
+		return fmt.Errorf("unknown CancelMode type %v", good.CancelMode)
+	}
+	return nil
+}
+
+func cancelOfflineOrder(ctx context.Context, ord *ordermwpb.Order) error {
+	err := validateInit(ctx, ord)
+	if err != nil {
+		return err
+	}
+	// TODO Distributed transactions should be used
+
+	err = archivementmwcli.Expropriate(ctx, ord.ID)
+	if err != nil {
+		return err
+	}
+
+	units, err := decimal.NewFromString(ord.Units)
+	if err != nil {
+		return err
+	}
+	unitsStr := units.Neg().String()
+	_, err = goodmwcli.UpdateGood(ctx, &goodmwpb.GoodReq{
+		ID:        &ord.GoodID,
+		WaitStart: &unitsStr,
+	})
+	if err != nil {
+		return err
+	}
+
+	cancle := true
+	state := ordermgrpb.OrderState_Canceled
+	paymentState := paymentmgrpb.PaymentState_Canceled
+	_, err = ordermwcli.UpdateOrder(ctx, &ordermwpb.OrderReq{
+		ID:           &ord.ID,
+		State:        &state,
+		PaymentState: &paymentState,
+		PaymentID:    &ord.PaymentID,
+		Canceled:     &cancle,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+//nolint:funlen,gocyclo
+func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
+	err := validateInit(ctx, ord)
+	if err != nil {
+		return err
 	}
 
 	offset := uint32(0)
-	limit := uint32(100)
+	limit := uint32(1000) //nolint
 	detailInfos := []*ledgerdetailpb.DetailReq{}
 	in := ledgerdetailpb.IOType_Incoming
 	out := ledgerdetailpb.IOType_Outcoming
@@ -170,10 +173,6 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 				UserID: &commonpb.StringVal{
 					Op:    cruder.EQ,
 					Value: ord.UserID,
-				},
-				CoinTypeID: &commonpb.StringVal{
-					Op:    cruder.EQ,
-					Value: ord.PaymentCoinTypeID,
 				},
 				IOType: &commonpb.Int32Val{
 					Op:    cruder.EQ,
@@ -216,12 +215,23 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 		}
 	}
 
+	paymentAmount, err := decimal.NewFromString(ord.PaymentAmount)
+	if err != nil {
+		return err
+	}
+
+	payWithBalanceAmount, err := decimal.NewFromString(ord.PayWithBalanceAmount)
+	if err != nil {
+		return err
+	}
+	amount := paymentAmount.Add(payWithBalanceAmount).String()
+
 	inIoExtra := fmt.Sprintf(
 		`{"AppID":"%v","UserID":"%v","OrderID":"%v","Amount":"%v","Date":"%v"}`,
 		ord.AppID,
 		ord.UserID,
 		ord.ID,
-		ord.PaymentFinishAmount,
+		amount,
 		time.Now(),
 	)
 
@@ -231,7 +241,7 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 		CoinTypeID: &ord.PaymentCoinTypeID,
 		IOType:     &in,
 		IOSubType:  &ioTypeOrder,
-		Amount:     &ord.PaymentFinishAmount,
+		Amount:     &amount,
 		IOExtra:    &inIoExtra,
 	})
 
@@ -252,7 +262,7 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 	unitsStr := units.Neg().String()
 
 	stockReq := &goodmwpb.GoodReq{
-		ID: &good.ID,
+		ID: &ord.GoodID,
 	}
 	switch ord.OrderState {
 	case ordermgrpb.OrderState_Paid:
@@ -260,6 +270,7 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 	case ordermgrpb.OrderState_InService:
 		stockReq.InService = &unitsStr
 	}
+
 	_, err = goodmwcli.UpdateGood(ctx, stockReq)
 	if err != nil {
 		return err
@@ -281,6 +292,7 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 	return nil
 }
 
+//nolint:gocyclo
 func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq, fromAdmin bool) (*npool.Order, error) {
 	ord, err := ordermwcli.GetOrder(ctx, in.GetID())
 	if err != nil {

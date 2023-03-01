@@ -51,7 +51,7 @@ func (s *Server) UpdateOrder(ctx context.Context, in *npool.UpdateOrderRequest) 
 	}, false)
 	if err != nil {
 		logger.Sugar().Errorw("UpdateOrder", "error", err)
-		return nil, status.Error(codes.Internal, "fail update order")
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &npool.UpdateOrderResponse{
