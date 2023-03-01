@@ -3,8 +3,14 @@ package order
 import (
 	"context"
 	"fmt"
+	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
+	commonpb "github.com/NpoolPlatform/message/npool"
+	"time"
 
 	"github.com/shopspring/decimal"
+
+	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
+	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
 
 	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	archivementmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/archivement"
@@ -15,9 +21,23 @@ import (
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
+
+	miningdetailcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/mining/detail"
+	miningdetailpb "github.com/NpoolPlatform/message/npool/ledger/mgr/v1/mining/detail"
+
+	archivementdetailcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/archivement/detail"
+	archivementdetailpb "github.com/NpoolPlatform/message/npool/inspire/mgr/v1/archivement/detail"
+
+	ledgercli "github.com/NpoolPlatform/ledger-middleware/pkg/client/ledger/v2"
+
+	ledgerdetailpb "github.com/NpoolPlatform/message/npool/ledger/mgr/v1/ledger/detail"
 )
 
-func cancelOrder(ctx context.Context, ord *ordermwpb.Order) error {
+const BeforeTime = 12 * time.Hour
+const BeforeBenefitTimeStart = 20 * time.Minute
+const BeforeBenefitTimeEnd = 20 * time.Minute
+
+func cancelOfflineOrder(ctx context.Context, ord *ordermwpb.Order) error {
 	switch ord.OrderType.String() {
 	case ordermgrpb.OrderType_Offline.String():
 	default:
@@ -72,6 +92,212 @@ func cancelOrder(ctx context.Context, ord *ordermwpb.Order) error {
 	return nil
 }
 
+func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
+	if ord.OrderType != ordermgrpb.OrderType_Normal {
+		return fmt.Errorf("permission denied")
+	}
+
+	switch ord.OrderState {
+	case ordermgrpb.OrderState_WaitPayment:
+	case ordermgrpb.OrderState_Paid:
+	case ordermgrpb.OrderState_InService:
+	default:
+		return fmt.Errorf("order state uncancellable")
+	}
+
+	good, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodmwpb.Conds{
+		AppID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: ord.AppID,
+		},
+		GoodID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: ord.GoodID,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if good == nil {
+		return fmt.Errorf("invalid good")
+	}
+
+	switch good.CancelMode {
+	case appgoodmwpb.CancelMode_Uncancellable:
+		return fmt.Errorf("app good uncancellable")
+	case appgoodmwpb.CancelMode_CancellableBeforeStart:
+		if ord.Start <= uint32(time.Now().Add(-BeforeTime).Unix()) {
+			return fmt.Errorf("cancellable time exceeded")
+		}
+	case appgoodmwpb.CancelMode_CancellableBeforeBenefit:
+		_, total, err := miningdetailcli.GetDetails(ctx, &miningdetailpb.Conds{
+			GoodID: &commonpb.StringVal{
+				Op:    cruder.EQ,
+				Value: ord.GoodID,
+			},
+		}, 0, 1)
+		if err != nil {
+			return err
+		}
+		if total > 0 {
+			return fmt.Errorf("app good uncancellable")
+		}
+		if ord.Start <= uint32(time.Now().Add(-BeforeBenefitTimeStart).Unix()) &&
+			ord.Start >= uint32(time.Now().Add(BeforeBenefitTimeEnd).Unix()) {
+			return fmt.Errorf("app good uncancellable")
+		}
+		startAt := time.Unix(int64(ord.Start), 0)
+		if !timeRange(startAt) {
+			return fmt.Errorf("app good uncancellable")
+		}
+	}
+
+	offset := uint32(0)
+	limit := uint32(100)
+	detailInfos := []*ledgerdetailpb.DetailReq{}
+	in := ledgerdetailpb.IOType_Incoming
+	out := ledgerdetailpb.IOType_Outcoming
+	ioTypeCR := ledgerdetailpb.IOSubType_CommissionRevoke
+	ioTypeOrder := ledgerdetailpb.IOSubType_OrderRevoke
+
+	for {
+		infos, _, err := archivementdetailcli.GetDetails(ctx, &archivementdetailpb.Conds{
+			OrderID: &commonpb.StringVal{
+				Op:    cruder.EQ,
+				Value: ord.ID,
+			},
+		}, offset, limit)
+		if err != nil {
+			return err
+		}
+		offset += limit
+		if len(detailInfos) == 0 {
+			break
+		}
+		for _, val := range infos {
+			_, total, err := ledgercli.GetDetails(ctx, &ledgerdetailpb.Conds{
+				AppID: &commonpb.StringVal{
+					Op:    cruder.EQ,
+					Value: ord.AppID,
+				},
+				UserID: &commonpb.StringVal{
+					Op:    cruder.EQ,
+					Value: ord.UserID,
+				},
+				CoinTypeID: &commonpb.StringVal{
+					Op:    cruder.EQ,
+					Value: ord.PaymentCoinTypeID,
+				},
+				IOType: &commonpb.Int32Val{
+					Op:    cruder.EQ,
+					Value: int32(in),
+				},
+				IOSubType: &commonpb.Int32Val{
+					Op:    cruder.EQ,
+					Value: int32(ledgerdetailpb.IOSubType_Commission),
+				},
+				IOExtra: &commonpb.StringVal{
+					Op:    cruder.LIKE,
+					Value: ord.ID,
+				},
+			}, 0, 1)
+			if err != nil {
+				return err
+			}
+			if total == 0 {
+				return fmt.Errorf("commission ledger detail is not exist")
+			}
+
+			inIoExtra := fmt.Sprintf(
+				`{"AppID":"%v","UserID":"%v","ArchivementDetailID":"%v","Amount":"%v","Date":"%v"}`,
+				val.AppID,
+				val.UserID,
+				val.ID,
+				val.Commission,
+				time.Now(),
+			)
+
+			detailInfos = append(detailInfos, &ledgerdetailpb.DetailReq{
+				AppID:      &val.AppID,
+				UserID:     &val.UserID,
+				CoinTypeID: &val.CoinTypeID,
+				IOType:     &out,
+				IOSubType:  &ioTypeCR,
+				Amount:     &val.Commission,
+				IOExtra:    &inIoExtra,
+			})
+		}
+	}
+
+	inIoExtra := fmt.Sprintf(
+		`{"AppID":"%v","UserID":"%v","OrderID":"%v","Amount":"%v","Date":"%v"}`,
+		ord.AppID,
+		ord.UserID,
+		ord.ID,
+		ord.PaymentFinishAmount,
+		time.Now(),
+	)
+
+	detailInfos = append(detailInfos, &ledgerdetailpb.DetailReq{
+		AppID:      &ord.AppID,
+		UserID:     &ord.UserID,
+		CoinTypeID: &ord.PaymentCoinTypeID,
+		IOType:     &in,
+		IOSubType:  &ioTypeOrder,
+		Amount:     &ord.PaymentFinishAmount,
+		IOExtra:    &inIoExtra,
+	})
+
+	err = ledgercli.BookKeeping(ctx, detailInfos)
+	if err != nil {
+		return err
+	}
+
+	err = archivementmwcli.Expropriate(ctx, ord.ID)
+	if err != nil {
+		return err
+	}
+
+	units, err := decimal.NewFromString(ord.Units)
+	if err != nil {
+		return err
+	}
+	unitsStr := units.Neg().String()
+	_, err = goodmwcli.UpdateGood(ctx, &goodmwpb.GoodReq{
+		ID:        &good.ID,
+		WaitStart: &unitsStr,
+	})
+	if err != nil {
+		return err
+	}
+
+	cancle := true
+	state := ordermgrpb.OrderState_Canceled
+	paymentState := paymentmgrpb.PaymentState_Canceled
+	_, err = ordermwcli.UpdateOrder(ctx, &ordermwpb.OrderReq{
+		ID:           &ord.ID,
+		State:        &state,
+		PaymentState: &paymentState,
+		PaymentID:    &ord.PaymentID,
+		Canceled:     &cancle,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func timeRange(time2 time.Time) bool {
+	now := time.Now()
+	y, m, d := now.Date()
+	start := time.Date(y, m, d, 21, 0, 0, 0, now.Location())
+	end := time.Date(y, m, d+1, 2, 0, 0, 0, now.Location())
+	if time2.After(start) && time2.Before(end) {
+		return false
+	}
+	return true
+}
+
 func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq, fromAdmin bool) (*npool.Order, error) {
 	ord, err := ordermwcli.GetOrder(ctx, in.GetID())
 	if err != nil {
@@ -84,21 +310,30 @@ func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq, fromAdmin bool) (*
 	if in.GetAppID() != ord.AppID || in.GetUserID() != ord.UserID {
 		return nil, fmt.Errorf("permission denied")
 	}
-
-	if !fromAdmin {
-		ord, err = ordermwcli.UpdateOrder(ctx, in)
-		if err != nil {
-			return nil, err
-		}
-		return GetOrder(ctx, ord.ID)
-	}
-
 	if in.GetCanceled() {
-		if err := cancelOrder(ctx, ord); err != nil {
-			return nil, err
+		switch ord.OrderType {
+		case ordermgrpb.OrderType_Normal:
+			if fromAdmin {
+				return nil, fmt.Errorf("permission denied")
+			}
+			if ord.OrderState == ordermgrpb.OrderState_WaitPayment {
+				ord, err = ordermwcli.UpdateOrder(ctx, in)
+				if err != nil {
+					return nil, err
+				}
+				return GetOrder(ctx, ord.ID)
+			}
+			if err := cancelNormalOrder(ctx, ord); err != nil {
+				return nil, err
+			}
+		case ordermgrpb.OrderType_Offline:
+			if !fromAdmin {
+				return nil, fmt.Errorf("permission denied")
+			}
+			if err := cancelOfflineOrder(ctx, ord); err != nil {
+				return nil, err
+			}
 		}
-		return GetOrder(ctx, ord.ID)
 	}
-
 	return GetOrder(ctx, ord.ID)
 }
