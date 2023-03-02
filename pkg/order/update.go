@@ -20,7 +20,6 @@ import (
 	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order"
 	paymentmgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/payment"
 
-	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 
@@ -93,69 +92,7 @@ func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
 	return nil
 }
 
-func cancelOfflineOrder(ctx context.Context, ord *ordermwpb.Order) error {
-	err := validateInit(ctx, ord)
-	if err != nil {
-		return err
-	}
-	// TODO Distributed transactions should be used
-
-	err = archivementmwcli.Expropriate(ctx, ord.ID)
-	if err != nil {
-		return err
-	}
-
-	units, err := decimal.NewFromString(ord.Units)
-	if err != nil {
-		return err
-	}
-	unitsStr := units.Neg().String()
-	_, err = goodmwcli.UpdateGood(ctx, &goodmwpb.GoodReq{
-		ID:        &ord.GoodID,
-		WaitStart: &unitsStr,
-	})
-	if err != nil {
-		return err
-	}
-
-	cancle := true
-	state := ordermgrpb.OrderState_Canceled
-	paymentState := paymentmgrpb.PaymentState_Canceled
-	_, err = ordermwcli.UpdateOrder(ctx, &ordermwpb.OrderReq{
-		ID:           &ord.ID,
-		State:        &state,
-		PaymentState: &paymentState,
-		PaymentID:    &ord.PaymentID,
-		Canceled:     &cancle,
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-//nolint:funlen,gocyclo
-func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
-	err := validateInit(ctx, ord)
-	if err != nil {
-		return err
-	}
-
-	cancle := true
-	state := ordermgrpb.OrderState_Canceled
-	paymentState := paymentmgrpb.PaymentState_Canceled
-	_, err = ordermwcli.UpdateOrder(ctx, &ordermwpb.OrderReq{
-		ID:           &ord.ID,
-		State:        &state,
-		PaymentState: &paymentState,
-		PaymentID:    &ord.PaymentID,
-		Canceled:     &cancle,
-	})
-	if err != nil {
-		return err
-	}
-
+func updateStock(ctx context.Context, ord *ordermwpb.Order) error {
 	units, err := decimal.NewFromString(ord.Units)
 	if err != nil {
 		return err
@@ -177,12 +114,28 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
 
-	err = archivementmwcli.Expropriate(ctx, ord.ID)
+func updateOrderState(ctx context.Context, ord *ordermwpb.Order) error {
+	cancle := true
+	state := ordermgrpb.OrderState_Canceled
+	paymentState := paymentmgrpb.PaymentState_Canceled
+	_, err := ordermwcli.UpdateOrder(ctx, &ordermwpb.OrderReq{
+		ID:           &ord.ID,
+		State:        &state,
+		PaymentState: &paymentState,
+		PaymentID:    &ord.PaymentID,
+		Canceled:     &cancle,
+	})
 	if err != nil {
 		return err
 	}
 
+	return nil
+}
+
+func updateLedger(ctx context.Context, ord *ordermwpb.Order) error {
 	offset := uint32(0)
 	limit := uint32(1000) //nolint
 	detailInfos := []*ledgerdetailpb.DetailReq{}
@@ -290,55 +243,70 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
-//nolint:gocyclo
-func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq, fromAdmin bool) (*npool.Order, error) {
-	ord, err := ordermwcli.GetOrder(ctx, in.GetID())
+func updateArchivement(ctx context.Context, ord *ordermwpb.Order) error {
+	err := archivementmwcli.Expropriate(ctx, ord.ID)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if ord == nil {
-		return nil, fmt.Errorf("invalid order")
+	return nil
+}
+
+func cancelAirdropOrder(ctx context.Context, ord *ordermwpb.Order) error {
+	err := validateInit(ctx, ord)
+	if err != nil {
+		return err
+	}
+	err = updateStock(ctx, ord)
+	if err != nil {
+		return err
+	}
+	// TODO Distributed transactions should be used
+	return updateOrderState(ctx, ord)
+}
+
+func cancelOfflineOrder(ctx context.Context, ord *ordermwpb.Order) error {
+	err := validateInit(ctx, ord)
+	if err != nil {
+		return err
+	}
+	// TODO Distributed transactions should be used
+
+	err = updateArchivement(ctx, ord)
+	if err != nil {
+		return err
 	}
 
-	if in.GetAppID() != ord.AppID || in.GetUserID() != ord.UserID {
-		return nil, fmt.Errorf("permission denied")
+	err = updateStock(ctx, ord)
+	if err != nil {
+		return err
 	}
-	if in.GetCanceled() {
-		switch ord.OrderType {
-		case ordermgrpb.OrderType_Normal:
-			switch ord.OrderState {
-			case ordermgrpb.OrderState_WaitPayment:
-				ord, err = ordermwcli.UpdateOrder(ctx, in)
-				if err != nil {
-					return nil, err
-				}
-				return GetOrder(ctx, ord.ID)
-			case ordermgrpb.OrderState_Paid:
-				fallthrough // nolint
-			case ordermgrpb.OrderState_InService:
-				if err := cancelNormalOrder(ctx, ord); err != nil {
-					return nil, err
-				}
-			default:
-				return nil, fmt.Errorf("order state uncancellable")
-			}
-		case ordermgrpb.OrderType_Offline:
-			if !fromAdmin {
-				return nil, fmt.Errorf("permission denied")
-			}
-			if ord.OrderState != ordermgrpb.OrderState_Paid {
-				return nil, fmt.Errorf("order state not paid")
-			}
-			if err := cancelOfflineOrder(ctx, ord); err != nil {
-				return nil, err
-			}
-		default:
-			return nil, fmt.Errorf("order type uncancellable")
-		}
+
+	return updateOrderState(ctx, ord)
+}
+
+func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
+	err := validateInit(ctx, ord)
+	if err != nil {
+		return err
 	}
-	return GetOrder(ctx, ord.ID)
+
+	err = updateOrderState(ctx, ord)
+	if err != nil {
+		return err
+	}
+
+	err = updateStock(ctx, ord)
+	if err != nil {
+		return err
+	}
+
+	err = updateArchivement(ctx, ord)
+	if err != nil {
+		return err
+	}
+
+	return updateLedger(ctx, ord)
 }
