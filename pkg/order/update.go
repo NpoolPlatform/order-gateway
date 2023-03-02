@@ -135,6 +135,7 @@ func updateOrderState(ctx context.Context, ord *ordermwpb.Order) error {
 	return nil
 }
 
+//nolint:funlen
 func updateLedger(ctx context.Context, ord *ordermwpb.Order) error {
 	offset := uint32(0)
 	limit := uint32(1000) //nolint
