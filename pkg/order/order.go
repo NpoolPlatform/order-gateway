@@ -76,48 +76,46 @@ func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq, fromAdmin bool) (*
 	if in.GetAppID() != ord.AppID || in.GetUserID() != ord.UserID {
 		return nil, fmt.Errorf("permission denied")
 	}
-	if in.GetCanceled() {
-		switch ord.OrderType {
-		case ordermgrpb.OrderType_Normal:
-			switch ord.OrderState {
-			case ordermgrpb.OrderState_WaitPayment:
-				ord, err = ordermwcli.UpdateOrder(ctx, in)
-				if err != nil {
-					return nil, err
-				}
-				return GetOrder(ctx, ord.ID)
-			case ordermgrpb.OrderState_Paid:
-				fallthrough // nolint
-			case ordermgrpb.OrderState_InService:
-				if err := cancelNormalOrder(ctx, ord); err != nil {
-					return nil, err
-				}
-			default:
-				return nil, fmt.Errorf("order state uncancellable")
-			}
-		case ordermgrpb.OrderType_Offline:
-			if !fromAdmin {
-				return nil, fmt.Errorf("permission denied")
-			}
-			if ord.OrderState != ordermgrpb.OrderState_Paid {
-				return nil, fmt.Errorf("order state not paid")
-			}
-			if err := cancelOfflineOrder(ctx, ord); err != nil {
-				return nil, err
-			}
-		case ordermgrpb.OrderType_Airdrop:
-			if !fromAdmin {
-				return nil, fmt.Errorf("permission denied")
-			}
-			if ord.OrderState != ordermgrpb.OrderState_Paid {
-				return nil, fmt.Errorf("order state not paid")
-			}
-			if err := cancelAirdropOrder(ctx, ord); err != nil {
-				return nil, err
-			}
-		default:
-			return nil, fmt.Errorf("order type uncancellable")
+	if !in.GetCanceled() {
+		return GetOrder(ctx, ord.ID)
+	}
+
+	if ord.OrderState == ordermgrpb.OrderState_WaitPayment {
+		ord, err = ordermwcli.UpdateOrder(ctx, in)
+		if err != nil {
+			return nil, err
 		}
+		return GetOrder(ctx, ord.ID)
+	}
+
+	switch ord.OrderState {
+	case ordermgrpb.OrderState_Paid:
+	case ordermgrpb.OrderState_InService:
+	default:
+		return nil, fmt.Errorf("order state uncancellable")
+	}
+
+	switch ord.OrderType {
+	case ordermgrpb.OrderType_Normal:
+		if err := cancelNormalOrder(ctx, ord); err != nil {
+			return nil, err
+		}
+	case ordermgrpb.OrderType_Offline:
+		if !fromAdmin {
+			return nil, fmt.Errorf("permission denied")
+		}
+		if err := cancelOfflineOrder(ctx, ord); err != nil {
+			return nil, err
+		}
+	case ordermgrpb.OrderType_Airdrop:
+		if !fromAdmin {
+			return nil, fmt.Errorf("permission denied")
+		}
+		if err := cancelAirdropOrder(ctx, ord); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("order type uncancellable")
 	}
 	return GetOrder(ctx, ord.ID)
 }
