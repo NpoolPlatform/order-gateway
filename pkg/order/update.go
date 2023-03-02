@@ -84,7 +84,7 @@ func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
 		if startAt.Before(now.Add(-cancellableBeforeStart)) && startAt.After(now.Add(cancellableBeforeStart)) {
 			return fmt.Errorf("uncancellable time frame")
 		}
-		if now.Before(timeRangeEnd) && now.After(timeRangeStart) {
+		if now.Before(timeRangeEnd) && now.After(timeRangeStart) && ord.Start > uint32(time.Now().Unix()) {
 			return fmt.Errorf("uncancellable time frame")
 		}
 	default:
