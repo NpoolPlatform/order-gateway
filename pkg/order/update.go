@@ -142,6 +142,47 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 		return err
 	}
 
+	cancle := true
+	state := ordermgrpb.OrderState_Canceled
+	paymentState := paymentmgrpb.PaymentState_Canceled
+	_, err = ordermwcli.UpdateOrder(ctx, &ordermwpb.OrderReq{
+		ID:           &ord.ID,
+		State:        &state,
+		PaymentState: &paymentState,
+		PaymentID:    &ord.PaymentID,
+		Canceled:     &cancle,
+	})
+	if err != nil {
+		return err
+	}
+
+	units, err := decimal.NewFromString(ord.Units)
+	if err != nil {
+		return err
+	}
+	unitsStr := units.Neg().String()
+
+	stockReq := &goodmwpb.GoodReq{
+		ID: &ord.GoodID,
+	}
+
+	switch ord.OrderState {
+	case ordermgrpb.OrderState_Paid:
+		stockReq.WaitStart = &unitsStr
+	case ordermgrpb.OrderState_InService:
+		stockReq.InService = &unitsStr
+	}
+
+	_, err = goodmwcli.UpdateGood(ctx, stockReq)
+	if err != nil {
+		return err
+	}
+
+	err = archivementmwcli.Expropriate(ctx, ord.ID)
+	if err != nil {
+		return err
+	}
+
 	offset := uint32(0)
 	limit := uint32(1000) //nolint
 	detailInfos := []*ledgerdetailpb.DetailReq{}
@@ -250,45 +291,6 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 		return err
 	}
 
-	err = archivementmwcli.Expropriate(ctx, ord.ID)
-	if err != nil {
-		return err
-	}
-
-	units, err := decimal.NewFromString(ord.Units)
-	if err != nil {
-		return err
-	}
-	unitsStr := units.Neg().String()
-
-	stockReq := &goodmwpb.GoodReq{
-		ID: &ord.GoodID,
-	}
-	switch ord.OrderState {
-	case ordermgrpb.OrderState_Paid:
-		stockReq.WaitStart = &unitsStr
-	case ordermgrpb.OrderState_InService:
-		stockReq.InService = &unitsStr
-	}
-
-	_, err = goodmwcli.UpdateGood(ctx, stockReq)
-	if err != nil {
-		return err
-	}
-
-	cancle := true
-	state := ordermgrpb.OrderState_Canceled
-	paymentState := paymentmgrpb.PaymentState_Canceled
-	_, err = ordermwcli.UpdateOrder(ctx, &ordermwpb.OrderReq{
-		ID:           &ord.ID,
-		State:        &state,
-		PaymentState: &paymentState,
-		PaymentID:    &ord.PaymentID,
-		Canceled:     &cancle,
-	})
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
