@@ -80,15 +80,13 @@ func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq, fromAdmin bool) (*
 		return GetOrder(ctx, ord.ID)
 	}
 
-	if ord.OrderState == ordermgrpb.OrderState_WaitPayment {
+	switch ord.OrderState {
+	case ordermgrpb.OrderState_WaitPayment:
 		ord, err = ordermwcli.UpdateOrder(ctx, in)
 		if err != nil {
 			return nil, err
 		}
 		return GetOrder(ctx, ord.ID)
-	}
-
-	switch ord.OrderState {
 	case ordermgrpb.OrderState_Paid:
 	case ordermgrpb.OrderState_InService:
 	default:
