@@ -254,7 +254,8 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		logger.Sugar().Errorw("ValidateInit", "error", err)
 		return err
 	}
-	if userPurchaseLimit.Cmp(decimal.NewFromInt(0)) > 0 && purchaseCount.Cmp(userPurchaseLimit) > 0 {
+
+	if userPurchaseLimit.Cmp(decimal.NewFromInt(0)) > 0 && purchaseCount.Add(units).Cmp(userPurchaseLimit) > 0 {
 		return fmt.Errorf("too many units")
 	}
 
