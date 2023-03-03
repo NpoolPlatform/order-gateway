@@ -15,6 +15,7 @@ import (
 
 	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	archivementmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/archivement"
+	goodmgrpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/good"
 	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
 	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order"
 	paymentmgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/payment"
@@ -32,10 +33,6 @@ import (
 
 	ledgerdetailpb "github.com/NpoolPlatform/message/npool/ledger/mgr/v1/ledger/detail"
 )
-
-var now = time.Now()
-var timeRangeStart = time.Date(now.Year(), now.Month(), now.Day(), 21, 0, 0, 0, now.Location())
-var timeRangeEnd = time.Date(now.Year(), now.Month(), now.Day()+1, 2, 0, 0, 0, now.Location())
 
 //nolint:gocyclo
 func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
@@ -87,16 +84,17 @@ func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
 		if err != nil {
 			return err
 		}
-		if total > 0 && uint32(time.Now().Unix()) >= ord.Start-good.CancellableBeforeStart {
-			return fmt.Errorf("app good uncancellable order start at > cancellable before start")
+		if total > 0 {
+			return fmt.Errorf("app good have mining detail data uncancellable")
 		}
 
 		if uint32(time.Now().Unix()) >= ord.Start-good.CancellableBeforeStart &&
 			uint32(time.Now().Unix()) <= ord.Start+good.CancellableBeforeStart {
 			return fmt.Errorf("app good uncancellable order start at > cancellable before start")
 		}
-		if time.Now().Before(timeRangeEnd) && time.Now().After(timeRangeStart) && ord.Start > uint32(time.Now().Unix()) {
-			return fmt.Errorf("uncancellable time frame")
+
+		if good.BenefitState != goodmgrpb.BenefitState_BenefitWait {
+			return fmt.Errorf("app good uncancellable benefit state not wait")
 		}
 	default:
 		return fmt.Errorf("unknown CancelMode type %v", good.CancelMode)
