@@ -3,6 +3,8 @@ package order
 import (
 	"context"
 	"fmt"
+	miningdetailcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/mining/detail"
+	miningdetailpb "github.com/NpoolPlatform/message/npool/ledger/mgr/v1/mining/detail"
 	"time"
 
 	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
@@ -22,9 +24,6 @@ import (
 
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
-
-	miningdetailcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/mining/detail"
-	miningdetailpb "github.com/NpoolPlatform/message/npool/ledger/mgr/v1/mining/detail"
 
 	archivementdetailcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/archivement/detail"
 	archivementdetailpb "github.com/NpoolPlatform/message/npool/inspire/mgr/v1/archivement/detail"
@@ -53,6 +52,19 @@ func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
 		return fmt.Errorf("invalid good")
 	}
 
+	_, total, err := miningdetailcli.GetDetails(ctx, &miningdetailpb.Conds{
+		GoodID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: ord.GoodID,
+		},
+	}, 0, 1)
+	if err != nil {
+		return err
+	}
+	if total > 0 {
+		return fmt.Errorf("app good have mining detail data uncancellable")
+	}
+
 	switch good.CancelMode {
 	case appgoodmwpb.CancelMode_Uncancellable:
 		return fmt.Errorf("app good uncancellable")
@@ -74,18 +86,6 @@ func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
 		case ordermgrpb.OrderState_InService:
 		default:
 			return fmt.Errorf("order state is uncancellable")
-		}
-		_, total, err := miningdetailcli.GetDetails(ctx, &miningdetailpb.Conds{
-			GoodID: &commonpb.StringVal{
-				Op:    cruder.EQ,
-				Value: ord.GoodID,
-			},
-		}, 0, 1)
-		if err != nil {
-			return err
-		}
-		if total > 0 {
-			return fmt.Errorf("app good have mining detail data uncancellable")
 		}
 
 		if uint32(time.Now().Unix()) >= ord.Start-good.CancellableBeforeStart &&
