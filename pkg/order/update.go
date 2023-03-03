@@ -38,6 +38,7 @@ var now = time.Now()
 var timeRangeStart = time.Date(now.Year(), now.Month(), now.Day(), 21, 0, 0, 0, now.Location())
 var timeRangeEnd = time.Date(now.Year(), now.Month(), now.Day()+1, 2, 0, 0, 0, now.Location())
 
+//nolint:gocyclo
 func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
 	good, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodmwpb.Conds{
 		AppID: &commonpb.StringVal{
@@ -62,10 +63,24 @@ func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
 	case appgoodmwpb.CancelMode_Uncancellable:
 		return fmt.Errorf("app good uncancellable")
 	case appgoodmwpb.CancelMode_CancellableBeforeStart:
-		if ord.Start <= uint32(time.Now().Add(-cancellableBeforeStart).Unix()) {
+		switch ord.OrderState {
+		case ordermgrpb.OrderState_WaitPayment:
+		case ordermgrpb.OrderState_Paid:
+		default:
+			return fmt.Errorf("order state is uncancellable")
+		}
+		if uint32(time.Now().Add(-cancellableBeforeStart).Unix()) >= ord.Start {
 			return fmt.Errorf("cancellable time exceeded")
 		}
+
 	case appgoodmwpb.CancelMode_CancellableBeforeBenefit:
+		switch ord.OrderState {
+		case ordermgrpb.OrderState_WaitPayment:
+		case ordermgrpb.OrderState_Paid:
+		case ordermgrpb.OrderState_InService:
+		default:
+			return fmt.Errorf("order state is uncancellable")
+		}
 		_, total, err := miningdetailcli.GetDetails(ctx, &miningdetailpb.Conds{
 			GoodID: &commonpb.StringVal{
 				Op:    cruder.EQ,
@@ -75,12 +90,12 @@ func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
 		if err != nil {
 			return err
 		}
-		if total > 0 && ord.Start <= uint32(time.Now().Add(-cancellableBeforeStart).Unix()) {
+		if total > 0 && uint32(time.Now().Add(-cancellableBeforeStart).Unix()) >= ord.Start {
 			return fmt.Errorf("app good uncancellable order start at > cancellable before start")
 		}
 
 		startAt := time.Unix(int64(ord.Start), 0)
-		if startAt.Before(now.Add(-cancellableBeforeStart)) && startAt.After(now.Add(cancellableBeforeStart)) {
+		if startAt.After(now.Add(-cancellableBeforeStart)) && startAt.Before(now.Add(cancellableBeforeStart)) {
 			return fmt.Errorf("uncancellable time frame")
 		}
 		if now.Before(timeRangeEnd) && now.After(timeRangeStart) && ord.Start > uint32(time.Now().Unix()) {
