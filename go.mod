@@ -8,13 +8,13 @@ require (
 	github.com/NpoolPlatform/basal-middleware v0.0.0-20230221094657-688f81366495
 	github.com/NpoolPlatform/chain-middleware v0.0.0-20230221100129-05c4e67a81db
 	github.com/NpoolPlatform/go-service-framework v0.0.0-20230102062414-c71643aee0bd
-	github.com/NpoolPlatform/good-middleware v0.0.0-20230303074648-a000bf9e7d45
-	github.com/NpoolPlatform/inspire-middleware v0.0.0-20230228105635-9bc9bf1fa66c
-	github.com/NpoolPlatform/ledger-middleware v0.0.0-20230301025451-0517f8a14bd4
+	github.com/NpoolPlatform/good-middleware v0.0.0-20230303152006-f4b096e3b446
+	github.com/NpoolPlatform/inspire-middleware v0.0.0-20230303153618-582a0dec8547
+	github.com/NpoolPlatform/ledger-middleware v0.0.0-20230303153851-9f5d1d78921a
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20221109023947-366125b690fb
-	github.com/NpoolPlatform/message v0.0.0-20230303073606-c4bb92b6bf31
-	github.com/NpoolPlatform/order-manager v0.0.0-20230226024220-9751e14c7cf9
-	github.com/NpoolPlatform/order-middleware v0.0.0-20230226025300-b335a4be0fbb
+	github.com/NpoolPlatform/message v0.0.0-20230303150543-3cffff717625
+	github.com/NpoolPlatform/order-manager v0.0.0-20230301030435-b03a2a42a69c
+	github.com/NpoolPlatform/order-middleware v0.0.0-20230303152829-ad541a97b1c9
 	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20230216075025-a90a86bfd19b
 	github.com/NpoolPlatform/staker-manager v0.0.0-20230221132803-e20e58323795
 	github.com/go-resty/resty/v2 v2.7.0
