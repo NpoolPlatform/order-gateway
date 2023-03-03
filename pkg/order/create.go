@@ -297,6 +297,10 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 
 // nolint
 func (o *OrderCreate) SetReduction(ctx context.Context) error {
+	if len(o.CouponIDs) == 0 {
+		return nil
+	}
+
 	coupons, _, err := allocatedmwcli.GetCoupons(ctx, &allocatedmgrpb.Conds{
 		AppID: &commonpb.StringVal{
 			Op:    cruder.EQ,
