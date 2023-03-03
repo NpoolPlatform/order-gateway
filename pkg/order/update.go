@@ -330,10 +330,10 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 		return err
 	}
 
-	err = processArchivement(ctx, ord)
+	err = processLedger(ctx, ord)
 	if err != nil {
 		return err
 	}
 
-	return processLedger(ctx, ord)
+	return processArchivement(ctx, ord)
 }
