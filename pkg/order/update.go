@@ -3,8 +3,9 @@ package order
 import (
 	"context"
 	"fmt"
-	goodmgrpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/good"
 	"time"
+
+	goodmgrpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/good"
 
 	miningdetailcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/mining/detail"
 	miningdetailpb "github.com/NpoolPlatform/message/npool/ledger/mgr/v1/mining/detail"
