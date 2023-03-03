@@ -57,8 +57,6 @@ func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
 		return fmt.Errorf("invalid good")
 	}
 
-	cancellableBeforeStart := time.Duration(good.CancellableBeforeStart) * time.Second
-
 	switch good.CancelMode {
 	case appgoodmwpb.CancelMode_Uncancellable:
 		return fmt.Errorf("app good uncancellable")
@@ -69,7 +67,8 @@ func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
 		default:
 			return fmt.Errorf("order state is uncancellable")
 		}
-		if uint32(time.Now().Add(-cancellableBeforeStart).Unix()) >= ord.Start {
+
+		if uint32(time.Now().Unix()) >= ord.Start+good.CancellableBeforeStart {
 			return fmt.Errorf("cancellable time exceeded")
 		}
 
@@ -90,13 +89,13 @@ func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
 		if err != nil {
 			return err
 		}
-		if total > 0 && uint32(time.Now().Add(-cancellableBeforeStart).Unix()) >= ord.Start {
+		if total > 0 && uint32(time.Now().Unix()) >= ord.Start-good.CancellableBeforeStart {
 			return fmt.Errorf("app good uncancellable order start at > cancellable before start")
 		}
 
-		startAt := time.Unix(int64(ord.Start), 0)
-		if startAt.After(now.Add(-cancellableBeforeStart)) && startAt.Before(now.Add(cancellableBeforeStart)) {
-			return fmt.Errorf("uncancellable time frame")
+		if uint32(time.Now().Unix()) >= ord.Start-good.CancellableBeforeStart &&
+			uint32(time.Now().Unix()) <= ord.Start+good.CancellableBeforeStart {
+			return fmt.Errorf("app good uncancellable order start at > cancellable before start")
 		}
 		if now.Before(timeRangeEnd) && now.After(timeRangeStart) && ord.Start > uint32(time.Now().Unix()) {
 			return fmt.Errorf("uncancellable time frame")
