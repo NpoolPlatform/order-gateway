@@ -82,6 +82,9 @@ func UpdateOrder(ctx context.Context, in *ordermwpb.OrderReq, fromAdmin bool) (*
 
 	switch ord.OrderState {
 	case ordermgrpb.OrderState_WaitPayment:
+		if fromAdmin && ord.OrderType == ordermgrpb.OrderType_Normal {
+			return nil, fmt.Errorf("permission denied")
+		}
 		ord, err = ordermwcli.UpdateOrder(ctx, in)
 		if err != nil {
 			return nil, err
