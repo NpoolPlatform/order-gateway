@@ -168,7 +168,7 @@ func processLedger(ctx context.Context, ord *ordermwpb.Order) error {
 			return err
 		}
 		offset += limit
-		if len(detailInfos) == 0 {
+		if len(infos) == 0 {
 			break
 		}
 		for _, val := range infos {
