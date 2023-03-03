@@ -3,6 +3,7 @@ package order
 import (
 	"context"
 	"fmt"
+	goodmgrpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/good"
 	"time"
 
 	miningdetailcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/mining/detail"
@@ -18,7 +19,6 @@ import (
 
 	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	archivementmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/archivement"
-	goodmgrpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/good"
 	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
 	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order"
 	paymentmgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/payment"
@@ -66,6 +66,10 @@ func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
 		return fmt.Errorf("app good have mining detail data uncancellable")
 	}
 
+	if good.BenefitState != goodmgrpb.BenefitState_BenefitWait {
+		return fmt.Errorf("app good uncancellable benefit state not wait")
+	}
+
 	switch good.CancelMode {
 	case appgoodmwpb.CancelMode_Uncancellable:
 		return fmt.Errorf("app good uncancellable")
@@ -92,10 +96,6 @@ func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
 		if uint32(time.Now().Unix()) >= ord.Start-good.CancellableBeforeStart &&
 			uint32(time.Now().Unix()) <= ord.Start+good.CancellableBeforeStart {
 			return fmt.Errorf("app good uncancellable order start at > cancellable before start")
-		}
-
-		if good.BenefitState != goodmgrpb.BenefitState_BenefitWait {
-			return fmt.Errorf("app good uncancellable benefit state not wait")
 		}
 	default:
 		return fmt.Errorf("unknown CancelMode type %v", good.CancelMode)
