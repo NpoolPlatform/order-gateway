@@ -180,6 +180,14 @@ func processLedger(ctx context.Context, ord *ordermwpb.Order) error {
 		}
 
 		for _, val := range infos {
+			commission, err := decimal.NewFromString(val.Commission)
+			if err != nil {
+				return err
+			}
+			if commission.Cmp(decimal.NewFromInt(0)) == 0 {
+				continue
+			}
+
 			_, total, err := ledgercli.GetDetails(ctx, &ledgerdetailpb.Conds{
 				AppID: &commonpb.StringVal{
 					Op:    cruder.EQ,
