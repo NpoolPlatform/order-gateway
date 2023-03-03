@@ -3,6 +3,7 @@ package order
 import (
 	"context"
 	"fmt"
+	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	"time"
 
 	goodmgrpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/good"
@@ -167,10 +168,16 @@ func processLedger(ctx context.Context, ord *ordermwpb.Order) error {
 		if err != nil {
 			return err
 		}
+		logger.Sugar().Infow(
+			"processLedger",
+			"archivement detail length", len(infos),
+			"offset", offset,
+			"limit", limit)
 		offset += limit
 		if len(infos) == 0 {
 			break
 		}
+
 		for _, val := range infos {
 			_, total, err := ledgercli.GetDetails(ctx, &ledgerdetailpb.Conds{
 				AppID: &commonpb.StringVal{
@@ -197,6 +204,9 @@ func processLedger(ctx context.Context, ord *ordermwpb.Order) error {
 			if err != nil {
 				return err
 			}
+			logger.Sugar().Infow(
+				"processLedger",
+				"ledger total", total)
 			if total == 0 {
 				return fmt.Errorf("commission ledger detail is not exist")
 			}
@@ -221,6 +231,10 @@ func processLedger(ctx context.Context, ord *ordermwpb.Order) error {
 			})
 		}
 	}
+
+	logger.Sugar().Infow(
+		"processLedger",
+		"detailInfos", detailInfos)
 
 	paymentAmount, err := decimal.NewFromString(ord.PaymentAmount)
 	if err != nil {
