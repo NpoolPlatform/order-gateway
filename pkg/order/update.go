@@ -297,17 +297,16 @@ func cancelOfflineOrder(ctx context.Context, ord *ordermwpb.Order) error {
 	}
 	// TODO Distributed transactions should be used
 
-	err = processArchivement(ctx, ord)
-	if err != nil {
-		return err
-	}
-
 	err = processStock(ctx, ord)
 	if err != nil {
 		return err
 	}
+	err = processOrderState(ctx, ord)
+	if err != nil {
+		return err
+	}
 
-	return processOrderState(ctx, ord)
+	return processArchivement(ctx, ord)
 }
 
 func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
