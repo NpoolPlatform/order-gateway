@@ -68,7 +68,7 @@ func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
 			return fmt.Errorf("order state is uncancellable")
 		}
 
-		if uint32(time.Now().Unix()) >= ord.Start+good.CancellableBeforeStart {
+		if uint32(time.Now().Unix()) >= ord.Start-good.CancellableBeforeStart {
 			return fmt.Errorf("cancellable time exceeded")
 		}
 
