@@ -71,7 +71,6 @@ func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
 		if uint32(time.Now().Unix()) >= ord.Start-good.CancellableBeforeStart {
 			return fmt.Errorf("cancellable time exceeded")
 		}
-
 	case appgoodmwpb.CancelMode_CancellableBeforeBenefit:
 		switch ord.OrderState {
 		case ordermgrpb.OrderState_WaitPayment:
@@ -308,12 +307,12 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 		return err
 	}
 
-	err = updateOrderState(ctx, ord)
+	err = updateStock(ctx, ord)
 	if err != nil {
 		return err
 	}
 
-	err = updateStock(ctx, ord)
+	err = updateOrderState(ctx, ord)
 	if err != nil {
 		return err
 	}
