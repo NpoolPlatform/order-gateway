@@ -105,7 +105,7 @@ func validateInit(ctx context.Context, ord *ordermwpb.Order) error {
 	return nil
 }
 
-func updateStock(ctx context.Context, ord *ordermwpb.Order) error {
+func processStock(ctx context.Context, ord *ordermwpb.Order) error {
 	units, err := decimal.NewFromString(ord.Units)
 	if err != nil {
 		return err
@@ -130,7 +130,7 @@ func updateStock(ctx context.Context, ord *ordermwpb.Order) error {
 	return nil
 }
 
-func updateOrderState(ctx context.Context, ord *ordermwpb.Order) error {
+func processOrderState(ctx context.Context, ord *ordermwpb.Order) error {
 	cancle := true
 	state := ordermgrpb.OrderState_Canceled
 	paymentState := paymentmgrpb.PaymentState_Canceled
@@ -149,7 +149,7 @@ func updateOrderState(ctx context.Context, ord *ordermwpb.Order) error {
 }
 
 //nolint:funlen
-func updateLedger(ctx context.Context, ord *ordermwpb.Order) error {
+func processLedger(ctx context.Context, ord *ordermwpb.Order) error {
 	offset := uint32(0)
 	limit := uint32(1000) //nolint
 	detailInfos := []*ledgerdetailpb.DetailReq{}
@@ -260,7 +260,7 @@ func updateLedger(ctx context.Context, ord *ordermwpb.Order) error {
 	return nil
 }
 
-func updateArchivement(ctx context.Context, ord *ordermwpb.Order) error {
+func processArchivement(ctx context.Context, ord *ordermwpb.Order) error {
 	err := archivementmwcli.Expropriate(ctx, ord.ID)
 	if err != nil {
 		return err
@@ -273,12 +273,12 @@ func cancelAirdropOrder(ctx context.Context, ord *ordermwpb.Order) error {
 	if err != nil {
 		return err
 	}
-	err = updateStock(ctx, ord)
+	err = processStock(ctx, ord)
 	if err != nil {
 		return err
 	}
 	// TODO Distributed transactions should be used
-	return updateOrderState(ctx, ord)
+	return processOrderState(ctx, ord)
 }
 
 func cancelOfflineOrder(ctx context.Context, ord *ordermwpb.Order) error {
@@ -288,17 +288,17 @@ func cancelOfflineOrder(ctx context.Context, ord *ordermwpb.Order) error {
 	}
 	// TODO Distributed transactions should be used
 
-	err = updateArchivement(ctx, ord)
+	err = processArchivement(ctx, ord)
 	if err != nil {
 		return err
 	}
 
-	err = updateStock(ctx, ord)
+	err = processStock(ctx, ord)
 	if err != nil {
 		return err
 	}
 
-	return updateOrderState(ctx, ord)
+	return processOrderState(ctx, ord)
 }
 
 func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
@@ -307,20 +307,20 @@ func cancelNormalOrder(ctx context.Context, ord *ordermwpb.Order) error {
 		return err
 	}
 
-	err = updateStock(ctx, ord)
+	err = processStock(ctx, ord)
 	if err != nil {
 		return err
 	}
 
-	err = updateOrderState(ctx, ord)
+	err = processOrderState(ctx, ord)
 	if err != nil {
 		return err
 	}
 
-	err = updateArchivement(ctx, ord)
+	err = processArchivement(ctx, ord)
 	if err != nil {
 		return err
 	}
 
-	return updateLedger(ctx, ord)
+	return processLedger(ctx, ord)
 }
