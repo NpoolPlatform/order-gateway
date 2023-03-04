@@ -223,7 +223,7 @@ func processLedger(ctx context.Context, ord *ordermwpb.Order) error {
 			detailInfos = append(detailInfos, &ledgerdetailpb.DetailReq{
 				AppID:      &val.AppID,
 				UserID:     &val.UserID,
-				CoinTypeID: &val.CoinTypeID,
+				CoinTypeID: &val.PaymentCoinTypeID,
 				IOType:     &out,
 				IOSubType:  &ioTypeCR,
 				Amount:     &val.Commission,
