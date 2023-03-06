@@ -196,68 +196,6 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 	if ag.Price < good.Price {
 		return fmt.Errorf("invalid app good price")
 	}
-	units, err := decimal.NewFromString(o.Units)
-	if err != nil {
-		return err
-	}
-	if ag.PurchaseLimit > 0 && units.Cmp(decimal.NewFromInt32(ag.PurchaseLimit)) > 0 {
-		return fmt.Errorf("too many units")
-	}
-
-	offset := int32(0)
-	limit := int32(1000) //nolint
-	purchaseCount := decimal.NewFromInt(0)
-	for {
-		orderInfos, _, err := ordermwcli.GetOrders(ctx, &ordermwpb.Conds{
-			AppID: &commonpb.StringVal{
-				Op:    cruder.EQ,
-				Value: o.AppID,
-			},
-			UserID: &commonpb.StringVal{
-				Op:    cruder.EQ,
-				Value: o.UserID,
-			},
-			GoodID: &commonpb.StringVal{
-				Op:    cruder.EQ,
-				Value: o.GoodID,
-			},
-		}, offset, limit)
-		if err != nil {
-			return err
-		}
-		offset += limit
-		if len(orderInfos) == 0 {
-			break
-		}
-
-		for _, val := range orderInfos {
-			orderUnits, err := decimal.NewFromString(val.Units)
-			if err != nil {
-				logger.Sugar().Errorw("ValidateInit", "error", err)
-				continue
-			}
-			switch val.OrderState {
-			case ordermgrpb.OrderState_Paid:
-				fallthrough //nolint
-			case ordermgrpb.OrderState_InService:
-				fallthrough //nolint
-			case ordermgrpb.OrderState_Expired:
-				fallthrough //nolint
-			case ordermgrpb.OrderState_WaitPayment:
-				purchaseCount = purchaseCount.Add(orderUnits)
-			}
-		}
-	}
-
-	userPurchaseLimit, err := decimal.NewFromString(ag.UserPurchaseLimit)
-	if err != nil {
-		logger.Sugar().Errorw("ValidateInit", "error", err)
-		return err
-	}
-
-	if userPurchaseLimit.Cmp(decimal.NewFromInt(0)) > 0 && purchaseCount.Add(units).Cmp(userPurchaseLimit) > 0 {
-		return fmt.Errorf("too many units")
-	}
 
 	const maxUnpaidOrders = 5
 
