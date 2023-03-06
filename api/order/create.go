@@ -4,6 +4,13 @@ package order
 import (
 	"context"
 
+	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
+	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
+	commonpb "github.com/NpoolPlatform/message/npool"
+	appgoodpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
+	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
+	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
+
 	commontracer "github.com/NpoolPlatform/order-gateway/pkg/tracer"
 
 	constant "github.com/NpoolPlatform/order-gateway/pkg/message/const"
@@ -128,7 +135,87 @@ func createOrder(ctx context.Context, in *npool.CreateOrderRequest) (*npool.Orde
 	return info, nil
 }
 
+//nolint:gocyclo
 func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) (*npool.CreateOrderResponse, error) {
+	ag, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodpb.Conds{
+		AppID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: in.AppID,
+		},
+		GoodID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: in.GoodID,
+		},
+	})
+	if err != nil {
+		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, err.Error())
+	}
+	if ag == nil {
+		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, "invalid app good")
+	}
+	units, err := decimal.NewFromString(in.Units)
+	if err != nil {
+		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, err.Error())
+	}
+	if ag.PurchaseLimit > 0 && units.Cmp(decimal.NewFromInt32(ag.PurchaseLimit)) > 0 {
+		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, "too many units")
+	}
+
+	offset := int32(0)
+	limit := int32(1000) //nolint
+	purchaseCount := decimal.NewFromInt(0)
+	for {
+		orderInfos, _, err := ordermwcli.GetOrders(ctx, &ordermwpb.Conds{
+			AppID: &commonpb.StringVal{
+				Op:    cruder.EQ,
+				Value: in.AppID,
+			},
+			UserID: &commonpb.StringVal{
+				Op:    cruder.EQ,
+				Value: in.UserID,
+			},
+			GoodID: &commonpb.StringVal{
+				Op:    cruder.EQ,
+				Value: in.GoodID,
+			},
+		}, offset, limit)
+		if err != nil {
+			return &npool.CreateOrderResponse{}, status.Error(codes.Internal, "too many units")
+		}
+		offset += limit
+		if len(orderInfos) == 0 {
+			break
+		}
+
+		for _, val := range orderInfos {
+			orderUnits, err := decimal.NewFromString(val.Units)
+			if err != nil {
+				logger.Sugar().Errorw("ValidateInit", "error", err)
+				continue
+			}
+			switch val.OrderState {
+			case ordermgrpb.OrderState_Paid:
+				fallthrough //nolint
+			case ordermgrpb.OrderState_InService:
+				fallthrough //nolint
+			case ordermgrpb.OrderState_Expired:
+				fallthrough //nolint
+			case ordermgrpb.OrderState_WaitPayment:
+				purchaseCount = purchaseCount.Add(orderUnits)
+			}
+		}
+	}
+
+	userPurchaseLimit, err := decimal.NewFromString(ag.UserPurchaseLimit)
+	if err != nil {
+		logger.Sugar().Errorw("ValidateInit", "error", err)
+		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, err.Error())
+	}
+
+	if userPurchaseLimit.Cmp(decimal.NewFromInt(0)) > 0 && purchaseCount.Add(units).Cmp(userPurchaseLimit) > 0 {
+		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, "too many units")
+	}
+
 	in.OrderType = ordermgrpb.OrderType_Normal
 	ord, err := createOrder(ctx, in)
 	if err != nil {
