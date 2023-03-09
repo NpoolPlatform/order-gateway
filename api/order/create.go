@@ -164,29 +164,23 @@ func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) 
 		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, "app good is not enabled purchase")
 	}
 
-	purchaseCountStr, err := ordermwcli.SumOrderUnits(ctx, &ordermwpb.Conds{
-		AppID: &commonpb.StringVal{
-			Op:    cruder.EQ,
-			Value: in.AppID,
-		},
-		UserID: &commonpb.StringVal{
-			Op:    cruder.EQ,
-			Value: in.UserID,
-		},
-		GoodID: &commonpb.StringVal{
-			Op:    cruder.EQ,
-			Value: in.GoodID,
-		},
-		States: &commonpb.Uint32SliceVal{
-			Op: cruder.IN,
-			Value: []uint32{
-				uint32(ordermgrpb.OrderState_Paid),
-				uint32(ordermgrpb.OrderState_InService),
-				uint32(ordermgrpb.OrderState_Expired),
-				uint32(ordermgrpb.OrderState_WaitPayment),
+	purchaseCountStr, err := ordermwcli.SumOrderUnits(
+		ctx,
+		&ordermwpb.Conds{
+			AppID:  &commonpb.StringVal{Op: cruder.EQ, Value: in.AppID},
+			UserID: &commonpb.StringVal{Op: cruder.EQ, Value: in.UserID},
+			GoodID: &commonpb.StringVal{Op: cruder.EQ, Value: in.GoodID},
+			States: &commonpb.Uint32SliceVal{
+				Op: cruder.IN,
+				Value: []uint32{
+					uint32(ordermgrpb.OrderState_Paid),
+					uint32(ordermgrpb.OrderState_InService),
+					uint32(ordermgrpb.OrderState_Expired),
+					uint32(ordermgrpb.OrderState_WaitPayment),
+				},
 			},
 		},
-	})
+	)
 	if err != nil {
 		return nil, err
 	}
