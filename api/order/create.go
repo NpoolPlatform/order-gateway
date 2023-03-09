@@ -161,6 +161,9 @@ func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) 
 		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, "too many units")
 	}
 
+	if !ag.EnablePurchase {
+		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, "app good is not enabled purchase")
+	}
 	offset := int32(0)
 	limit := int32(1000) //nolint
 	purchaseCount := decimal.NewFromInt(0)

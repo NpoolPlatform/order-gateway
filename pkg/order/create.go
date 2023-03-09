@@ -133,10 +133,6 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		return fmt.Errorf("invalid app good")
 	}
 
-	if !ag.EnablePurchase {
-		return fmt.Errorf("app good is not enabled purchase")
-	}
-
 	o.GoodStartAt = ag.ServiceStartAt
 
 	if ag.ServiceStartAt == 0 {
