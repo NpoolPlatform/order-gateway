@@ -135,7 +135,6 @@ func createOrder(ctx context.Context, in *npool.CreateOrderRequest) (*npool.Orde
 	return info, nil
 }
 
-//nolint:gocyclo
 func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) (*npool.CreateOrderResponse, error) {
 	ag, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodpb.Conds{
 		AppID: &commonpb.StringVal{
@@ -164,49 +163,37 @@ func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) 
 	if !ag.EnablePurchase {
 		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, "app good is not enabled purchase")
 	}
-	offset := int32(0)
-	limit := int32(1000) //nolint
-	purchaseCount := decimal.NewFromInt(0)
-	for {
-		orderInfos, _, err := ordermwcli.GetOrders(ctx, &ordermwpb.Conds{
-			AppID: &commonpb.StringVal{
-				Op:    cruder.EQ,
-				Value: in.AppID,
-			},
-			UserID: &commonpb.StringVal{
-				Op:    cruder.EQ,
-				Value: in.UserID,
-			},
-			GoodID: &commonpb.StringVal{
-				Op:    cruder.EQ,
-				Value: in.GoodID,
-			},
-		}, offset, limit)
-		if err != nil {
-			return &npool.CreateOrderResponse{}, status.Error(codes.Internal, "too many units")
-		}
-		offset += limit
-		if len(orderInfos) == 0 {
-			break
-		}
 
-		for _, val := range orderInfos {
-			orderUnits, err := decimal.NewFromString(val.Units)
-			if err != nil {
-				logger.Sugar().Errorw("ValidateInit", "error", err)
-				continue
-			}
-			switch val.OrderState {
-			case ordermgrpb.OrderState_Paid:
-				fallthrough //nolint
-			case ordermgrpb.OrderState_InService:
-				fallthrough //nolint
-			case ordermgrpb.OrderState_Expired:
-				fallthrough //nolint
-			case ordermgrpb.OrderState_WaitPayment:
-				purchaseCount = purchaseCount.Add(orderUnits)
-			}
-		}
+	purchaseCountStr, err := ordermwcli.SumOrderUnits(ctx, &ordermwpb.Conds{
+		AppID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: in.AppID,
+		},
+		UserID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: in.UserID,
+		},
+		GoodID: &commonpb.StringVal{
+			Op:    cruder.EQ,
+			Value: in.GoodID,
+		},
+		States: &commonpb.Uint32SliceVal{
+			Op: cruder.IN,
+			Value: []uint32{
+				uint32(ordermgrpb.OrderState_Paid),
+				uint32(ordermgrpb.OrderState_InService),
+				uint32(ordermgrpb.OrderState_Expired),
+				uint32(ordermgrpb.OrderState_WaitPayment),
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	purchaseCount, err := decimal.NewFromString(purchaseCountStr)
+	if err != nil {
+		return nil, err
 	}
 
 	userPurchaseLimit, err := decimal.NewFromString(ag.UserPurchaseLimit)
