@@ -182,14 +182,18 @@ func (o *OrderCreate) ValidateInit(ctx context.Context) error { //nolint
 		return fmt.Errorf("good offline")
 	}
 
-	price, err := decimal.NewFromString(ag.Price)
+	agPrice, err := decimal.NewFromString(ag.Price)
 	if err != nil {
 		return err
 	}
-	if price.IntPart() <= 0 {
+	if agPrice.IntPart() <= 0 {
 		return fmt.Errorf("invalid good price")
 	}
-	if ag.Price < good.Price {
+	price, err := decimal.NewFromString(good.Price)
+	if err != nil {
+		return err
+	}
+	if agPrice.Cmp(price) < 0 {
 		return fmt.Errorf("invalid app good price")
 	}
 
@@ -338,14 +342,18 @@ func (o *OrderCreate) SetPrice(ctx context.Context) error {
 	if !ag.Online {
 		return fmt.Errorf("good offline")
 	}
-	price, err := decimal.NewFromString(ag.Price)
+	agPrice, err := decimal.NewFromString(ag.Price)
 	if err != nil {
 		return err
 	}
-	if price.Cmp(decimal.NewFromInt(0)) <= 0 {
+	if agPrice.Cmp(decimal.NewFromInt(0)) <= 0 {
 		return fmt.Errorf("invalid good price")
 	}
-	if ag.Price < good.Price {
+	price, err := decimal.NewFromString(good.Price)
+	if err != nil {
+		return err
+	}
+	if agPrice.Cmp(price) < 0 {
 		return fmt.Errorf("invalid app good price")
 	}
 
