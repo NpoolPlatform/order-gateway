@@ -847,6 +847,7 @@ func (o *OrderCreate) Create(ctx context.Context) (*npool.Order, error) {
 		Start:                     &o.start,
 		End:                       &o.end,
 		PromotionID:               o.promotionID,
+		CouponIDs:                 o.CouponIDs,
 	})
 	if err != nil {
 		return nil, err
