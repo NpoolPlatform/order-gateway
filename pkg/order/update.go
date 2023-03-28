@@ -264,10 +264,13 @@ func processLedger(ctx context.Context, ord *ordermwpb.Order) error {
 		})
 	}
 
-	err = ledgercli.BookKeeping(ctx, detailInfos)
-	if err != nil {
-		return err
+	if len(detailInfos) > 0 {
+		err = ledgercli.BookKeeping(ctx, detailInfos)
+		if err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
 
