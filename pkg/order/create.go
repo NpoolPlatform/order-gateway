@@ -450,16 +450,17 @@ func (o *OrderCreate) SetPaymentAmount(ctx context.Context) error {
 		"ReductionAmount", o.reductionAmount,
 		"ReductionPercent", o.reductionPercent,
 	)
-	o.paymentAmountUSD = o.paymentAmountUSD.Sub(o.reductionAmount)
-
-	if o.paymentAmountUSD.Cmp(decimal.NewFromInt(0)) < 0 {
-		o.paymentAmountUSD = decimal.NewFromInt(0)
-	}
 
 	o.paymentAmountUSD = o.paymentAmountUSD.
 		Sub(o.paymentAmountUSD.
 			Mul(o.reductionPercent).
 			Div(decimal.NewFromInt(100))) //nolint
+
+	o.paymentAmountUSD = o.paymentAmountUSD.Sub(o.reductionAmount)
+
+	if o.paymentAmountUSD.Cmp(decimal.NewFromInt(0)) < 0 {
+		o.paymentAmountUSD = decimal.NewFromInt(0)
+	}
 
 	const accuracy = 1000000
 
