@@ -451,7 +451,7 @@ func (o *OrderCreate) SetPaymentAmount(ctx context.Context) error {
 		"ReductionPercent", o.reductionPercent,
 	)
 
-	o.paymentAmountUSD = o.paymentAmountUSD.
+	o.paymentAmountUSD = o.price.Mul(units).
 		Sub(o.paymentAmountUSD.
 			Mul(o.reductionPercent).
 			Div(decimal.NewFromInt(100))) //nolint
