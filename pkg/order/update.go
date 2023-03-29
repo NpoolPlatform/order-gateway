@@ -241,31 +241,36 @@ func processLedger(ctx context.Context, ord *ordermwpb.Order) error {
 	if err != nil {
 		return err
 	}
-	amount := paymentAmount.Add(payWithBalanceAmount).String()
 
-	inIoExtra := fmt.Sprintf(
-		`{"AppID":"%v","UserID":"%v","OrderID":"%v","Amount":"%v","Date":"%v"}`,
-		ord.AppID,
-		ord.UserID,
-		ord.ID,
-		amount,
-		time.Now(),
-	)
+	if paymentAmount.Add(payWithBalanceAmount).Cmp(decimal.NewFromInt(0)) != 0 {
+		amount := paymentAmount.Add(payWithBalanceAmount).String()
+		inIoExtra := fmt.Sprintf(
+			`{"AppID":"%v","UserID":"%v","OrderID":"%v","Amount":"%v","Date":"%v"}`,
+			ord.AppID,
+			ord.UserID,
+			ord.ID,
+			amount,
+			time.Now(),
+		)
 
-	detailInfos = append(detailInfos, &ledgerdetailpb.DetailReq{
-		AppID:      &ord.AppID,
-		UserID:     &ord.UserID,
-		CoinTypeID: &ord.PaymentCoinTypeID,
-		IOType:     &in,
-		IOSubType:  &ioTypeOrder,
-		Amount:     &amount,
-		IOExtra:    &inIoExtra,
-	})
-
-	err = ledgercli.BookKeeping(ctx, detailInfos)
-	if err != nil {
-		return err
+		detailInfos = append(detailInfos, &ledgerdetailpb.DetailReq{
+			AppID:      &ord.AppID,
+			UserID:     &ord.UserID,
+			CoinTypeID: &ord.PaymentCoinTypeID,
+			IOType:     &in,
+			IOSubType:  &ioTypeOrder,
+			Amount:     &amount,
+			IOExtra:    &inIoExtra,
+		})
 	}
+
+	if len(detailInfos) > 0 {
+		err = ledgercli.BookKeeping(ctx, detailInfos)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
