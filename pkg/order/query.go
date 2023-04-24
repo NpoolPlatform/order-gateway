@@ -8,14 +8,14 @@ import (
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 
 	payaccmwcli "github.com/NpoolPlatform/account-middleware/pkg/client/payment"
-	usercli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
+	usermwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	appcoininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/appcoin"
 	coininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin"
 	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordercli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 
-	userpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
+	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 
 	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
 	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/appcoin"
@@ -33,6 +33,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	commonpb "github.com/NpoolPlatform/message/npool"
+	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 
 	"github.com/google/uuid"
 )
@@ -82,7 +83,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 		End:   ord.End,
 	}
 
-	user, err := usercli.GetUser(ctx, ord.AppID, ord.UserID)
+	user, err := usermwcli.GetUser(ctx, ord.AppID, ord.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +275,9 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 		uids = append(uids, ord.UserID)
 	}
 
-	users, _, err := usercli.GetManyUsers(ctx, uids)
+	users, _, err := usermwcli.GetUsers(ctx, &usermwpb.Conds{
+		IDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: uids},
+	}, 0, int32(len(uids)))
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +285,7 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 		return nil, fmt.Errorf("invalid users")
 	}
 
-	userMap := map[string]*userpb.User{}
+	userMap := map[string]*usermwpb.User{}
 	for _, user := range users {
 		userMap[user.ID] = user
 	}

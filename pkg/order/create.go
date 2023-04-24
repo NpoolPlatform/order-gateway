@@ -38,8 +38,8 @@ import (
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
 
+	accountlock "github.com/NpoolPlatform/account-middleware/pkg/lock"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
-	accountlock "github.com/NpoolPlatform/staker-manager/pkg/accountlock"
 
 	ledgermgrcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/ledger/v2"
 	ledgermgrpb "github.com/NpoolPlatform/message/npool/ledger/mgr/v1/ledger/general"
