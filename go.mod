@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/NpoolPlatform/account-middleware v0.0.0-20230423125921-a60e98f91992
-	github.com/NpoolPlatform/appuser-middleware v0.0.0-20230424050801-787a8feac17c
+	github.com/NpoolPlatform/appuser-middleware v0.0.0-20230513100509-b19f356ebd4b
 	github.com/NpoolPlatform/basal-middleware v0.0.0-20230421085555-165e4722a9ba
 	github.com/NpoolPlatform/chain-middleware v0.0.0-20230221100129-05c4e67a81db
 	github.com/NpoolPlatform/go-service-framework v0.0.0-20230412082654-0f8f9e7ae58d
@@ -12,7 +12,7 @@ require (
 	github.com/NpoolPlatform/inspire-middleware v0.0.0-20230329075705-1950f4c4564c
 	github.com/NpoolPlatform/ledger-middleware v0.0.0-20230303153851-9f5d1d78921a
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20221109023947-366125b690fb
-	github.com/NpoolPlatform/message v0.0.0-20230424085554-64fa8188328c
+	github.com/NpoolPlatform/message v0.0.0-20230513100359-465cbc33723b
 	github.com/NpoolPlatform/order-manager v0.0.0-20230301030435-b03a2a42a69c
 	github.com/NpoolPlatform/order-middleware v0.0.0-20230309070310-d1b776ed75e8
 	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20230216075025-a90a86bfd19b
