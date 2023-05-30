@@ -1,0 +1,12 @@
+{
+  "Info": {
+    "TransactionID": "iron12",
+    "Name": "tironfish",
+    "Amount": 6,
+    "From": "9a395da97f0c19c617160a84f15235eb74c4276e62662c982154ecddb80e159a",
+    "To": "2417f54aec43e9adb9357f33b4b8108c144d95fb0a6c0030f2f033069d5906d6",
+    "TransactionState": "TransactionStateFail",
+    "CreatedAt": 1684845023,
+    "UpdatedAt": 1684848377
+  }
+}

@@ -17,7 +17,7 @@ import (
 
 	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 
-	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/appcoin"
+	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
 	coininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin"
 	currvalmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin/currency"
 	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
@@ -27,11 +27,12 @@ import (
 
 	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
 
-	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/appcoin"
+	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
 	appgoodpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
 
 	accountmgrpb "github.com/NpoolPlatform/message/npool/account/mgr/v1/account"
 	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
+	currvalmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin/currency"
 	allocatedmgrpb "github.com/NpoolPlatform/message/npool/inspire/mgr/v1/coupon/allocated"
 	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order"
 	paymentmgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/payment"
@@ -45,6 +46,7 @@ import (
 	ledgermgrpb "github.com/NpoolPlatform/message/npool/ledger/mgr/v1/ledger/general"
 
 	commonpb "github.com/NpoolPlatform/message/npool"
+	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 
 	"github.com/shopspring/decimal"
 )
@@ -377,7 +379,9 @@ func (o *OrderCreate) SetPrice(ctx context.Context) error {
 }
 
 func (o *OrderCreate) SetCurrency(ctx context.Context) error {
-	curr, err := currvalmwcli.GetCoinCurrency(ctx, o.PaymentCoinID)
+	curr, err := currvalmwcli.GetCurrencyOnly(ctx, &currvalmwpb.Conds{
+		CoinTypeID: &basetypes.StringVal{Op: cruder.EQ, Value: o.PaymentCoinID},
+	})
 	if err != nil {
 		return err
 	}
@@ -402,11 +406,11 @@ func (o *OrderCreate) SetCurrency(ctx context.Context) error {
 	o.coinCurrency = val
 
 	apc, err := appcoinmwcli.GetCoinOnly(ctx, &appcoinmwpb.Conds{
-		AppID: &commonpb.StringVal{
+		AppID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: o.AppID,
 		},
-		CoinTypeID: &commonpb.StringVal{
+		CoinTypeID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: o.PaymentCoinID,
 		},
@@ -826,6 +830,19 @@ func (o *OrderCreate) Create(ctx context.Context) (*npool.Order, error) {
 	}
 	const secondsPerDay = 24 * 60 * 60
 	o.end = o.start + o.GoodDurationDays*secondsPerDay
+
+	logger.Sugar().Infow(
+		"CreateOrder",
+		"PaymentAmountUSD", o.paymentAmountUSD,
+		"PaymentAmountCoin", o.paymentAmountCoin,
+		"BalanceAmount", o.BalanceAmount,
+		"ReductionAmount", o.reductionAmount,
+		"ReductionPercent", o.reductionPercent,
+		"PaymentAddressStartAmount", o.paymentAddressStartAmount,
+		"CoinCurrency", o.coinCurrency,
+		"LiveCurrency", o.liveCurrency,
+		"LocalCurrency", o.localCurrency,
+	)
 
 	ord, err := ordermwcli.CreateOrder(ctx, &ordermwpb.OrderReq{
 		AppID:                     &o.AppID,
