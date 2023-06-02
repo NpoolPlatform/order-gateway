@@ -356,6 +356,8 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 		return nil, err
 	}
 
+	fmt.Printf("goodIDs: %v, appID %v, appGoods %v | %v\n", goodIDs, appID, len(appGoods), appGoods)
+
 	appGoodMap := map[string]*appgoodspb.Good{}
 	for _, appGood := range appGoods {
 		appGoodMap[appGood.AppID+appGood.GoodID] = appGood
