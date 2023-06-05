@@ -9,7 +9,7 @@ import (
 
 	payaccmwcli "github.com/NpoolPlatform/account-middleware/pkg/client/payment"
 	usermwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
-	appcoininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/appcoin"
+	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
 	coininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin"
 	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
@@ -18,7 +18,7 @@ import (
 	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 
 	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
-	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/appcoin"
+	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
 	allocatedmgrpb "github.com/NpoolPlatform/message/npool/inspire/mgr/v1/coupon/allocated"
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
@@ -356,6 +356,8 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 		return nil, err
 	}
 
+	fmt.Printf("goodIDs: %v, appID %v, appGoods %v | %v\n", goodIDs, appID, len(appGoods), appGoods)
+
 	appGoodMap := map[string]*appgoodspb.Good{}
 	for _, appGood := range appGoods {
 		appGoodMap[appGood.AppID+appGood.GoodID] = appGood
@@ -375,12 +377,12 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 		coinTypeIDs = append(coinTypeIDs, val.CoinTypeID)
 	}
 
-	coins, _, err := appcoininfocli.GetCoins(ctx, &appcoinmwpb.Conds{
-		AppID: &commonpb.StringVal{
+	coins, _, err := appcoinmwcli.GetCoins(ctx, &appcoinmwpb.Conds{
+		AppID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: appID,
 		},
-		CoinTypeIDs: &commonpb.StringSliceVal{
+		CoinTypeIDs: &basetypes.StringSliceVal{
 			Op:    cruder.IN,
 			Value: coinTypeIDs,
 		},
