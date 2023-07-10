@@ -3,7 +3,7 @@ module github.com/NpoolPlatform/order-gateway
 go 1.17
 
 require (
-	github.com/NpoolPlatform/account-middleware v0.0.0-20230423125921-a60e98f91992
+	github.com/NpoolPlatform/account-middleware v0.0.0-20230709121029-4ff9a4fac165
 	github.com/NpoolPlatform/appuser-middleware v0.0.0-20230513100509-b19f356ebd4b
 	github.com/NpoolPlatform/basal-middleware v0.0.0-20230518061816-62bd589c0f63
 	github.com/NpoolPlatform/chain-middleware v0.0.0-20230605123408-7e083d1f9b54
@@ -12,7 +12,7 @@ require (
 	github.com/NpoolPlatform/inspire-middleware v0.0.0-20230329075705-1950f4c4564c
 	github.com/NpoolPlatform/ledger-middleware v0.0.0-20230303153851-9f5d1d78921a
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20221109023947-366125b690fb
-	github.com/NpoolPlatform/message v0.0.0-20230605075344-03a09d2c34b8
+	github.com/NpoolPlatform/message v0.0.0-20230710013349-5c5a280d40c6
 	github.com/NpoolPlatform/order-manager v0.0.0-20230301030435-b03a2a42a69c
 	github.com/NpoolPlatform/order-middleware v0.0.0-20230309070310-d1b776ed75e8
 	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20230216075025-a90a86bfd19b
