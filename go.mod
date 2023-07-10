@@ -3,7 +3,7 @@ module github.com/NpoolPlatform/order-gateway
 go 1.17
 
 require (
-	github.com/NpoolPlatform/account-middleware v0.0.0-20230709121029-4ff9a4fac165
+	github.com/NpoolPlatform/account-middleware v0.0.0-20230710023710-099c4ebe2df4
 	github.com/NpoolPlatform/appuser-middleware v0.0.0-20230513100509-b19f356ebd4b
 	github.com/NpoolPlatform/basal-middleware v0.0.0-20230518061816-62bd589c0f63
 	github.com/NpoolPlatform/chain-middleware v0.0.0-20230605123408-7e083d1f9b54
