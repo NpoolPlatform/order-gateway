@@ -30,7 +30,6 @@ import (
 	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
 	appgoodpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
 
-	accountmgrpb "github.com/NpoolPlatform/message/npool/account/mgr/v1/account"
 	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
 	currvalmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin/currency"
 	allocatedmgrpb "github.com/NpoolPlatform/message/npool/inspire/mgr/v1/coupon/allocated"
@@ -522,23 +521,23 @@ func (o *OrderCreate) createAddresses(ctx context.Context) error {
 
 func (o *OrderCreate) peekAddress(ctx context.Context) (*payaccmwpb.Account, error) {
 	payments, _, err := payaccmwcli.GetAccounts(ctx, &payaccmwpb.Conds{
-		CoinTypeID: &commonpb.StringVal{
+		CoinTypeID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: o.PaymentCoinID,
 		},
-		Active: &commonpb.BoolVal{
+		Active: &basetypes.BoolVal{
 			Op:    cruder.EQ,
 			Value: true,
 		},
-		Locked: &commonpb.BoolVal{
+		Locked: &basetypes.BoolVal{
 			Op:    cruder.EQ,
 			Value: false,
 		},
-		Blocked: &commonpb.BoolVal{
+		Blocked: &basetypes.BoolVal{
 			Op:    cruder.EQ,
 			Value: false,
 		},
-		AvailableAt: &commonpb.Uint32Val{
+		AvailableAt: &basetypes.Uint32Val{
 			Op:    cruder.LTE,
 			Value: uint32(time.Now().Unix()),
 		},
@@ -573,7 +572,7 @@ func (o *OrderCreate) peekAddress(ctx context.Context) (*payaccmwpb.Account, err
 		}
 
 		locked := true
-		lockedBy := accountmgrpb.LockedBy_Payment
+		lockedBy := basetypes.AccountLockedBy_Payment
 
 		info, err = payaccmwcli.UpdateAccount(ctx, &payaccmwpb.AccountReq{
 			ID:       &payment.ID,

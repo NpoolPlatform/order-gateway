@@ -168,7 +168,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 	}
 
 	account, err := payaccmwcli.GetAccountOnly(ctx, &payaccmwpb.Conds{
-		AccountID: &commonpb.StringVal{
+		AccountID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: ord.PaymentAccountID,
 		},
@@ -304,7 +304,7 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 	}
 
 	accounts, _, err := payaccmwcli.GetAccounts(ctx, &payaccmwpb.Conds{
-		AccountIDs: &commonpb.StringSliceVal{
+		AccountIDs: &basetypes.StringSliceVal{
 			Op:    cruder.IN,
 			Value: accIDs,
 		},
