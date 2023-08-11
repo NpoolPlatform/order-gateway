@@ -19,7 +19,6 @@ import (
 
 	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
 	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
-	allocatedmgrpb "github.com/NpoolPlatform/message/npool/inspire/mgr/v1/coupon/allocated"
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 
@@ -180,15 +179,9 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 		o.PaymentAddress = account.Address
 	}
 
-	coupons, _, err := allocatedmwcli.GetCoupons(ctx, &allocatedmgrpb.Conds{
-		AppID: &commonpb.StringVal{
-			Op:    cruder.EQ,
-			Value: ord.AppID,
-		},
-		IDs: &commonpb.StringSliceVal{
-			Op:    cruder.IN,
-			Value: ord.CouponIDs,
-		},
+	coupons, _, err := allocatedmwcli.GetCoupons(ctx, &allocatedmwpb.Conds{
+		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: ord.AppID},
+		IDs:   &basetypes.StringSliceVal{Op: cruder.IN, Value: ord.CouponIDs},
 	}, int32(0), int32(len(ord.CouponIDs)))
 	if err != nil {
 		return nil, err
@@ -209,7 +202,7 @@ func GetOrder(ctx context.Context, id string) (*npool.Order, error) { //nolint
 			CouponID:    id,
 			CouponType:  coup.CouponType,
 			CouponName:  coup.CouponName,
-			CouponValue: coup.Value,
+			CouponValue: coup.Denomination,
 		})
 	}
 
@@ -323,15 +316,9 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 		ids = append(ids, ord.CouponIDs...)
 	}
 
-	coupons, _, err := allocatedmwcli.GetCoupons(ctx, &allocatedmgrpb.Conds{
-		AppID: &commonpb.StringVal{
-			Op:    cruder.EQ,
-			Value: appID,
-		},
-		IDs: &commonpb.StringSliceVal{
-			Op:    cruder.IN,
-			Value: ids,
-		},
+	coupons, _, err := allocatedmwcli.GetCoupons(ctx, &allocatedmwpb.Conds{
+		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: appID},
+		IDs:   &basetypes.StringSliceVal{Op: cruder.IN, Value: ids},
 	}, int32(0), int32(len(ids)))
 	if err != nil {
 		return nil, err
@@ -512,7 +499,7 @@ func expand(ctx context.Context, ords []*ordermwpb.Order, appID string) ([]*npoo
 				CouponID:    id,
 				CouponType:  coup.CouponType,
 				CouponName:  coup.CouponName,
-				CouponValue: coup.Value,
+				CouponValue: coup.Denomination,
 			})
 		}
 

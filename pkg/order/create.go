@@ -31,8 +31,9 @@ import (
 	appgoodpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
 
 	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
+	inspiretypes "github.com/NpoolPlatform/message/npool/basetypes/inspire/v1"
 	currvalmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin/currency"
-	allocatedmgrpb "github.com/NpoolPlatform/message/npool/inspire/mgr/v1/coupon/allocated"
+	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order"
 	paymentmgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/payment"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
@@ -240,19 +241,10 @@ func (o *OrderCreate) SetReduction(ctx context.Context) error {
 		return nil
 	}
 
-	coupons, _, err := allocatedmwcli.GetCoupons(ctx, &allocatedmgrpb.Conds{
-		AppID: &commonpb.StringVal{
-			Op:    cruder.EQ,
-			Value: o.AppID,
-		},
-		UserID: &commonpb.StringVal{
-			Op:    cruder.EQ,
-			Value: o.UserID,
-		},
-		IDs: &commonpb.StringSliceVal{
-			Op:    cruder.IN,
-			Value: o.CouponIDs,
-		},
+	coupons, _, err := allocatedmwcli.GetCoupons(ctx, &allocatedmwpb.Conds{
+		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: o.AppID},
+		UserID: &basetypes.StringVal{Op: cruder.EQ, Value: o.UserID},
+		IDs:    &basetypes.StringSliceVal{Op: cruder.IN, Value: o.CouponIDs},
 	}, int32(0), int32(len(o.CouponIDs)))
 	if err != nil {
 		return err
@@ -261,19 +253,14 @@ func (o *OrderCreate) SetReduction(ctx context.Context) error {
 		return fmt.Errorf("invalid coupon")
 	}
 
-	if len(o.CouponIDs) > 0 {
-		exist, err := ordercli.ExistOrderConds(ctx, &ordermgrpb.Conds{
-			CouponIDs: &commonpb.StringSliceVal{
-				Op:    cruder.EQ,
-				Value: o.CouponIDs,
-			},
-		})
-		if err != nil {
-			return err
-		}
-		if exist {
-			return fmt.Errorf("coupon already used")
-		}
+	exist, err := ordercli.ExistOrderConds(ctx, &ordermgrpb.Conds{
+		CouponIDs: &commonpb.StringSliceVal{Op: cruder.EQ, Value: o.CouponIDs},
+	})
+	if err != nil {
+		return err
+	}
+	if exist {
+		return fmt.Errorf("coupon already used")
 	}
 
 	for _, coup := range coupons {
@@ -281,16 +268,16 @@ func (o *OrderCreate) SetReduction(ctx context.Context) error {
 			return fmt.Errorf("invalid coupon")
 		}
 		switch coup.CouponType {
-		case allocatedmgrpb.CouponType_FixAmount:
+		case inspiretypes.CouponType_FixAmount:
 			fallthrough //nolint
-		case allocatedmgrpb.CouponType_SpecialOffer:
-			amount, err := decimal.NewFromString(coup.Value)
+		case inspiretypes.CouponType_SpecialOffer:
+			amount, err := decimal.NewFromString(coup.Denomination)
 			if err != nil {
 				return err
 			}
 			o.reductionAmount = o.reductionAmount.Add(amount)
-		case allocatedmgrpb.CouponType_Discount:
-			percent, err := decimal.NewFromString(coup.Value)
+		case inspiretypes.CouponType_Discount:
+			percent, err := decimal.NewFromString(coup.Denomination)
 			if err != nil {
 				return err
 			}
@@ -298,18 +285,6 @@ func (o *OrderCreate) SetReduction(ctx context.Context) error {
 				return fmt.Errorf("invalid discount")
 			}
 			o.reductionPercent = percent
-		case allocatedmgrpb.CouponType_ThresholdFixAmount:
-			fallthrough //nolint
-		case allocatedmgrpb.CouponType_ThresholdDiscount:
-			fallthrough //nolint
-		case allocatedmgrpb.CouponType_GoodFixAmount:
-			fallthrough //nolint
-		case allocatedmgrpb.CouponType_GoodDiscount:
-			fallthrough //nolint
-		case allocatedmgrpb.CouponType_GoodThresholdFixAmount:
-			fallthrough //nolint
-		case allocatedmgrpb.CouponType_GoodThresholdDiscount:
-			return fmt.Errorf("not implemented")
 		default:
 			return fmt.Errorf("unknown coupon type")
 		}

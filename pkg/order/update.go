@@ -12,6 +12,7 @@ import (
 
 	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	commonpb "github.com/NpoolPlatform/message/npool"
+	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 
 	"github.com/shopspring/decimal"
 
@@ -19,7 +20,7 @@ import (
 	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
 
 	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
-	archivementmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/archivement"
+	achievementmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/achievement"
 	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
 	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order"
 	paymentmgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/payment"
@@ -27,8 +28,8 @@ import (
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 
-	archivementdetailcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/archivement/detail"
-	archivementdetailpb "github.com/NpoolPlatform/message/npool/inspire/mgr/v1/archivement/detail"
+	statementmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/achievement/statement"
+	statementmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/achievement/statement"
 
 	ledgercli "github.com/NpoolPlatform/ledger-middleware/pkg/client/ledger/v2"
 
@@ -149,8 +150,8 @@ func processOrderState(ctx context.Context, ord *ordermwpb.Order) error {
 
 //nolint:funlen
 func processLedger(ctx context.Context, ord *ordermwpb.Order) error {
-	offset := uint32(0)
-	limit := uint32(1000) //nolint
+	offset := int32(0)
+	limit := int32(1000) //nolint
 	detailInfos := []*ledgerdetailpb.DetailReq{}
 	in := ledgerdetailpb.IOType_Incoming
 	out := ledgerdetailpb.IOType_Outcoming
@@ -158,11 +159,8 @@ func processLedger(ctx context.Context, ord *ordermwpb.Order) error {
 	ioTypeOrder := ledgerdetailpb.IOSubType_OrderRevoke
 
 	for {
-		infos, _, err := archivementdetailcli.GetDetails(ctx, &archivementdetailpb.Conds{
-			OrderID: &commonpb.StringVal{
-				Op:    cruder.EQ,
-				Value: ord.ID,
-			},
+		infos, _, err := statementmwcli.GetStatements(ctx, &statementmwpb.Conds{
+			OrderID: &basetypes.StringVal{Op: cruder.EQ, Value: ord.ID},
 		}, offset, limit)
 		if err != nil {
 			return err
@@ -275,7 +273,7 @@ func processLedger(ctx context.Context, ord *ordermwpb.Order) error {
 }
 
 func processArchivement(ctx context.Context, ord *ordermwpb.Order) error {
-	err := archivementmwcli.Expropriate(ctx, ord.ID)
+	err := achievementmwcli.ExpropriateAchievement(ctx, ord.ID)
 	if err != nil {
 		return err
 	}
