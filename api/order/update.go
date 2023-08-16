@@ -11,136 +11,106 @@ import (
 
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
-	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
-
-	"github.com/google/uuid"
 )
 
 func (s *Server) UpdateOrder(ctx context.Context, in *npool.UpdateOrderRequest) (*npool.UpdateOrderResponse, error) {
-	if _, err := uuid.Parse(in.GetAppID()); err != nil {
-		logger.Sugar().Errorw("UpdateOrder", "AppID", in.GetAppID(), "error", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	if _, err := uuid.Parse(in.GetUserID()); err != nil {
-		logger.Sugar().Errorw("UpdateOrder", "UserID", in.GetUserID(), "error", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	if _, err := uuid.Parse(in.GetID()); err != nil {
-		logger.Sugar().Errorw("UpdateOrder", "ID", in.GetID(), "error", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	if _, err := uuid.Parse(in.GetPaymentID()); err != nil {
-		logger.Sugar().Errorw("UpdateOrder", "PaymentID", in.GetPaymentID(), "error", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	if in.Canceled == nil {
-		logger.Sugar().Errorw("UpdateOrder", "error", "nothing todo")
-		return nil, status.Error(codes.InvalidArgument, "nothing todo")
-	}
-
-	ord, err := order1.UpdateOrder(ctx, &ordermwpb.OrderReq{
-		AppID:     &in.AppID,
-		UserID:    &in.UserID,
-		ID:        &in.ID,
-		PaymentID: &in.PaymentID,
-		Canceled:  in.Canceled,
-	}, false)
+	handler, err := order1.NewHandler(
+		ctx,
+		order1.WithID(&in.ID),
+		order1.WithAppID(&in.AppID),
+		order1.WithUserID(&in.AppID, &in.UserID),
+		order1.WithPaymentID(&in.PaymentID),
+		order1.WithCanceled(in.Canceled),
+		order1.WithFromAdmin(false),
+	)
 	if err != nil {
-		logger.Sugar().Errorw("UpdateOrder", "error", err)
-		return nil, status.Error(codes.Internal, err.Error())
+		logger.Sugar().Errorw(
+			"UpdateOrder",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.UpdateOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	info, err := handler.UpdateOrder(ctx)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"UpdateOrder",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.UpdateOrderResponse{}, status.Error(codes.Internal, err.Error())
 	}
 
 	return &npool.UpdateOrderResponse{
-		Info: ord,
+		Info: info,
 	}, nil
 }
 
 func (s *Server) UpdateUserOrder(ctx context.Context, in *npool.UpdateUserOrderRequest) (*npool.UpdateUserOrderResponse, error) {
-	if _, err := uuid.Parse(in.GetAppID()); err != nil {
-		logger.Sugar().Errorw("UpdateUserOrder", "AppID", in.GetAppID(), "error", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	if _, err := uuid.Parse(in.GetTargetUserID()); err != nil {
-		logger.Sugar().Errorw("UpdateUserOrder", "UserID", in.GetTargetUserID(), "error", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	if _, err := uuid.Parse(in.GetID()); err != nil {
-		logger.Sugar().Errorw("UpdateUserOrder", "ID", in.GetID(), "error", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	if _, err := uuid.Parse(in.GetPaymentID()); err != nil {
-		logger.Sugar().Errorw("UpdateUserOrder", "PaymentID", in.GetPaymentID(), "error", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	if in.Canceled == nil {
-		logger.Sugar().Errorw("UpdateUserOrder", "error", "nothing todo")
-		return nil, status.Error(codes.InvalidArgument, "nothing todo")
-	}
-
-	ord, err := order1.UpdateOrder(ctx, &ordermwpb.OrderReq{
-		AppID:     &in.AppID,
-		UserID:    &in.TargetUserID,
-		ID:        &in.ID,
-		PaymentID: &in.PaymentID,
-		Canceled:  in.Canceled,
-	}, true)
+	handler, err := order1.NewHandler(
+		ctx,
+		order1.WithID(&in.ID),
+		order1.WithAppID(&in.AppID),
+		order1.WithUserID(&in.AppID, &in.TargetUserID),
+		order1.WithPaymentID(&in.PaymentID),
+		order1.WithCanceled(in.Canceled),
+		order1.WithFromAdmin(false),
+	)
 	if err != nil {
-		logger.Sugar().Errorw("UpdateUserOrder", "error", err)
-		return nil, status.Error(codes.Internal, "fail update order")
+		logger.Sugar().Errorw(
+			"UpdateUserOrder",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.UpdateUserOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	info, err := handler.UpdateOrder(ctx)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"UpdateUserOrder",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.UpdateUserOrderResponse{}, status.Error(codes.Internal, err.Error())
 	}
 
 	return &npool.UpdateUserOrderResponse{
-		Info: ord,
+		Info: info,
 	}, nil
 }
 
 func (s *Server) UpdateAppUserOrder(ctx context.Context, in *npool.UpdateAppUserOrderRequest) (*npool.UpdateAppUserOrderResponse, error) {
-	if _, err := uuid.Parse(in.GetTargetUserID()); err != nil {
-		logger.Sugar().Errorw("UpdateAppUserOrder", "AppID", in.GetTargetUserID(), "error", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	if _, err := uuid.Parse(in.GetTargetUserID()); err != nil {
-		logger.Sugar().Errorw("UpdateAppUserOrder", "UserID", in.GetTargetUserID(), "error", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	if _, err := uuid.Parse(in.GetID()); err != nil {
-		logger.Sugar().Errorw("UpdateAppUserOrder", "ID", in.GetID(), "error", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	if _, err := uuid.Parse(in.GetPaymentID()); err != nil {
-		logger.Sugar().Errorw("UpdateAppUserOrder", "PaymentID", in.GetPaymentID(), "error", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	if in.Canceled == nil {
-		logger.Sugar().Errorw("UpdateAppUserOrder", "error", "nothing todo")
-		return nil, status.Error(codes.InvalidArgument, "nothing todo")
-	}
-
-	ord, err := order1.UpdateOrder(ctx, &ordermwpb.OrderReq{
-		AppID:     &in.TargetAppID,
-		UserID:    &in.TargetUserID,
-		ID:        &in.ID,
-		PaymentID: &in.PaymentID,
-		Canceled:  in.Canceled,
-	}, true)
+	handler, err := order1.NewHandler(
+		ctx,
+		order1.WithID(&in.ID),
+		order1.WithAppID(&in.TargetAppID),
+		order1.WithUserID(&in.TargetAppID, &in.TargetUserID),
+		order1.WithPaymentID(&in.PaymentID),
+		order1.WithCanceled(in.Canceled),
+		order1.WithFromAdmin(false),
+	)
 	if err != nil {
-		logger.Sugar().Errorw("UpdateAppUserOrder", "error", err)
-		return nil, status.Error(codes.Internal, "fail update order")
+		logger.Sugar().Errorw(
+			"UpdateAppUserOrder",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.UpdateAppUserOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	info, err := handler.UpdateOrder(ctx)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"UpdateAppUserOrder",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.UpdateAppUserOrderResponse{}, status.Error(codes.Internal, err.Error())
 	}
 
 	return &npool.UpdateAppUserOrderResponse{
-		Info: ord,
+		Info: info,
 	}, nil
 }

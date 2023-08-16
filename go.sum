@@ -68,12 +68,10 @@ github.com/NpoolPlatform/ledger-middleware v0.0.0-20230303153851-9f5d1d78921a h1
 github.com/NpoolPlatform/ledger-middleware v0.0.0-20230303153851-9f5d1d78921a/go.mod h1:PHraMn7XFekx4iYzJPJYt8z4NbUY2G7evmNkghxz47o=
 github.com/NpoolPlatform/libent-cruder v0.0.0-20221109023947-366125b690fb h1:IAQOJ0xQWdJS1BnimNdM6GZMLgTL/FnIa8C8K4xffUA=
 github.com/NpoolPlatform/libent-cruder v0.0.0-20221109023947-366125b690fb/go.mod h1:zvvqlRwbOdTUauPQ9dFDhDuxa91ILV0CQfVdPBZj+eA=
-github.com/NpoolPlatform/message v0.0.0-20230811100148-665aae942dc8 h1:8PqDkY/opP0LRsHttjOcUPwmoKHU1LLea7nFzLYrUdY=
-github.com/NpoolPlatform/message v0.0.0-20230811100148-665aae942dc8/go.mod h1:PxJpF0vSSOke+NJskbRBRQ2fK2K3SRe8zaEja+GxSHk=
-github.com/NpoolPlatform/order-manager v0.0.0-20230301030435-b03a2a42a69c h1:l7frtKUbO/71g7h5B4s8Bfcr9ypo3BsqBdevTRtpGb4=
-github.com/NpoolPlatform/order-manager v0.0.0-20230301030435-b03a2a42a69c/go.mod h1:PBI+tC76GbzTAQCmkEYtwZOItNdyyZBjE/kGHzgcP8I=
-github.com/NpoolPlatform/order-middleware v0.0.0-20230309070310-d1b776ed75e8 h1:eRWk+Okltq00YfDBIhKJIzDFfgcgXxnQOW3P+GD8Dfg=
-github.com/NpoolPlatform/order-middleware v0.0.0-20230309070310-d1b776ed75e8/go.mod h1:+2ZsZhQ0wKcVG9ZLuoNmXdkoJBSbtjRTo2GCCqexJYE=
+github.com/NpoolPlatform/message v0.0.0-20230815040303-b186df0b7f2b h1:F5AuUHifvGQCpXyacePYocRCSbRXbTLvhdC78ilPuVM=
+github.com/NpoolPlatform/message v0.0.0-20230815040303-b186df0b7f2b/go.mod h1:PxJpF0vSSOke+NJskbRBRQ2fK2K3SRe8zaEja+GxSHk=
+github.com/NpoolPlatform/order-middleware v0.0.0-20230815061732-4d55ec9e8f2a h1:CS1BC6q2NlAQQQG6Unwidj7iDh3vT5C/4jKztFSf3Xg=
+github.com/NpoolPlatform/order-middleware v0.0.0-20230815061732-4d55ec9e8f2a/go.mod h1:GYe5QFjM7oS+Ut3owu3PP86kHeI5fMJTVRhOyf9PLCg=
 github.com/NpoolPlatform/sphinx-proxy v0.0.0-20230216075025-a90a86bfd19b h1:Ks5kNee/mPcBnjdBugi/VC1mdcsWxETagVL3a+0e3v0=
 github.com/NpoolPlatform/sphinx-proxy v0.0.0-20230216075025-a90a86bfd19b/go.mod h1:9C9XDi7c0szxcLdJGDDFuo3/KtC74yWiyUM2fR+i0ww=
 github.com/OneOfOne/xxhash v1.2.2 h1:KMrpdQIwFcEqXDklaen+P1axHaj9BSKzvpUUfnHldSE=
