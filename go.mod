@@ -7,13 +7,13 @@ require (
 	github.com/NpoolPlatform/appuser-middleware v0.0.0-20230513100509-b19f356ebd4b
 	github.com/NpoolPlatform/basal-middleware v0.0.0-20230518061816-62bd589c0f63
 	github.com/NpoolPlatform/chain-middleware v0.0.0-20230712041523-2e1d215244e0
-	github.com/NpoolPlatform/go-service-framework v0.0.0-20230813055757-23d6ad3123fc
-	github.com/NpoolPlatform/good-middleware v0.0.0-20230811102318-3badbd5ab606
+	github.com/NpoolPlatform/go-service-framework v0.0.0-20230814035104-e1466b5c157e
+	github.com/NpoolPlatform/good-middleware v0.0.0-20230823034851-d6449a27f3e1
 	github.com/NpoolPlatform/inspire-middleware v0.0.0-20230811101104-636b885293d2
-	github.com/NpoolPlatform/ledger-middleware v0.0.0-20230303153851-9f5d1d78921a
-	github.com/NpoolPlatform/libent-cruder v0.0.0-20221109023947-366125b690fb
-	github.com/NpoolPlatform/message v0.0.0-20230815040303-b186df0b7f2b
-	github.com/NpoolPlatform/order-middleware v0.0.0-20230815061732-4d55ec9e8f2a
+	github.com/NpoolPlatform/ledger-middleware v0.0.0-20230823035222-525fd923c4df
+	github.com/NpoolPlatform/libent-cruder v0.0.0-20230822060122-512da6e5c8bf
+	github.com/NpoolPlatform/message v0.0.0-20230823033748-9a43fb49ad63
+	github.com/NpoolPlatform/order-middleware v0.0.0-20230823034327-d4735e33c3c3
 	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20230216075025-a90a86bfd19b
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/google/uuid v1.3.0
@@ -53,7 +53,7 @@ require (
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/inflect v0.19.0 // indirect
-	github.com/go-redis/redis/v8 v8.11.4 // indirect
+	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
@@ -79,8 +79,6 @@ require (
 	github.com/mitchellh/go-wordwrap v0.0.0-20150314170334-ad45545899c7 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
-	github.com/onsi/ginkgo v1.16.5 // indirect
-	github.com/onsi/gomega v1.18.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

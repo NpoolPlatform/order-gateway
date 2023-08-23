@@ -8,42 +8,41 @@ import (
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	"github.com/google/uuid"
 
-	payaccmwcli "github.com/NpoolPlatform/account-middleware/pkg/client/payment"
+	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 
+	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
+	appgoodstockmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good/stock"
 	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
+	appgoodpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
+	appgoodstockmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/stock"
 
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
 	coininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin"
 	currvalmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin/currency"
-	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
+	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
+	currvalmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin/currency"
+
+	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
 	sphinxproxycli "github.com/NpoolPlatform/sphinx-proxy/pkg/client"
 
-	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
+	payaccmwcli "github.com/NpoolPlatform/account-middleware/pkg/client/payment"
+	accountlock "github.com/NpoolPlatform/account-middleware/pkg/lock"
+	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
+
+	ledgermwcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/ledger"
+	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
+
+	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
+	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 	paymentmwcli "github.com/NpoolPlatform/order-middleware/pkg/client/payment"
 
-	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
-	appgoodpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
-
-	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
-	currvalmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin/currency"
-	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
-
-	accountlock "github.com/NpoolPlatform/account-middleware/pkg/lock"
-	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
-
-	ledgermgrcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/ledger/v2"
-	ledgermgrpb "github.com/NpoolPlatform/message/npool/ledger/mgr/v1/ledger/general"
-
-	commonpb "github.com/NpoolPlatform/message/npool"
-	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
-	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
-	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
-
 	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
+	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
+
 	inspiretypes "github.com/NpoolPlatform/message/npool/basetypes/inspire/v1"
 	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
-	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
+	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 
 	"github.com/shopspring/decimal"
@@ -118,11 +117,11 @@ func (h *createHandler) validateInit(ctx context.Context) error { //nolint
 	}
 
 	ag, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodpb.Conds{
-		AppID: &commonpb.StringVal{
+		AppID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: *h.AppID,
 		},
-		GoodID: &commonpb.StringVal{
+		GoodID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: *h.GoodID,
 		},
@@ -296,11 +295,11 @@ func (h *createHandler) SetPrice(ctx context.Context) error {
 		return err
 	}
 	ag, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodpb.Conds{
-		AppID: &commonpb.StringVal{
+		AppID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: *h.AppID,
 		},
-		GoodID: &commonpb.StringVal{
+		GoodID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: *h.GoodID,
 		},
@@ -639,7 +638,7 @@ func (h *createHandler) createSubOrder(ctx context.Context) error { //nolint
 }
 
 func (h *createHandler) LockStock(ctx context.Context) error {
-	_, err := goodmwcli.UpdateGood(ctx, &goodmwpb.GoodReq{
+	_, err := appgoodstockmwcli.AddStock(ctx, &appgoodstockmwpb.StockReq{
 		ID:     h.GoodID,
 		Locked: &h.Units,
 	})
@@ -650,14 +649,9 @@ func (h *createHandler) LockStock(ctx context.Context) error {
 }
 
 func (h *createHandler) ReleaseStock(ctx context.Context) error {
-	units, err := decimal.NewFromString(h.Units)
-	if err != nil {
-		return err
-	}
-	unitsStr := units.Neg().String()
-	_, err = goodmwcli.UpdateGood(ctx, &goodmwpb.GoodReq{
+	_, err := appgoodstockmwcli.SubStock(ctx, &appgoodstockmwpb.StockReq{
 		ID:     h.GoodID,
-		Locked: &unitsStr,
+		Locked: &h.Units,
 	})
 	if err != nil {
 		return err
@@ -679,16 +673,16 @@ func (h *createHandler) LockBalance(ctx context.Context) error {
 		return nil
 	}
 
-	general, err := ledgermgrcli.GetGeneralOnly(ctx, &ledgermgrpb.Conds{
-		AppID: &commonpb.StringVal{
+	general, err := ledgermwcli.GetLedgerOnly(ctx, &ledgermwpb.Conds{
+		AppID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: *h.AppID,
 		},
-		UserID: &commonpb.StringVal{
+		UserID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: *h.UserID,
 		},
-		CoinTypeID: &commonpb.StringVal{
+		CoinTypeID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: *h.PaymentCoinID,
 		},
@@ -711,7 +705,7 @@ func (h *createHandler) LockBalance(ctx context.Context) error {
 
 	spendableMinus := fmt.Sprintf("-%v", *h.BalanceAmount)
 
-	_, err = ledgermgrcli.AddGeneral(ctx, &ledgermgrpb.GeneralReq{
+	_, err = ledgermwcli.AddBalance(ctx, &ledgermwpb.LedgerReq{
 		ID:         &general.ID,
 		AppID:      &general.AppID,
 		UserID:     &general.UserID,
@@ -737,16 +731,16 @@ func (h *createHandler) ReleaseBalance(ctx context.Context) error {
 		return nil
 	}
 
-	general, err := ledgermgrcli.GetGeneralOnly(ctx, &ledgermgrpb.Conds{
-		AppID: &commonpb.StringVal{
+	general, err := ledgermwcli.GetLedgerOnly(ctx, &ledgermwpb.Conds{
+		AppID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: *h.AppID,
 		},
-		UserID: &commonpb.StringVal{
+		UserID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: *h.UserID,
 		},
-		CoinTypeID: &commonpb.StringVal{
+		CoinTypeID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: *h.PaymentCoinID,
 		},
@@ -760,7 +754,7 @@ func (h *createHandler) ReleaseBalance(ctx context.Context) error {
 
 	lockedMinus := fmt.Sprintf("-%v", h.BalanceAmount)
 
-	_, err = ledgermgrcli.AddGeneral(ctx, &ledgermgrpb.GeneralReq{
+	_, err = ledgermwcli.SubBalance(ctx, &ledgermwpb.LedgerReq{
 		ID:         &general.ID,
 		AppID:      &general.AppID,
 		UserID:     &general.UserID,

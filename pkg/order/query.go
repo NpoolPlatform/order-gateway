@@ -8,30 +8,29 @@ import (
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 
 	payaccmwcli "github.com/NpoolPlatform/account-middleware/pkg/client/payment"
-	usermwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
-	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
-	coininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin"
-	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
-	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
-	ordercli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
+	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
 
+	usermwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 
-	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
+	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
+	coininfocli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin"
 	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
+
+	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
+
+	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
+	ordercli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 
-	appgoodscli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
-	appgoodspb "github.com/NpoolPlatform/message/npool/good/mw/v1/appgood"
-
-	appgoodsmgrpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
+	appgoodscli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
+	appgoodsmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
 
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 
 	"github.com/shopspring/decimal"
 
-	commonpb "github.com/NpoolPlatform/message/npool"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 
 	"github.com/google/uuid"
@@ -127,12 +126,12 @@ func (h *queryHandler) expand(ctx context.Context) error { //nolint
 		couponMap[coup.ID] = coup
 	}
 
-	appGoods, _, err := appgoodscli.GetGoods(ctx, &appgoodsmgrpb.Conds{
-		GoodIDs: &commonpb.StringSliceVal{
+	appGoods, _, err := appgoodscli.GetGoods(ctx, &appgoodsmwpb.Conds{
+		GoodIDs: &basetypes.StringSliceVal{
 			Op:    cruder.IN,
 			Value: goodIDs,
 		},
-		AppID: &commonpb.StringVal{
+		AppID: &basetypes.StringVal{
 			Op:    cruder.IN,
 			Value: *h.AppID,
 		},
@@ -143,7 +142,7 @@ func (h *queryHandler) expand(ctx context.Context) error { //nolint
 
 	fmt.Printf("goodIDs: %v, appID %v, appGoods %v | %v\n", goodIDs, h.AppID, len(appGoods), appGoods)
 
-	appGoodMap := map[string]*appgoodspb.Good{}
+	appGoodMap := map[string]*appgoodsmwpb.Good{}
 	for _, appGood := range appGoods {
 		appGoodMap[appGood.AppID+appGood.GoodID] = appGood
 	}
@@ -362,12 +361,12 @@ func (h *Handler) GetOrder(ctx context.Context) (*npool.Order, error) { //nolint
 	o.EmailAddress = user.EmailAddress
 	o.PhoneNO = user.PhoneNO
 
-	appGood, err := appgoodscli.GetGoodOnly(ctx, &appgoodsmgrpb.Conds{
-		AppID: &commonpb.StringVal{
+	appGood, err := appgoodscli.GetGoodOnly(ctx, &appgoodsmwpb.Conds{
+		AppID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: ord.AppID,
 		},
-		GoodID: &commonpb.StringVal{
+		GoodID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: ord.GoodID,
 		},

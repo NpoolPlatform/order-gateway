@@ -5,35 +5,33 @@ import (
 	"fmt"
 	"time"
 
-	goodmgrpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/good"
-
-	miningdetailcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/mining/detail"
-	miningdetailpb "github.com/NpoolPlatform/message/npool/ledger/mgr/v1/mining/detail"
-
 	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
-	commonpb "github.com/NpoolPlatform/message/npool"
 
-	"github.com/shopspring/decimal"
+	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
+	ledgertypes "github.com/NpoolPlatform/message/npool/basetypes/ledger/v1"
+	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
+	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 
-	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
-	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
-
+	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
+	appgoodstockmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good/stock"
 	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
-	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
+	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
+	appgoodstockmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/stock"
 
+	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 
-	ledgercli "github.com/NpoolPlatform/ledger-middleware/pkg/client/ledger/v2"
-
-	ledgerdetailpb "github.com/NpoolPlatform/message/npool/ledger/mgr/v1/ledger/detail"
+	miningdetailcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/good/ledger/statement"
+	ledgerstatementcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/ledger/statement"
+	miningdetailpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/good/ledger/statement"
+	ledgerstatementpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger/statement"
 
 	achievementmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/achievement"
 	statementmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/achievement/statement"
-	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
-	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	statementmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/achievement/statement"
-	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
+
+	"github.com/shopspring/decimal"
 )
 
 type updateHandler struct {
@@ -43,12 +41,12 @@ type updateHandler struct {
 
 //nolint:gocyclo
 func (h *updateHandler) validate(ctx context.Context) error {
-	good, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodmwpb.Conds{
-		AppID: &commonpb.StringVal{
+	appgood, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodmwpb.Conds{
+		AppID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: h.ord.AppID,
 		},
-		GoodID: &commonpb.StringVal{
+		GoodID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: h.ord.GoodID,
 		},
@@ -56,12 +54,20 @@ func (h *updateHandler) validate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if appgood == nil {
+		return fmt.Errorf("invalid appgood")
+	}
+
+	good, err := goodmwcli.GetGood(ctx, h.ord.GoodID)
+	if err != nil {
+		return err
+	}
 	if good == nil {
 		return fmt.Errorf("invalid good")
 	}
 
-	_, total, err := miningdetailcli.GetDetails(ctx, &miningdetailpb.Conds{
-		GoodID: &commonpb.StringVal{
+	_, total, err := miningdetailcli.GetGoodStatements(ctx, &miningdetailpb.Conds{
+		GoodID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: h.ord.GoodID,
 		},
@@ -73,14 +79,14 @@ func (h *updateHandler) validate(ctx context.Context) error {
 		return fmt.Errorf("app good have mining detail data uncancellable")
 	}
 
-	if good.BenefitState != goodmgrpb.BenefitState_BenefitWait {
+	if good.RewardState != goodtypes.BenefitState_BenefitWait {
 		return fmt.Errorf("app good uncancellable benefit state not wait")
 	}
 
-	switch good.CancelMode {
-	case appgoodmwpb.CancelMode_Uncancellable:
+	switch appgood.CancelMode {
+	case goodtypes.CancelMode_Uncancellable:
 		return fmt.Errorf("app good uncancellable")
-	case appgoodmwpb.CancelMode_CancellableBeforeStart:
+	case goodtypes.CancelMode_CancellableBeforeStart:
 		switch h.ord.OrderState {
 		case ordertypes.OrderState_OrderStateWaitPayment:
 		case ordertypes.OrderState_OrderStatePaid:
@@ -88,10 +94,10 @@ func (h *updateHandler) validate(ctx context.Context) error {
 			return fmt.Errorf("order state is uncancellable")
 		}
 
-		if uint32(time.Now().Unix()) >= h.ord.Start-good.CancellableBeforeStart {
+		if uint32(time.Now().Unix()) >= h.ord.Start-appgood.CancellableBeforeStart {
 			return fmt.Errorf("cancellable time exceeded")
 		}
-	case appgoodmwpb.CancelMode_CancellableBeforeBenefit:
+	case goodtypes.CancelMode_CancellableBeforeBenefit:
 		switch h.ord.OrderState {
 		case ordertypes.OrderState_OrderStateWaitPayment:
 		case ordertypes.OrderState_OrderStatePaid:
@@ -100,35 +106,29 @@ func (h *updateHandler) validate(ctx context.Context) error {
 			return fmt.Errorf("order state is uncancellable")
 		}
 
-		if uint32(time.Now().Unix()) >= h.ord.Start-good.CancellableBeforeStart &&
-			uint32(time.Now().Unix()) <= h.ord.Start+good.CancellableBeforeStart {
+		if uint32(time.Now().Unix()) >= h.ord.Start-appgood.CancellableBeforeStart &&
+			uint32(time.Now().Unix()) <= h.ord.Start+appgood.CancellableBeforeStart {
 			return fmt.Errorf("app good uncancellable order start at > cancellable before start")
 		}
 	default:
-		return fmt.Errorf("unknown CancelMode type %v", good.CancelMode)
+		return fmt.Errorf("unknown CancelMode type %v", appgood.CancelMode)
 	}
 	return nil
 }
 
 func (h *updateHandler) processStock(ctx context.Context) error {
-	units, err := decimal.NewFromString(h.ord.Units)
-	if err != nil {
-		return err
-	}
-	unitsStr := units.Neg().String()
-
-	stockReq := &goodmwpb.GoodReq{
+	stockReq := &appgoodstockmwpb.StockReq{
 		ID: &h.ord.GoodID,
 	}
 
 	switch h.ord.OrderState {
 	case ordertypes.OrderState_OrderStatePaid:
-		stockReq.WaitStart = &unitsStr
+		stockReq.WaitStart = &h.Units
 	case ordertypes.OrderState_OrderStateInService:
-		stockReq.InService = &unitsStr
+		stockReq.InService = &h.Units
 	}
 
-	_, err = goodmwcli.UpdateGood(ctx, stockReq)
+	_, err := appgoodstockmwcli.SubStock(ctx, stockReq)
 	if err != nil {
 		return err
 	}
@@ -157,11 +157,11 @@ func (h *updateHandler) processOrderState(ctx context.Context) error {
 func (h *updateHandler) processLedger(ctx context.Context) error {
 	offset := int32(0)
 	limit := int32(1000) //nolint
-	detailInfos := []*ledgerdetailpb.DetailReq{}
-	in := ledgerdetailpb.IOType_Incoming
-	out := ledgerdetailpb.IOType_Outcoming
-	ioTypeCR := ledgerdetailpb.IOSubType_CommissionRevoke
-	ioTypeOrder := ledgerdetailpb.IOSubType_OrderRevoke
+	detailInfos := []*ledgerstatementpb.StatementReq{}
+	in := ledgertypes.IOType_Incoming
+	out := ledgertypes.IOType_Outcoming
+	ioTypeCR := ledgertypes.IOSubType_CommissionRevoke
+	ioTypeOrder := ledgertypes.IOSubType_OrderRevoke
 
 	for {
 		infos, _, err := statementmwcli.GetStatements(ctx, &statementmwpb.Conds{
@@ -185,24 +185,24 @@ func (h *updateHandler) processLedger(ctx context.Context) error {
 				continue
 			}
 
-			_, total, err := ledgercli.GetDetails(ctx, &ledgerdetailpb.Conds{
-				AppID: &commonpb.StringVal{
+			_, total, err := ledgerstatementcli.GetStatements(ctx, &ledgerstatementpb.Conds{
+				AppID: &basetypes.StringVal{
 					Op:    cruder.EQ,
 					Value: val.AppID,
 				},
-				UserID: &commonpb.StringVal{
+				UserID: &basetypes.StringVal{
 					Op:    cruder.EQ,
 					Value: val.UserID,
 				},
-				IOType: &commonpb.Int32Val{
+				IOType: &basetypes.Uint32Val{
 					Op:    cruder.EQ,
-					Value: int32(in),
+					Value: uint32(in),
 				},
-				IOSubType: &commonpb.Int32Val{
+				IOSubType: &basetypes.Uint32Val{
 					Op:    cruder.EQ,
-					Value: int32(ledgerdetailpb.IOSubType_Commission),
+					Value: uint32(ledgertypes.IOSubType_Commission),
 				},
-				IOExtra: &commonpb.StringVal{
+				IOExtra: &basetypes.StringVal{
 					Op:    cruder.LIKE,
 					Value: h.ord.ID,
 				},
@@ -223,7 +223,7 @@ func (h *updateHandler) processLedger(ctx context.Context) error {
 				time.Now(),
 			)
 
-			detailInfos = append(detailInfos, &ledgerdetailpb.DetailReq{
+			detailInfos = append(detailInfos, &ledgerstatementpb.StatementReq{
 				AppID:      &val.AppID,
 				UserID:     &val.UserID,
 				CoinTypeID: &val.PaymentCoinTypeID,
@@ -256,7 +256,7 @@ func (h *updateHandler) processLedger(ctx context.Context) error {
 			time.Now(),
 		)
 
-		detailInfos = append(detailInfos, &ledgerdetailpb.DetailReq{
+		detailInfos = append(detailInfos, &ledgerstatementpb.StatementReq{
 			AppID:      &h.ord.AppID,
 			UserID:     &h.ord.UserID,
 			CoinTypeID: &h.ord.PaymentCoinTypeID,
@@ -268,7 +268,7 @@ func (h *updateHandler) processLedger(ctx context.Context) error {
 	}
 
 	if len(detailInfos) > 0 {
-		err = ledgercli.BookKeeping(ctx, detailInfos)
+		_, err = ledgerstatementcli.CreateStatements(ctx, detailInfos)
 		if err != nil {
 			return err
 		}

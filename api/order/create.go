@@ -4,22 +4,23 @@ package order
 import (
 	"context"
 
-	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
+	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
+	appgoodpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
+
 	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
-	commonpb "github.com/NpoolPlatform/message/npool"
+
 	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
-	appgoodpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
-	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
-	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 
+	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
+	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	order1 "github.com/NpoolPlatform/order-gateway/pkg/order"
+	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
-	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 
 	"github.com/shopspring/decimal"
 )
@@ -49,7 +50,7 @@ func createOrder(ctx context.Context, in *npool.CreateOrderRequest) (*npool.Orde
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	info, err := handler.UpdateOrder(ctx)
+	info, err := handler.CreateOrder(ctx)
 	if err != nil {
 		logger.Sugar().Errorw(
 			"createOrder",
@@ -64,11 +65,11 @@ func createOrder(ctx context.Context, in *npool.CreateOrderRequest) (*npool.Orde
 
 func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) (*npool.CreateOrderResponse, error) {
 	ag, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodpb.Conds{
-		AppID: &commonpb.StringVal{
+		AppID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: in.AppID,
 		},
-		GoodID: &commonpb.StringVal{
+		GoodID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: in.GoodID,
 		},
