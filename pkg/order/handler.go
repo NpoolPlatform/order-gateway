@@ -7,31 +7,34 @@ import (
 	appmwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/app"
 	appusermwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
+	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
+	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 	"github.com/shopspring/decimal"
 
 	"github.com/google/uuid"
 )
 
 type Handler struct {
-	ID                   *string
-	AppID                *string
-	UserID               *string
-	GoodID               *string
-	Units                string
-	PaymentCoinID        *string
-	ParentOrderID        *string
-	PayWithBalanceAmount *string
-	FixAmountID          *string
-	DiscountID           *string
-	SpecialOfferID       *string
-	OrderType            *ordertypes.OrderType
-	CouponIDs            []string
-	Canceled             *bool
-	FromAdmin            bool
-	PaymentID            *string
-	Offset               int32
-	Limit                int32
+	ID                    *string
+	AppID                 *string
+	UserID                *string
+	GoodID                *string
+	Units                 string
+	PaymentCoinID         *string
+	ParentOrderID         *string
+	BalanceAmount         *string
+	OrderType             *ordertypes.OrderType
+	CouponIDs             []string
+	InvestmentType        *ordertypes.InvestmentType
+	Canceled              *bool
+	FromAdmin             bool
+	PaymentID             *string
+	Offset                int32
+	Limit                 int32
+	Goods                 []*npool.CreateOrdersRequest_Good
+	IDs                   []string
+	RequestTimeoutSeconds int64
 }
 
 func NewHandler(ctx context.Context, options ...func(context.Context, *Handler) error) (*Handler, error) {
@@ -44,9 +47,12 @@ func NewHandler(ctx context.Context, options ...func(context.Context, *Handler) 
 	return handler, nil
 }
 
-func WithID(id *string) func(context.Context, *Handler) error {
+func WithID(id *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
+			if must {
+				return fmt.Errorf("invalid id")
+			}
 			return nil
 		}
 		if _, err := uuid.Parse(*id); err != nil {
@@ -57,9 +63,12 @@ func WithID(id *string) func(context.Context, *Handler) error {
 	}
 }
 
-func WithAppID(appID *string) func(context.Context, *Handler) error {
+func WithAppID(appID *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if appID == nil {
+			if must {
+				return fmt.Errorf("invalid appid")
+			}
 			return nil
 		}
 		if _, err := uuid.Parse(*appID); err != nil {
@@ -77,9 +86,12 @@ func WithAppID(appID *string) func(context.Context, *Handler) error {
 	}
 }
 
-func WithUserID(appID, userID *string) func(context.Context, *Handler) error {
+func WithUserID(appID, userID *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if appID == nil || userID == nil {
+			if must {
+				return fmt.Errorf("invalid userid")
+			}
 			return nil
 		}
 		_, err := uuid.Parse(*userID)
@@ -99,9 +111,12 @@ func WithUserID(appID, userID *string) func(context.Context, *Handler) error {
 	}
 }
 
-func WithGoodID(id *string) func(context.Context, *Handler) error {
+func WithGoodID(id *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
+			if must {
+				return fmt.Errorf("invalid goodid")
+			}
 			return nil
 		}
 		_, err := uuid.Parse(*id)
@@ -113,9 +128,12 @@ func WithGoodID(id *string) func(context.Context, *Handler) error {
 	}
 }
 
-func WithPaymentCoinID(id *string) func(context.Context, *Handler) error {
+func WithPaymentCoinID(id *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
+			if must {
+				return fmt.Errorf("invalid paymentcoinid")
+			}
 			return nil
 		}
 		_, err := uuid.Parse(*id)
@@ -127,87 +145,64 @@ func WithPaymentCoinID(id *string) func(context.Context, *Handler) error {
 	}
 }
 
-func WithParentOrderID(id *string) func(context.Context, *Handler) error {
+func WithParentOrderID(id *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
+			if must {
+				return fmt.Errorf("invalid parentorderid")
+			}
 			return nil
 		}
 		_, err := uuid.Parse(*id)
 		if err != nil {
 			return err
+		}
+		exist, err := ordermwcli.ExistOrder(ctx, *h.ParentOrderID)
+		if err != nil {
+			return err
+		}
+		if !exist {
+			return fmt.Errorf("invalid parentorder")
 		}
 		h.ParentOrderID = id
 		return nil
 	}
 }
 
-func WithFixAmountID(id *string) func(context.Context, *Handler) error {
+func WithUnits(amount string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
-		if id == nil {
-			return nil
-		}
-		_, err := uuid.Parse(*id)
+		_amount, err := decimal.NewFromString(amount)
 		if err != nil {
 			return err
 		}
-		h.FixAmountID = id
-		return nil
-	}
-}
-
-func WithDiscountID(id *string) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if id == nil {
-			return nil
-		}
-		_, err := uuid.Parse(*id)
-		if err != nil {
-			return err
-		}
-		h.DiscountID = id
-		return nil
-	}
-}
-
-func WithSpecialOfferID(id *string) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if id == nil {
-			return nil
-		}
-		_, err := uuid.Parse(*id)
-		if err != nil {
-			return err
-		}
-		h.SpecialOfferID = id
-		return nil
-	}
-}
-
-func WithUnits(amount string) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		_, err := decimal.NewFromString(amount)
-		if err != nil {
-			return err
+		if _amount.Cmp(decimal.NewFromInt32(0)) <= 0 {
+			return fmt.Errorf("units is 0")
 		}
 		h.Units = amount
 		return nil
 	}
 }
 
-func WithPayWithBalanceAmount(amount string) func(context.Context, *Handler) error {
+func WithBalanceAmount(amount string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
-		_, err := decimal.NewFromString(amount)
+		_amount, err := decimal.NewFromString(amount)
 		if err != nil {
 			return err
 		}
-		h.PayWithBalanceAmount = &amount
+		if _amount.Cmp(decimal.NewFromInt32(0)) <= 0 {
+			return fmt.Errorf("units is 0")
+		}
+		h.BalanceAmount = &amount
 		return nil
 	}
 }
 
-func WithCouponIDs(couponIDs []string) func(context.Context, *Handler) error {
+func WithCouponIDs(couponIDs []string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if len(couponIDs) == 0 {
+			if must {
+				return fmt.Errorf("invalid couponids")
+			}
 			return nil
 		}
 		for _, id := range couponIDs {
@@ -220,9 +215,31 @@ func WithCouponIDs(couponIDs []string) func(context.Context, *Handler) error {
 	}
 }
 
-func WithCanceled(value *bool) func(context.Context, *Handler) error {
+func WithInvestmentType(investmentType *ordertypes.InvestmentType, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if investmentType == nil {
+			if must {
+				return fmt.Errorf("invalid investmenttype")
+			}
+			return nil
+		}
+		switch *investmentType {
+		case ordertypes.InvestmentType_FullPayment:
+		case ordertypes.InvestmentType_UnionMining:
+		default:
+			return fmt.Errorf("invalid investmenttype")
+		}
+		h.InvestmentType = investmentType
+		return nil
+	}
+}
+
+func WithCanceled(value *bool, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if value == nil {
+			if must {
+				return fmt.Errorf("invalid canceled")
+			}
 			return nil
 		}
 		h.Canceled = value
@@ -237,9 +254,12 @@ func WithFromAdmin(value bool) func(context.Context, *Handler) error {
 	}
 }
 
-func WithPaymentID(id *string) func(context.Context, *Handler) error {
+func WithPaymentID(id *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
+			if must {
+				return fmt.Errorf("invalid paymentid")
+			}
 			return nil
 		}
 		_, err := uuid.Parse(*id)
@@ -251,9 +271,12 @@ func WithPaymentID(id *string) func(context.Context, *Handler) error {
 	}
 }
 
-func WithOrderType(orderType *ordertypes.OrderType) func(context.Context, *Handler) error {
+func WithOrderType(orderType *ordertypes.OrderType, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if orderType == nil {
+			if must {
+				return fmt.Errorf("invalid ordertype")
+			}
 			return nil
 		}
 		switch *orderType {
@@ -281,6 +304,13 @@ func WithLimit(limit int32) func(context.Context, *Handler) error {
 			limit = constant.DefaultRowLimit
 		}
 		h.Limit = limit
+		return nil
+	}
+}
+
+func WithGoods(goods []*npool.CreateOrdersRequest_Good, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		h.Goods = goods
 		return nil
 	}
 }

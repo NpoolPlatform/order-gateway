@@ -16,11 +16,11 @@ import (
 func (s *Server) UpdateOrder(ctx context.Context, in *npool.UpdateOrderRequest) (*npool.UpdateOrderResponse, error) {
 	handler, err := order1.NewHandler(
 		ctx,
-		order1.WithID(&in.ID),
-		order1.WithAppID(&in.AppID),
-		order1.WithUserID(&in.AppID, &in.UserID),
-		order1.WithPaymentID(&in.PaymentID),
-		order1.WithCanceled(in.Canceled),
+		order1.WithID(&in.ID, true),
+		order1.WithAppID(&in.AppID, true),
+		order1.WithUserID(&in.AppID, &in.UserID, true),
+		order1.WithPaymentID(&in.PaymentID, true),
+		order1.WithCanceled(in.Canceled, true),
 		order1.WithFromAdmin(false),
 	)
 	if err != nil {
@@ -50,11 +50,11 @@ func (s *Server) UpdateOrder(ctx context.Context, in *npool.UpdateOrderRequest) 
 func (s *Server) UpdateUserOrder(ctx context.Context, in *npool.UpdateUserOrderRequest) (*npool.UpdateUserOrderResponse, error) {
 	handler, err := order1.NewHandler(
 		ctx,
-		order1.WithID(&in.ID),
-		order1.WithAppID(&in.AppID),
-		order1.WithUserID(&in.AppID, &in.TargetUserID),
-		order1.WithPaymentID(&in.PaymentID),
-		order1.WithCanceled(in.Canceled),
+		order1.WithID(&in.ID, true),
+		order1.WithAppID(&in.AppID, true),
+		order1.WithUserID(&in.AppID, &in.TargetUserID, true),
+		order1.WithPaymentID(&in.PaymentID, true),
+		order1.WithCanceled(in.Canceled, true),
 		order1.WithFromAdmin(false),
 	)
 	if err != nil {
@@ -84,11 +84,11 @@ func (s *Server) UpdateUserOrder(ctx context.Context, in *npool.UpdateUserOrderR
 func (s *Server) UpdateAppUserOrder(ctx context.Context, in *npool.UpdateAppUserOrderRequest) (*npool.UpdateAppUserOrderResponse, error) {
 	handler, err := order1.NewHandler(
 		ctx,
-		order1.WithID(&in.ID),
-		order1.WithAppID(&in.TargetAppID),
-		order1.WithUserID(&in.TargetAppID, &in.TargetUserID),
-		order1.WithPaymentID(&in.PaymentID),
-		order1.WithCanceled(in.Canceled),
+		order1.WithID(&in.ID, true),
+		order1.WithAppID(&in.TargetAppID, true),
+		order1.WithUserID(&in.TargetAppID, &in.TargetUserID, true),
+		order1.WithPaymentID(&in.PaymentID, true),
+		order1.WithCanceled(in.Canceled, true),
 		order1.WithFromAdmin(false),
 	)
 	if err != nil {

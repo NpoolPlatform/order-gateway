@@ -15,8 +15,8 @@ import (
 func (s *Server) GetOrders(ctx context.Context, in *npool.GetOrdersRequest) (*npool.GetOrdersResponse, error) {
 	handler, err := order1.NewHandler(
 		ctx,
-		order1.WithAppID(&in.AppID),
-		order1.WithUserID(&in.AppID, &in.UserID),
+		order1.WithAppID(&in.AppID, true),
+		order1.WithUserID(&in.AppID, &in.UserID, false),
 		order1.WithOffset(in.GetOffset()),
 		order1.WithLimit(in.GetLimit()),
 	)
@@ -82,7 +82,7 @@ func (s *Server) GetAppUserOrders(ctx context.Context, in *npool.GetAppUserOrder
 func (s *Server) GetOrder(ctx context.Context, in *npool.GetOrderRequest) (*npool.GetOrderResponse, error) {
 	handler, err := order1.NewHandler(
 		ctx,
-		order1.WithID(&in.ID),
+		order1.WithID(&in.ID, true),
 	)
 	if err != nil {
 		logger.Sugar().Errorw(

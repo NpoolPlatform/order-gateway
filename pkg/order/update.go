@@ -94,7 +94,7 @@ func (h *updateHandler) validate(ctx context.Context) error {
 			return fmt.Errorf("order state is uncancellable")
 		}
 
-		if uint32(time.Now().Unix()) >= h.ord.Start-appgood.CancellableBeforeStart {
+		if uint32(time.Now().Unix()) >= h.ord.StartAt-appgood.CancellableBeforeStart {
 			return fmt.Errorf("cancellable time exceeded")
 		}
 	case goodtypes.CancelMode_CancellableBeforeBenefit:
@@ -106,8 +106,8 @@ func (h *updateHandler) validate(ctx context.Context) error {
 			return fmt.Errorf("order state is uncancellable")
 		}
 
-		if uint32(time.Now().Unix()) >= h.ord.Start-appgood.CancellableBeforeStart &&
-			uint32(time.Now().Unix()) <= h.ord.Start+appgood.CancellableBeforeStart {
+		if uint32(time.Now().Unix()) >= h.ord.StartAt-appgood.CancellableBeforeStart &&
+			uint32(time.Now().Unix()) <= h.ord.StartAt+appgood.CancellableBeforeStart {
 			return fmt.Errorf("app good uncancellable order start at > cancellable before start")
 		}
 	default:
@@ -140,11 +140,10 @@ func (h *updateHandler) processOrderState(ctx context.Context) error {
 	state := ordertypes.OrderState_OrderStateCanceled
 	paymentState := ordertypes.PaymentState_PaymentStateCanceled
 	_, err := ordermwcli.UpdateOrder(ctx, &ordermwpb.OrderReq{
-		ID:           &h.ord.ID,
-		State:        &state,
-		PaymentState: &paymentState,
-		PaymentID:    &h.ord.PaymentID,
-		Canceled:     &cancle,
+		ID:              &h.ord.ID,
+		OrderState:      &state,
+		PaymentState:    &paymentState,
+		UserSetCanceled: &cancle,
 	})
 	if err != nil {
 		return err
@@ -240,7 +239,7 @@ func (h *updateHandler) processLedger(ctx context.Context) error {
 		return err
 	}
 
-	payWithBalanceAmount, err := decimal.NewFromString(h.ord.PayWithBalanceAmount)
+	payWithBalanceAmount, err := decimal.NewFromString(h.ord.BalanceAmount)
 	if err != nil {
 		return err
 	}
@@ -376,11 +375,10 @@ func (h *Handler) UpdateOrder(ctx context.Context) (*npool.Order, error) {
 			return nil, fmt.Errorf("permission denied")
 		}
 		_, err = ordermwcli.UpdateOrder(ctx, &ordermwpb.OrderReq{
-			ID:        h.ID,
-			AppID:     h.AppID,
-			UserID:    h.UserID,
-			PaymentID: h.PaymentID,
-			Canceled:  h.Canceled,
+			ID:              h.ID,
+			AppID:           h.AppID,
+			UserID:          h.UserID,
+			UserSetCanceled: h.Canceled,
 		})
 		if err != nil {
 			return nil, err
