@@ -8,11 +8,11 @@ import (
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	"github.com/dtm-labs/dtm/client/dtmcli/dtmimp"
+	"github.com/google/uuid"
 
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
 
-	appgoodstockmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good/stock"
 	appgoodstockmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/stock"
 
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
@@ -49,32 +49,57 @@ type createHandler struct {
 	*Handler
 	orderGood *OrderGood
 
-	discountAmount    decimal.Decimal
-	paymentAmountUSD  decimal.Decimal
-	paymentAmountCoin decimal.Decimal
+	startAts map[string]uint32
+	endAts   map[string]uint32
 
-	promotionID               string
-	paymentCoinName           string
-	paymentAddress            string
-	paymentAddressStartAmount decimal.Decimal
-	goodPaymentID             string
-	paymentAccountID          string
+	reductionAmount  decimal.Decimal
+	reductionPercent decimal.Decimal
 
-	goodPrices            map[string]decimal.Decimal
-	goodValues            map[string]decimal.Decimal
-	goodValueUSDs         map[string]decimal.Decimal
-	paymentType           ordertypes.PaymentType
-	paymentTransferAmount decimal.Decimal
+	goodPrices map[string]decimal.Decimal
 
 	liveCurrency  decimal.Decimal
 	localCurrency decimal.Decimal
 	coinCurrency  decimal.Decimal
 
-	reductionAmount  decimal.Decimal
-	reductionPercent decimal.Decimal
+	goodValueCoins        map[string]decimal.Decimal
+	goodValueUSDs         map[string]decimal.Decimal
+	paymentAmountUSD      decimal.Decimal
+	paymentAmountCoin     decimal.Decimal
+	discountAmountCoin    decimal.Decimal
+	paymentTransferAmount decimal.Decimal
 
-	startAts map[string]uint32
-	endAts   map[string]uint32
+	paymentCoinName           string
+	paymentAddress            string
+	paymentAddressStartAmount decimal.Decimal
+	paymentID                 string
+	paymentAccountID          string
+
+	ledger *ledgermwpb.Ledger
+}
+
+func tomorrowStart() time.Time {
+	now := time.Now()
+	y, m, d := now.Date()
+	return time.Date(y, m, d+1, 0, 0, 0, 0, now.Location())
+}
+
+func (h *createHandler) paymentType() (*ordertypes.PaymentType, error) {
+	switch *h.OrderType {
+	case ordertypes.OrderType_Normal:
+		if h.BalanceAmount != nil {
+			if h.paymentTransferAmount.Cmp(decimal.NewFromInt(0)) > 0 {
+				return ordertypes.PaymentType_PayWithTransferAndBalance.Enum(), nil
+			}
+			return ordertypes.PaymentType_PayWithBalanceOnly.Enum(), nil
+		}
+		return ordertypes.PaymentType_PayWithTransferOnly.Enum(), nil
+	case ordertypes.OrderType_Offline:
+		return ordertypes.PaymentType_PayWithOffline.Enum(), nil
+	case ordertypes.OrderType_Airdrop:
+		return ordertypes.PaymentType_PayWithNoPayment.Enum(), nil
+	default:
+		return nil, fmt.Errorf("invalid ordertype")
+	}
 }
 
 func (h *createHandler) validateInit(ctx context.Context) error {
@@ -91,6 +116,7 @@ func (h *createHandler) validateInit(ctx context.Context) error {
 	if !coin.ForPay {
 		return fmt.Errorf("coin not for payment")
 	}
+	h.paymentCoinName = coin.Name
 
 	for _, goodReq := range h.Goods {
 		good := h.orderGood.goods[goodReq.GoodID]
@@ -120,8 +146,6 @@ func (h *createHandler) validateInit(ctx context.Context) error {
 		h.startAts[*h.AppID+goodReq.GoodID] = startAt
 		h.endAts[*h.AppID+goodReq.GoodID] = endAt
 	}
-
-	h.paymentCoinName = coin.Name
 
 	const maxUnpaidOrders = 5
 	orders, _, err := ordermwcli.GetOrders(ctx, &ordermwpb.Conds{
@@ -167,6 +191,7 @@ func (h *createHandler) SetReduction(ctx context.Context) error {
 		return fmt.Errorf("coupon already used")
 	}
 
+	couponTypeDiscountNum := 0
 	for _, coup := range coupons {
 		if !coup.Valid || coup.Expired || coup.AppID != *h.AppID || coup.UserID != *h.UserID {
 			return fmt.Errorf("invalid coupon")
@@ -181,6 +206,9 @@ func (h *createHandler) SetReduction(ctx context.Context) error {
 			}
 			h.reductionAmount = h.reductionAmount.Add(amount)
 		case inspiretypes.CouponType_Discount:
+			if couponTypeDiscountNum > 1 {
+				return fmt.Errorf("invalid discount")
+			}
 			percent, err := decimal.NewFromString(coup.Denomination)
 			if err != nil {
 				return err
@@ -189,6 +217,7 @@ func (h *createHandler) SetReduction(ctx context.Context) error {
 				return fmt.Errorf("invalid discount")
 			}
 			h.reductionPercent = percent
+			couponTypeDiscountNum++
 		default:
 			return fmt.Errorf("unknown coupon type")
 		}
@@ -279,8 +308,16 @@ func (h *createHandler) SetCurrency(ctx context.Context) error {
 	return nil
 }
 
-func (h *createHandler) SetPaymentAmount(ctx context.Context) error {
+func getAccuracy(coin decimal.Decimal) decimal.Decimal {
 	const accuracy = 1000000
+	coin = coin.Mul(decimal.NewFromInt(accuracy))
+	coin = coin.Ceil()
+	coin = coin.Div(decimal.NewFromInt(accuracy))
+	return coin
+}
+
+func (h *createHandler) SetPaymentAmount(ctx context.Context) error {
+	totalPaymentAmountCoin := decimal.NewFromInt(0)
 	totalPaymentAmountUSD := decimal.NewFromInt(0)
 	for _, goodReq := range h.Goods {
 		price := h.goodPrices[*h.AppID+goodReq.GoodID]
@@ -289,39 +326,34 @@ func (h *createHandler) SetPaymentAmount(ctx context.Context) error {
 			return err
 		}
 		paymentAmountUSD := price.Mul(units)
-		h.goodValueUSDs[goodReq.GoodID] = paymentAmountUSD
 		totalPaymentAmountUSD = totalPaymentAmountUSD.Add(paymentAmountUSD)
+		h.goodValueUSDs[goodReq.GoodID] = paymentAmountUSD
 
-		goodValue := paymentAmountUSD.Div(h.coinCurrency)
-		goodValue = goodValue.Mul(decimal.NewFromInt(accuracy))
-		goodValue = goodValue.Ceil()
-		goodValue = goodValue.Div(decimal.NewFromInt(accuracy))
-		h.goodValues[goodReq.GoodID] = goodValue
+		goodValueCoin := paymentAmountUSD.Div(h.coinCurrency)
+		goodValueCoin = getAccuracy(goodValueCoin)
+		totalPaymentAmountCoin = totalPaymentAmountCoin.Add(goodValueCoin)
+		h.goodValueCoins[goodReq.GoodID] = goodValueCoin
 	}
 
-	h.paymentAmountUSD = totalPaymentAmountUSD
 	logger.Sugar().Infow(
 		"CreateOrder",
-		"PaymentAmountUSD", h.paymentAmountUSD,
+		"PaymentAmountUSD", totalPaymentAmountUSD,
 		"ReductionAmount", h.reductionAmount,
 		"ReductionPercent", h.reductionPercent,
 	)
 
-	h.discountAmount = h.paymentAmountUSD.
+	discountAmountUSD := totalPaymentAmountUSD.
 		Mul(h.reductionPercent).
 		Div(decimal.NewFromInt(100)). //nolint
 		Add(h.reductionAmount)
 
-	h.paymentAmountUSD = totalPaymentAmountUSD.Sub(h.discountAmount)
+	h.discountAmountCoin = discountAmountUSD.Div(h.coinCurrency)
+	h.discountAmountCoin = getAccuracy(h.discountAmountCoin)
 
-	if h.paymentAmountUSD.Cmp(decimal.NewFromInt(0)) < 0 {
-		h.paymentAmountUSD = decimal.NewFromInt(0)
+	h.paymentAmountCoin = totalPaymentAmountCoin.Sub(h.discountAmountCoin)
+	if h.paymentAmountCoin.Cmp(decimal.NewFromInt(0)) < 0 {
+		h.paymentAmountCoin = decimal.NewFromInt(0)
 	}
-
-	h.paymentAmountCoin = h.paymentAmountUSD.Div(h.coinCurrency)
-	h.paymentAmountCoin = h.paymentAmountCoin.Mul(decimal.NewFromInt(accuracy))
-	h.paymentAmountCoin = h.paymentAmountCoin.Ceil()
-	h.paymentAmountCoin = h.paymentAmountCoin.Div(decimal.NewFromInt(accuracy))
 
 	h.paymentTransferAmount = h.paymentAmountCoin
 	if h.BalanceAmount != nil {
@@ -431,7 +463,7 @@ func (h *createHandler) peekAddress(ctx context.Context) (*payaccmwpb.Account, e
 		return nil, nil
 	}
 
-	h.goodPaymentID = account.ID
+	h.paymentID = account.ID
 
 	return account, nil
 }
@@ -473,7 +505,7 @@ func (h *createHandler) ReleaseAddress(ctx context.Context) error {
 	locked := false
 
 	_, err := payaccmwcli.UpdateAccount(ctx, &payaccmwpb.AccountReq{
-		ID:     &h.goodPaymentID,
+		ID:     &h.paymentID,
 		Locked: &locked,
 	})
 
@@ -515,31 +547,26 @@ func (h *createHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
 	}
 }
 
-func (h *createHandler) LockStock(ctx context.Context) error {
-	_, err := appgoodstockmwcli.AddStock(ctx, &appgoodstockmwpb.StockReq{
-		AppID:  h.AppID,
-		GoodID: h.GoodID,
-		Locked: &h.Units,
-	})
-	if err != nil {
-		return err
+func (h *createHandler) withUpdateBalance(dispose *dtmcli.SagaDispose) {
+	req := &ledgermwpb.LedgerReq{
+		ID:         &h.ledger.ID,
+		AppID:      h.AppID,
+		UserID:     h.UserID,
+		CoinTypeID: &h.ledger.CoinTypeID,
+		Locked:     h.BalanceAmount,
+		Spendable:  h.BalanceAmount,
 	}
-	return nil
+	dispose.Add(
+		ordermwsvcname.ServiceDomain,
+		"ledger.middleware.ledger.v2.Middleware/SubBalance",
+		"ledger.middleware.ledger.v2.Middleware/AddBalance",
+		&ledgermwpb.AddBalanceRequest{
+			Info: req,
+		},
+	)
 }
 
-func (h *createHandler) ReleaseStock(ctx context.Context) error {
-	_, err := appgoodstockmwcli.SubStock(ctx, &appgoodstockmwpb.StockReq{
-		AppID:  h.AppID,
-		GoodID: h.GoodID,
-		Locked: &h.Units,
-	})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (h *createHandler) LockBalance(ctx context.Context) error {
+func (h *createHandler) CheckBalance(ctx context.Context) error {
 	if h.BalanceAmount == nil {
 		return nil
 	}
@@ -574,135 +601,123 @@ func (h *createHandler) LockBalance(ctx context.Context) error {
 		return fmt.Errorf("insufficient balance")
 	}
 
-	_, err = ledgermwcli.SubBalance(ctx, &ledgermwpb.LedgerReq{
-		ID:         &general.ID,
-		AppID:      &general.AppID,
-		UserID:     &general.UserID,
-		CoinTypeID: &general.CoinTypeID,
-		Locked:     h.BalanceAmount,
-		Spendable:  h.BalanceAmount,
-	})
+	h.ledger = general
 
-	return err
+	return nil
 }
 
-func (h *createHandler) ReleaseBalance(ctx context.Context) error {
-	if h.BalanceAmount == nil {
-		return nil
-	}
-
-	ba, err := decimal.NewFromString(*h.BalanceAmount)
-	if err != nil {
-		return err
-	}
-
-	if ba.Cmp(decimal.NewFromInt(0)) <= 0 {
-		return nil
-	}
-
-	general, err := ledgermwcli.GetLedgerOnly(ctx, &ledgermwpb.Conds{
-		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		UserID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
-		CoinTypeID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.PaymentCoinID},
-	})
-	if err != nil {
-		return err
-	}
-	if general == nil {
-		return fmt.Errorf("insufficuent funds")
-	}
-
-	lockedMinus := fmt.Sprintf("-%v", h.BalanceAmount)
-
-	_, err = ledgermwcli.AddBalance(ctx, &ledgermwpb.LedgerReq{
-		ID:         &general.ID,
-		AppID:      &general.AppID,
-		UserID:     &general.UserID,
-		CoinTypeID: &general.CoinTypeID,
-		Locked:     &lockedMinus,
-		Spendable:  h.BalanceAmount,
-	})
-
-	return err
-}
-
-func tomorrowStart() time.Time {
-	now := time.Now()
-	y, m, d := now.Date()
-	return time.Date(y, m, d+1, 0, 0, 0, 0, now.Location())
-}
-
-func (h *createHandler) create(ctx context.Context) (*npool.Order, error) {
+func (h *createHandler) setCreateReqs(ctx context.Context) ([]*ordermwpb.OrderReq, error) {
 	paymentAmount := h.paymentAmountCoin.String()
 	startAmount := h.paymentAddressStartAmount.String()
+	paymentTransferAmount := h.paymentTransferAmount.String()
 	coinCurrency := h.coinCurrency.String()
 	liveCurrency := h.liveCurrency.String()
 	localCurrency := h.localCurrency.String()
-	goodValue := h.goodValues[*h.GoodID].String()
-	goodValueUSD := h.goodValueUSDs[*h.GoodID].String()
-	discountAmount := h.discountAmount.String()
-	paymentTransferAmount := h.paymentTransferAmount.String()
-
-	// Top order never pay with parent, only sub order may
-	topmostGood := h.orderGood.topMostGoods[*h.AppID+*h.GoodID]
-	if topmostGood != nil {
-		h.promotionID = topmostGood.TopMostID
-	}
-
-	appgood := h.orderGood.appgoods[*h.AppID+*h.GoodID]
-	good := h.orderGood.goods[*h.GoodID]
-	goodDurationDays := uint32(good.DurationDays)
-	startAt := h.startAts[*h.AppID+*h.GoodID]
-	endAt := h.endAts[*h.AppID+*h.GoodID]
-
-	logger.Sugar().Infow(
-		"CreateOrder",
-		"PaymentAmountUSD", h.paymentAmountUSD,
-		"PaymentAmountCoin", h.paymentAmountCoin,
-		"BalanceAmount", h.BalanceAmount,
-		"ReductionAmount", h.reductionAmount,
-		"ReductionPercent", h.reductionPercent,
-		"PaymentAddressStartAmount", h.paymentAddressStartAmount,
-		"CoinCurrency", h.coinCurrency,
-		"LiveCurrency", h.liveCurrency,
-		"LocalCurrency", h.localCurrency,
-	)
-
-	ord, err := ordermwcli.CreateOrder(ctx, &ordermwpb.OrderReq{
-		AppID:                h.AppID,
-		UserID:               h.UserID,
-		GoodID:               h.GoodID,
-		AppGoodID:            &appgood.ID,
-		ParentOrderID:        h.ParentOrderID,
-		Units:                &h.Units,
-		GoodValue:            &goodValue,
-		GoodValueUSD:         &goodValueUSD,
-		PaymentAmount:        &paymentAmount,
-		DiscountAmount:       &discountAmount,
-		PromotionID:          &h.promotionID,
-		DurationDays:         &goodDurationDays,
-		OrderType:            h.OrderType,
-		InvestmentType:       h.InvestmentType,
-		CouponIDs:            h.CouponIDs,
-		PaymentType:          &h.paymentType,
-		PaymentAccountID:     &h.paymentAccountID,
-		CoinTypeID:           &good.CoinTypeID,
-		PaymentCoinTypeID:    h.PaymentCoinID,
-		PaymentStartAmount:   &startAmount,
-		TransferAmount:       &paymentTransferAmount,
-		BalanceAmount:        h.BalanceAmount,
-		CoinUSDCurrency:      &coinCurrency,
-		LiveCoinUSDCurrency:  &liveCurrency,
-		LocalCoinUSDCurrency: &localCurrency,
-		StartAt:              &startAt,
-		EndAt:                &endAt,
-	})
+	discountAmountCoin := h.discountAmountCoin.String()
+	childPaymentType := ordertypes.PaymentType_PayWithParentOrder
+	zeroAmount := "0"
+	orderID := uuid.NewString()
+	paymentType, err := h.paymentType()
 	if err != nil {
 		return nil, err
 	}
-	h.ID = &ord.ID
 
-	return h.GetOrder(ctx)
+	orderReqs := []*ordermwpb.OrderReq{}
+	for _, goodReq := range h.Goods {
+		goodValue := h.goodValueCoins[goodReq.GoodID].String()
+		goodValueUSD := h.goodValueUSDs[goodReq.GoodID].String()
+		appgood := h.orderGood.appgoods[*h.AppID+goodReq.GoodID]
+		good := h.orderGood.goods[goodReq.GoodID]
+		goodDurationDays := uint32(good.DurationDays)
+		startAt := h.startAts[*h.AppID+goodReq.GoodID]
+		endAt := h.endAts[*h.AppID+goodReq.GoodID]
+
+		logger.Sugar().Infow(
+			"CreateOrder",
+			"PaymentAmountCoin", h.paymentAmountCoin,
+			"BalanceAmount", h.BalanceAmount,
+			"ReductionAmount", h.reductionAmount,
+			"ReductionPercent", h.reductionPercent,
+			"PaymentAddressStartAmount", h.paymentAddressStartAmount,
+			"CoinCurrency", h.coinCurrency,
+			"LiveCurrency", h.liveCurrency,
+			"LocalCurrency", h.localCurrency,
+		)
+		orderReq := &ordermwpb.OrderReq{
+			AppID:                h.AppID,
+			UserID:               h.UserID,
+			GoodID:               &goodReq.GoodID,
+			AppGoodID:            &appgood.ID,
+			Units:                &goodReq.Units,
+			GoodValue:            &goodValue,
+			GoodValueUSD:         &goodValueUSD,
+			DurationDays:         &goodDurationDays,
+			OrderType:            h.OrderType,
+			InvestmentType:       h.InvestmentType,
+			CoinTypeID:           &good.CoinTypeID,
+			PaymentCoinTypeID:    h.PaymentCoinID,
+			CoinUSDCurrency:      &coinCurrency,
+			LiveCoinUSDCurrency:  &liveCurrency,
+			LocalCoinUSDCurrency: &localCurrency,
+			StartAt:              &startAt,
+			EndAt:                &endAt,
+		}
+
+		if !goodReq.Parent && h.ParentOrderID == nil {
+			id := uuid.NewString()
+			// batch child order
+			orderReq.ID = &id
+			orderReq.ParentOrderID = &orderID
+			orderReq.PaymentAmount = &zeroAmount
+			orderReq.DiscountAmount = &zeroAmount
+			orderReq.PaymentType = &childPaymentType
+			orderReq.TransferAmount = &zeroAmount
+			orderReq.BalanceAmount = &zeroAmount
+			h.IDs = append(h.IDs, id)
+		} else {
+			// parent order or single order
+			orderReq.ID = &orderID
+			orderReq.ParentOrderID = h.ParentOrderID
+			orderReq.PaymentAmount = &paymentAmount
+			orderReq.DiscountAmount = &discountAmountCoin
+			orderReq.CouponIDs = h.CouponIDs
+			orderReq.PaymentType = paymentType
+			orderReq.TransferAmount = &paymentTransferAmount
+			orderReq.BalanceAmount = h.BalanceAmount
+			orderReq.PaymentAccountID = &h.paymentAccountID
+			orderReq.PaymentStartAmount = &startAmount
+			h.IDs = append(h.IDs, orderID)
+		}
+
+		topmostGood := h.orderGood.topMostGoods[*h.AppID+goodReq.GoodID]
+		if topmostGood != nil {
+			orderReq.PromotionID = &topmostGood.TopMostID
+		}
+		orderReqs = append(orderReqs, orderReq)
+	}
+	return orderReqs, nil
+}
+
+func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose, req *ordermwpb.OrderReq) {
+	dispose.Add(
+		ordermwsvcname.ServiceDomain,
+		"order.middleware.order1.v1.Middleware/CreateOrder",
+		"",
+		&ordermwpb.CreateOrderRequest{
+			Info: req,
+		},
+	)
+}
+
+func (h *createHandler) withCreateOrders(dispose *dtmcli.SagaDispose, reqs []*ordermwpb.OrderReq) {
+	dispose.Add(
+		ordermwsvcname.ServiceDomain,
+		"order.middleware.order1.v1.Middleware/CreateOrders",
+		"",
+		&ordermwpb.CreateOrdersRequest{
+			Infos: reqs,
+		},
+	)
 }
 
 func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error) {
@@ -743,112 +758,42 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 		return nil, err
 	}
 
-	if err := handler.LockStock(ctx); err != nil {
+	if err := handler.CheckBalance(ctx); err != nil {
 		_ = handler.ReleaseAddress(ctx)
 		return nil, err
 	}
 
-	if err := handler.LockBalance(ctx); err != nil {
-		_ = handler.ReleaseAddress(ctx)
-		_ = handler.ReleaseStock(ctx)
-		return nil, err
-	}
-
-	ord, err := handler.create(ctx)
+	createReqs, err := handler.setCreateReqs(ctx)
 	if err != nil {
 		_ = handler.ReleaseAddress(ctx)
-		_ = handler.ReleaseStock(ctx)
-		_ = handler.ReleaseBalance(ctx)
 		return nil, err
 	}
 
-	return ord, nil
-}
+	sagaDispose := dtmcli.NewSagaDispose(dtmimp.TransOptions{
+		WaitResult:     true,
+		RequestTimeout: handler.RequestTimeoutSeconds,
+	})
 
-func (h *createHandler) creates(ctx context.Context) ([]*npool.Order, error) {
-	paymentAmount := h.paymentAmountCoin.String()
-	startAmount := h.paymentAddressStartAmount.String()
-	paymentTransferAmount := h.paymentTransferAmount.String()
-	coinCurrency := h.coinCurrency.String()
-	liveCurrency := h.liveCurrency.String()
-	localCurrency := h.localCurrency.String()
-	discountAmount := h.discountAmount.String()
+	handler.withUpdateStock(sagaDispose)
+	if h.BalanceAmount != nil {
+		handler.withUpdateBalance(sagaDispose)
+	}
+	handler.withCreateOrders(sagaDispose, createReqs)
 
-	orderReqs := []*ordermwpb.OrderReq{}
-	for _, goodReq := range h.Goods {
-		goodValue := h.goodValues[goodReq.GoodID].String()
-		goodValueUSD := h.goodValueUSDs[goodReq.GoodID].String()
-		// Top order never pay with parent, only sub order may
-		topmostGood := h.orderGood.topMostGoods[*h.AppID+goodReq.GoodID]
-		if topmostGood != nil {
-			h.promotionID = topmostGood.TopMostID
-		}
-
-		appgood := h.orderGood.appgoods[*h.AppID+goodReq.GoodID]
-		good := h.orderGood.goods[goodReq.GoodID]
-		goodDurationDays := uint32(good.DurationDays)
-		startAt := h.startAts[*h.AppID+goodReq.GoodID]
-		endAt := h.endAts[*h.AppID+goodReq.GoodID]
-
-		logger.Sugar().Infow(
-			"CreateOrder",
-			"PaymentAmountUSD", h.paymentAmountUSD,
-			"PaymentAmountCoin", h.paymentAmountCoin,
-			"BalanceAmount", h.BalanceAmount,
-			"ReductionAmount", h.reductionAmount,
-			"ReductionPercent", h.reductionPercent,
-			"PaymentAddressStartAmount", h.paymentAddressStartAmount,
-			"CoinCurrency", h.coinCurrency,
-			"LiveCurrency", h.liveCurrency,
-			"LocalCurrency", h.localCurrency,
-		)
-		orderReq := &ordermwpb.OrderReq{
-			AppID:                h.AppID,
-			UserID:               h.UserID,
-			GoodID:               h.GoodID,
-			AppGoodID:            &appgood.ID,
-			ParentOrderID:        h.ParentOrderID,
-			Units:                &h.Units,
-			GoodValue:            &goodValue,
-			GoodValueUSD:         &goodValueUSD,
-			PaymentAmount:        &paymentAmount,
-			DiscountAmount:       &discountAmount,
-			PromotionID:          &h.promotionID,
-			DurationDays:         &goodDurationDays,
-			OrderType:            h.OrderType,
-			InvestmentType:       h.InvestmentType,
-			CouponIDs:            h.CouponIDs,
-			PaymentType:          &h.paymentType,
-			CoinTypeID:           &good.CoinTypeID,
-			PaymentCoinTypeID:    h.PaymentCoinID,
-			TransferAmount:       &paymentTransferAmount,
-			BalanceAmount:        h.BalanceAmount,
-			CoinUSDCurrency:      &coinCurrency,
-			LiveCoinUSDCurrency:  &liveCurrency,
-			LocalCoinUSDCurrency: &localCurrency,
-			StartAt:              &startAt,
-			EndAt:                &endAt,
-		}
-		if goodReq.Parent {
-			orderReq.PaymentAccountID = &h.paymentAccountID
-			orderReq.PaymentStartAmount = &startAmount
-		}
-		orderReqs = append(orderReqs, orderReq)
+	if err := dtmcli.WithSaga(ctx, sagaDispose); err != nil {
+		_ = handler.ReleaseAddress(ctx)
+		return nil, err
 	}
 
-	orders, err := ordermwcli.CreateOrders(ctx, orderReqs)
+	orders, _, err := h.GetOrders(ctx)
 	if err != nil {
 		return nil, err
 	}
-	for key := range orders {
-		h.IDs = append(h.IDs, orders[key].ID)
+	if len(orders) == 0 {
+		return nil, nil
 	}
 
-	infos, _, err := h.GetOrders(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return infos, nil
+	return orders[0], nil
 }
 
 func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err error) {
@@ -889,27 +834,35 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		return nil, err
 	}
 
+	if err := handler.CheckBalance(ctx); err != nil {
+		_ = handler.ReleaseAddress(ctx)
+		return nil, err
+	}
+
+	createReqs, err := handler.setCreateReqs(ctx)
+	if err != nil {
+		_ = handler.ReleaseAddress(ctx)
+		return nil, err
+	}
+
 	sagaDispose := dtmcli.NewSagaDispose(dtmimp.TransOptions{
 		WaitResult:     true,
 		RequestTimeout: handler.RequestTimeoutSeconds,
 	})
 
 	handler.withUpdateStock(sagaDispose)
+	if h.BalanceAmount != nil {
+		handler.withUpdateBalance(sagaDispose)
+	}
+	handler.withCreateOrders(sagaDispose, createReqs)
 
 	if err := dtmcli.WithSaga(ctx, sagaDispose); err != nil {
 		_ = handler.ReleaseAddress(ctx)
 		return nil, err
 	}
 
-	if err := handler.LockBalance(ctx); err != nil {
-		_ = handler.ReleaseAddress(ctx)
-		return nil, err
-	}
-
-	orders, err := handler.creates(ctx)
+	orders, _, err := h.GetOrders(ctx)
 	if err != nil {
-		_ = handler.ReleaseAddress(ctx)
-		_ = handler.ReleaseBalance(ctx)
 		return nil, err
 	}
 
