@@ -27,7 +27,8 @@ type Handler struct {
 	OrderType             *ordertypes.OrderType
 	CouponIDs             []string
 	InvestmentType        *ordertypes.InvestmentType
-	Canceled              *bool
+	UserSetCanceled       *bool
+	AdminSetCanceled      *bool
 	FromAdmin             bool
 	PaymentID             *string
 	Offset                int32
@@ -234,7 +235,7 @@ func WithInvestmentType(investmentType *ordertypes.InvestmentType, must bool) fu
 	}
 }
 
-func WithCanceled(value *bool, must bool) func(context.Context, *Handler) error {
+func WithUserSetCanceled(value *bool, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if value == nil {
 			if must {
@@ -242,11 +243,23 @@ func WithCanceled(value *bool, must bool) func(context.Context, *Handler) error 
 			}
 			return nil
 		}
-		h.Canceled = value
+		h.UserSetCanceled = value
 		return nil
 	}
 }
 
+func WithAdminSetCanceled(value *bool, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if value == nil {
+			if must {
+				return fmt.Errorf("invalid canceled")
+			}
+			return nil
+		}
+		h.AdminSetCanceled = value
+		return nil
+	}
+}
 func WithFromAdmin(value bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		h.FromAdmin = value

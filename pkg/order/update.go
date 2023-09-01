@@ -136,14 +136,14 @@ func (h *updateHandler) processStock(ctx context.Context) error {
 }
 
 func (h *updateHandler) processOrderState(ctx context.Context) error {
-	cancle := true
 	state := ordertypes.OrderState_OrderStateCanceled
 	paymentState := ordertypes.PaymentState_PaymentStateCanceled
 	_, err := ordermwcli.UpdateOrder(ctx, &ordermwpb.OrderReq{
-		ID:              &h.ord.ID,
-		OrderState:      &state,
-		PaymentState:    &paymentState,
-		UserSetCanceled: &cancle,
+		ID:               &h.ord.ID,
+		OrderState:       &state,
+		PaymentState:     &paymentState,
+		UserSetCanceled:  h.UserSetCanceled,
+		AdminSetCanceled: h.AdminSetCanceled,
 	})
 	if err != nil {
 		return err
@@ -342,7 +342,7 @@ func (h *updateHandler) cancelNormalOrder(ctx context.Context) error {
 
 //nolint:gocyclo
 func (h *Handler) UpdateOrder(ctx context.Context) (*npool.Order, error) {
-	if h.Canceled == nil {
+	if h.UserSetCanceled == nil && h.AdminSetCanceled == nil {
 		return nil, fmt.Errorf("nothing todo")
 	}
 	if h.ID == nil || *h.ID == "" {
@@ -360,7 +360,10 @@ func (h *Handler) UpdateOrder(ctx context.Context) (*npool.Order, error) {
 	if *h.AppID != ord.AppID || *h.UserID != ord.UserID {
 		return nil, fmt.Errorf("permission denied")
 	}
-	if !*h.Canceled {
+	if h.UserSetCanceled != nil && !*h.UserSetCanceled {
+		return h.GetOrder(ctx)
+	}
+	if h.AdminSetCanceled != nil && !*h.AdminSetCanceled {
 		return h.GetOrder(ctx)
 	}
 
@@ -375,10 +378,11 @@ func (h *Handler) UpdateOrder(ctx context.Context) (*npool.Order, error) {
 			return nil, fmt.Errorf("permission denied")
 		}
 		_, err = ordermwcli.UpdateOrder(ctx, &ordermwpb.OrderReq{
-			ID:              h.ID,
-			AppID:           h.AppID,
-			UserID:          h.UserID,
-			UserSetCanceled: h.Canceled,
+			ID:               h.ID,
+			AppID:            h.AppID,
+			UserID:           h.UserID,
+			UserSetCanceled:  h.UserSetCanceled,
+			AdminSetCanceled: h.AdminSetCanceled,
 		})
 		if err != nil {
 			return nil, err
