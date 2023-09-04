@@ -214,8 +214,8 @@ func (h *updateHandler) withProcessCancel(dispose *dtmcli.SagaDispose) {
 	}
 	dispose.Add(
 		ordermwsvcname.ServiceDomain,
-		"order.middleware.order1.v1.Middleware/SubBalance",
-		"order.middleware.order1.v1.Middleware/AddBalance",
+		"order.middleware.order1.v1.Middleware/UpdateOrder",
+		"",
 		&ordermwpb.UpdateOrderRequest{
 			Info: req,
 		},
