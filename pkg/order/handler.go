@@ -5,21 +5,24 @@ import (
 	"fmt"
 
 	appmwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/app"
-	appusermwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
+	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
+	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
+	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
+	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
-	"github.com/shopspring/decimal"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type Handler struct {
 	ID                    *string
 	AppID                 *string
 	UserID                *string
-	GoodID                *string
+	AppGoodID             *string
 	Units                 string
 	PaymentCoinID         *string
 	ParentOrderID         *string
@@ -29,12 +32,10 @@ type Handler struct {
 	InvestmentType        *ordertypes.InvestmentType
 	UserSetCanceled       *bool
 	AdminSetCanceled      *bool
-	FromAdmin             bool
 	PaymentID             *string
 	Offset                int32
 	Limit                 int32
-	Goods                 []*npool.CreateOrdersRequest_Good
-	IDs                   []string
+	Orders                []*npool.CreateOrdersRequest_OrderReq
 	RequestTimeoutSeconds int64
 }
 
@@ -72,9 +73,6 @@ func WithAppID(appID *string, must bool) func(context.Context, *Handler) error {
 			}
 			return nil
 		}
-		if _, err := uuid.Parse(*appID); err != nil {
-			return err
-		}
 		exist, err := appmwcli.ExistApp(ctx, *appID)
 		if err != nil {
 			return err
@@ -87,9 +85,9 @@ func WithAppID(appID *string, must bool) func(context.Context, *Handler) error {
 	}
 }
 
-func WithUserID(appID, userID *string, must bool) func(context.Context, *Handler) error {
+func WithUserID(userID *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
-		if appID == nil || userID == nil {
+		if userID == nil {
 			if must {
 				return fmt.Errorf("invalid userid")
 			}
@@ -99,32 +97,27 @@ func WithUserID(appID, userID *string, must bool) func(context.Context, *Handler
 		if err != nil {
 			return err
 		}
-		exist, err := appusermwcli.ExistUser(ctx, *appID, *userID)
-		if err != nil {
-			return err
-		}
-		if !exist {
-			return fmt.Errorf("invalid user")
-		}
-
 		h.UserID = userID
 		return nil
 	}
 }
 
-func WithGoodID(id *string, must bool) func(context.Context, *Handler) error {
+func WithAppGoodID(id *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
 			if must {
-				return fmt.Errorf("invalid goodid")
+				return fmt.Errorf("invalid appgoodid")
 			}
 			return nil
 		}
-		_, err := uuid.Parse(*id)
+		exist, err := appgoodmwcli.ExistGood(ctx, *id)
 		if err != nil {
 			return err
 		}
-		h.GoodID = id
+		if !exist {
+			return fmt.Errorf("invalid appgood")
+		}
+		h.AppGoodID = id
 		return nil
 	}
 }
@@ -211,6 +204,15 @@ func WithCouponIDs(couponIDs []string, must bool) func(context.Context, *Handler
 				return err
 			}
 		}
+		exist, err := ordermwcli.ExistOrderConds(ctx, &ordermwpb.Conds{
+			CouponIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: couponIDs},
+		})
+		if err != nil {
+			return err
+		}
+		if exist {
+			return fmt.Errorf("invalid couponids")
+		}
 		h.CouponIDs = couponIDs
 		return nil
 	}
@@ -260,12 +262,6 @@ func WithAdminSetCanceled(value *bool, must bool) func(context.Context, *Handler
 		return nil
 	}
 }
-func WithFromAdmin(value bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		h.FromAdmin = value
-		return nil
-	}
-}
 
 func WithPaymentID(id *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
@@ -304,6 +300,13 @@ func WithOrderType(orderType *ordertypes.OrderType, must bool) func(context.Cont
 	}
 }
 
+func WithOrders(orders []*npool.CreateOrdersRequest_OrderReq, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		h.Orders = orders
+		return nil
+	}
+}
+
 func WithOffset(offset int32) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		h.Offset = offset
@@ -317,13 +320,6 @@ func WithLimit(limit int32) func(context.Context, *Handler) error {
 			limit = constant.DefaultRowLimit
 		}
 		h.Limit = limit
-		return nil
-	}
-}
-
-func WithGoods(goods []*npool.CreateOrdersRequest_Good, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		h.Goods = goods
 		return nil
 	}
 }
