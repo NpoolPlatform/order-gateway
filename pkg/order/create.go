@@ -70,12 +70,9 @@ type createHandler struct {
 	mainPaymentType *ordertypes.PaymentType
 
 	paymentCoinName           string
-	paymentAddress            string
 	paymentAddressStartAmount decimal.Decimal
-	paymentID                 string
-	paymentAccountID          string
-
-	ledger *ledgermwpb.Ledger
+	paymentAccount            *payaccmwpb.Account
+	ledger                    *ledgermwpb.Ledger
 }
 
 func tomorrowStart() time.Time {
@@ -452,7 +449,6 @@ func (h *createHandler) peekAddress(ctx context.Context) (*payaccmwpb.Account, e
 	for _, payment := range payments {
 		info, err := payaccmwcli.GetAccount(ctx, payment.ID)
 		if err != nil {
-			logger.Sugar().Infow("peekAddress", "payment", payment.Address, "ID", payment.ID, "error", err)
 			return nil, err
 		}
 
@@ -463,11 +459,6 @@ func (h *createHandler) peekAddress(ctx context.Context) (*payaccmwpb.Account, e
 		if info.AvailableAt > uint32(time.Now().Unix()) {
 			continue
 		}
-		if err := accountlock.Lock(payment.AccountID); err != nil {
-			logger.Sugar().Infow("peekAddress", "payment", payment.Address, "ID", payment.ID, "error", err)
-			continue
-		}
-
 		account = info
 		break
 	}
@@ -560,8 +551,8 @@ func (h *createHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
 		}
 		dispose.Add(
 			ordermwsvcname.ServiceDomain,
-			"good.middleware.app.good1.stock.v1.Middleware/SubStock",
 			"good.middleware.app.good1.stock.v1.Middleware/AddStock",
+			"good.middleware.app.good1.stock.v1.Middleware/SubStock",
 			&appgoodstockmwpb.AddStockRequest{
 				Info: req,
 			},
@@ -574,11 +565,9 @@ func (h *createHandler) withUpdateBalance(dispose *dtmcli.SagaDispose) {
 		return
 	}
 	req := &ledgermwpb.LedgerReq{
-		ID:         &h.ledger.ID,
 		AppID:      h.AppID,
 		UserID:     h.UserID,
 		CoinTypeID: &h.ledger.CoinTypeID,
-		Locked:     h.BalanceAmount,
 		Spendable:  h.BalanceAmount,
 	}
 	dispose.Add(
@@ -591,47 +580,7 @@ func (h *createHandler) withUpdateBalance(dispose *dtmcli.SagaDispose) {
 	)
 }
 
-func (h *createHandler) CheckLedgerBalance(ctx context.Context) error {
-	if h.BalanceAmount == nil {
-		return nil
-	}
-
-	ba, err := decimal.NewFromString(*h.BalanceAmount)
-	if err != nil {
-		return err
-	}
-
-	if ba.Cmp(decimal.NewFromInt(0)) <= 0 {
-		return nil
-	}
-
-	general, err := ledgermwcli.GetLedgerOnly(ctx, &ledgermwpb.Conds{
-		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		UserID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
-		CoinTypeID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.PaymentCoinID},
-	})
-	if err != nil {
-		return err
-	}
-	if general == nil {
-		return fmt.Errorf("insufficient balance")
-	}
-
-	spendable, err := decimal.NewFromString(general.Spendable)
-	if err != nil {
-		return err
-	}
-
-	if spendable.Cmp(ba) < 0 {
-		return fmt.Errorf("insufficient balance")
-	}
-
-	h.ledger = general
-
-	return nil
-}
-
-func (h *createHandler) setCreateReqs() []*ordermwpb.OrderReq {
+func (h *createHandler) orderReqs() []*ordermwpb.OrderReq {
 	paymentAmount := h.paymentAmountCoin.String()
 	startAmount := h.paymentAddressStartAmount.String()
 	paymentTransferAmount := h.paymentTransferAmount.String()
@@ -782,8 +731,14 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	case ordertypes.PaymentType_PayWithTransferAndBalance:
 		fallthrough //nolint
 	case ordertypes.PaymentType_PayWithOffline:
-		if err := handler.PeekAddress(ctx); err != nil {
-			return nil, err
+		for i := 0; i < 5; i++ {
+			if err := handler.PeekAddress(ctx); err != nil {
+				return nil, err
+			}
+			if err := accountlock.Lock(payment.AccountID); err != nil {
+				continue
+			}
+			break
 		}
 		defer func() {
 			accountlock.Unlock(handler.paymentAccountID) //nolint
@@ -791,10 +746,6 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 		if err := handler.SetAddressBalance(ctx); err != nil {
 			return nil, err
 		}
-	}
-
-	if err := handler.CheckLedgerBalance(ctx); err != nil {
-		return nil, err
 	}
 
 	createReqs := handler.setCreateReqs()
@@ -877,10 +828,6 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		if err := handler.SetAddressBalance(ctx); err != nil {
 			return nil, err
 		}
-	}
-
-	if err := handler.CheckLedgerBalance(ctx); err != nil {
-		return nil, err
 	}
 
 	createReqs := handler.setCreateReqs()
