@@ -38,7 +38,7 @@ type updateHandler struct {
 }
 
 //nolint:gocyclo
-func (h *updateHandler) validate(ctx context.Context) error {
+func (h *updateHandler) cancelable(ctx context.Context) error {
 	appgood, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodmwpb.Conds{
 		AppID: &basetypes.StringVal{
 			Op:    cruder.EQ,
@@ -259,14 +259,10 @@ func (h *Handler) UpdateOrder(ctx context.Context) (*npool.Order, error) {
 		case ordertypes.OrderState_OrderStateWaitPayment:
 			fallthrough //nolint
 		case ordertypes.OrderState_OrderStateCheckPayment:
-			fallthrough //nolint
-		case ordertypes.OrderState_OrderStatePaymentTimeout:
 			if h.FromAdmin {
 				return nil, fmt.Errorf("permission denied")
 			}
-			if err := handler.processCancel(ctx); err != nil {
-				return nil, err
-			}
+			fallthrough //nolint
 		case ordertypes.OrderState_OrderStatePaid:
 			fallthrough //nolint
 		case ordertypes.OrderState_OrderStateInService:
