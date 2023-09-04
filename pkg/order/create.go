@@ -28,7 +28,6 @@ import (
 	accountlock "github.com/NpoolPlatform/account-middleware/pkg/lock"
 	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
 
-	ledgermwcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/ledger"
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
 
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
@@ -41,6 +40,8 @@ import (
 	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
+
+	redis2 "github.com/NpoolPlatform/go-service-framework/pkg/redis"
 
 	"github.com/shopspring/decimal"
 )
@@ -68,11 +69,11 @@ type createHandler struct {
 	paymentTransferAmount decimal.Decimal
 
 	mainPaymentType *ordertypes.PaymentType
+	mainOrderID     string
 
 	paymentCoinName           string
 	paymentAddressStartAmount decimal.Decimal
 	paymentAccount            *payaccmwpb.Account
-	ledger                    *ledgermwpb.Ledger
 }
 
 func tomorrowStart() time.Time {
@@ -467,7 +468,7 @@ func (h *createHandler) peekAddress(ctx context.Context) (*payaccmwpb.Account, e
 		return nil, nil
 	}
 
-	h.paymentID = account.ID
+	h.paymentAccount = account
 
 	return account, nil
 }
@@ -482,7 +483,7 @@ func (h *createHandler) withLockPaymentAccount(dispose *dtmcli.SagaDispose) {
 		locked := true
 		lockedBy := basetypes.AccountLockedBy_Payment
 		req := &payaccmwpb.AccountReq{
-			ID:       &h.paymentID,
+			ID:       &h.paymentAccount.ID,
 			Locked:   &locked,
 			LockedBy: &lockedBy,
 		}
@@ -503,8 +504,7 @@ func (h *createHandler) PeekAddress(ctx context.Context) error {
 		return err
 	}
 	if account != nil {
-		h.paymentAddress = account.Address
-		h.paymentAccountID = account.AccountID
+		h.paymentAccount = account
 		return nil
 	}
 
@@ -520,16 +520,14 @@ func (h *createHandler) PeekAddress(ctx context.Context) error {
 		return fmt.Errorf("fail peek address")
 	}
 
-	h.paymentAddress = account.Address
-	h.paymentAccountID = account.AccountID
-
+	h.paymentAccount = account
 	return nil
 }
 
 func (h *createHandler) SetAddressBalance(ctx context.Context) error {
 	balance, err := sphinxproxycli.GetBalance(ctx, &sphinxproxypb.GetBalanceRequest{
 		Name:    h.paymentCoinName,
-		Address: h.paymentAddress,
+		Address: h.paymentAccount.Address,
 	})
 	if err != nil {
 		return err
@@ -567,7 +565,7 @@ func (h *createHandler) withUpdateBalance(dispose *dtmcli.SagaDispose) {
 	req := &ledgermwpb.LedgerReq{
 		AppID:      h.AppID,
 		UserID:     h.UserID,
-		CoinTypeID: &h.ledger.CoinTypeID,
+		CoinTypeID: &h.paymentAccount.CoinTypeID,
 		Spendable:  h.BalanceAmount,
 	}
 	dispose.Add(
@@ -590,7 +588,7 @@ func (h *createHandler) orderReqs() []*ordermwpb.OrderReq {
 	discountAmountCoin := h.discountAmountCoin.String()
 	childPaymentType := ordertypes.PaymentType_PayWithParentOrder
 	zeroAmount := "0"
-	mainOrderID := uuid.NewString()
+	h.mainOrderID = uuid.NewString()
 
 	orderReqs := []*ordermwpb.OrderReq{}
 	for _, goodReq := range h.Goods {
@@ -638,7 +636,7 @@ func (h *createHandler) orderReqs() []*ordermwpb.OrderReq {
 			id := uuid.NewString()
 			// batch child order
 			orderReq.ID = &id
-			orderReq.ParentOrderID = &mainOrderID
+			orderReq.ParentOrderID = &h.mainOrderID
 			orderReq.PaymentAmount = &zeroAmount
 			orderReq.DiscountAmount = &zeroAmount
 			orderReq.PaymentType = &childPaymentType
@@ -647,7 +645,7 @@ func (h *createHandler) orderReqs() []*ordermwpb.OrderReq {
 			h.IDs = append(h.IDs, id)
 		} else {
 			// parent order or single order
-			orderReq.ID = &mainOrderID
+			orderReq.ID = &h.mainOrderID
 			orderReq.ParentOrderID = h.ParentOrderID
 			orderReq.PaymentAmount = &paymentAmount
 			orderReq.DiscountAmount = &discountAmountCoin
@@ -655,9 +653,9 @@ func (h *createHandler) orderReqs() []*ordermwpb.OrderReq {
 			orderReq.PaymentType = h.mainPaymentType
 			orderReq.TransferAmount = &paymentTransferAmount
 			orderReq.BalanceAmount = h.BalanceAmount
-			orderReq.PaymentAccountID = &h.paymentAccountID
+			orderReq.PaymentAccountID = &h.paymentAccount.AccountID
 			orderReq.PaymentStartAmount = &startAmount
-			h.IDs = append(h.IDs, mainOrderID)
+			h.IDs = append(h.IDs, h.mainOrderID)
 		}
 
 		topmostGood := h.orderGood.topMostGoods[*h.AppID+goodReq.GoodID]
@@ -691,7 +689,7 @@ func (h *createHandler) withCreateOrders(dispose *dtmcli.SagaDispose, reqs []*or
 	)
 }
 
-//nolint:gocyclo
+//nolint:funlen,gocyclo
 func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error) {
 	orderGood, err := h.ToOrderGood(ctx)
 	if err != nil {
@@ -735,20 +733,27 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 			if err := handler.PeekAddress(ctx); err != nil {
 				return nil, err
 			}
-			if err := accountlock.Lock(payment.AccountID); err != nil {
+			if err := accountlock.Lock(handler.paymentAccount.AccountID); err != nil {
 				continue
 			}
 			break
 		}
 		defer func() {
-			accountlock.Unlock(handler.paymentAccountID) //nolint
+			accountlock.Unlock(handler.paymentAccount.AccountID) //nolint
 		}()
 		if err := handler.SetAddressBalance(ctx); err != nil {
 			return nil, err
 		}
 	}
 
-	createReqs := handler.setCreateReqs()
+	createReqs := handler.orderReqs()
+	lockKey := fmt.Sprintf("%v:%v:%v:%v", basetypes.Prefix_PrefixCreateOrder, *h.AppID, *h.UserID, handler.mainOrderID)
+	if err := redis2.TryLock(lockKey, 0); err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = redis2.Unlock(lockKey)
+	}()
 
 	sagaDispose := dtmcli.NewSagaDispose(dtmimp.TransOptions{
 		WaitResult:     true,
@@ -775,7 +780,7 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	return orders[0], nil
 }
 
-//nolint:gocyclo
+//nolint:funlen,gocyclo
 func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err error) {
 	orderGood, err := h.ToOrderGoods(ctx)
 	if err != nil {
@@ -819,18 +824,31 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	case ordertypes.PaymentType_PayWithTransferAndBalance:
 		fallthrough //nolint
 	case ordertypes.PaymentType_PayWithOffline:
-		if err := handler.PeekAddress(ctx); err != nil {
-			return nil, err
+		for i := 0; i < 5; i++ {
+			if err := handler.PeekAddress(ctx); err != nil {
+				return nil, err
+			}
+			if err := accountlock.Lock(handler.paymentAccount.AccountID); err != nil {
+				continue
+			}
+			break
 		}
 		defer func() {
-			accountlock.Unlock(handler.paymentAccountID) //nolint
+			accountlock.Unlock(handler.paymentAccount.AccountID) //nolint
 		}()
 		if err := handler.SetAddressBalance(ctx); err != nil {
 			return nil, err
 		}
 	}
 
-	createReqs := handler.setCreateReqs()
+	createReqs := handler.orderReqs()
+	lockKey := fmt.Sprintf("%v:%v:%v:%v", basetypes.Prefix_PrefixCreateOrder, *h.AppID, *h.UserID, handler.mainOrderID)
+	if err := redis2.TryLock(lockKey, 0); err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = redis2.Unlock(lockKey)
+	}()
 
 	sagaDispose := dtmcli.NewSagaDispose(dtmimp.TransOptions{
 		WaitResult:     true,

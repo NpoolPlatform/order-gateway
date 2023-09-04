@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
 	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
+	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
+	"github.com/dtm-labs/dtm/client/dtmcli/dtmimp"
 
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
 	ledgertypes "github.com/NpoolPlatform/message/npool/basetypes/ledger/v1"
@@ -20,10 +23,11 @@ import (
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 
-	miningdetailcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/good/ledger/statement"
+	goodledgerstatementcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/good/ledger/statement"
 
 	ledgerstatementcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/ledger/statement"
-	miningdetailpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/good/ledger/statement"
+	goodledgerstatementpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/good/ledger/statement"
+	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
 	ledgerstatementpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger/statement"
 
 	statementmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/achievement/statement"
@@ -34,7 +38,8 @@ import (
 
 type updateHandler struct {
 	*Handler
-	ord *ordermwpb.Order
+	ord                   *ordermwpb.Order
+	achievementStatements []*statementmwpb.Statement
 }
 
 //nolint:gocyclo
@@ -64,7 +69,7 @@ func (h *updateHandler) cancelable(ctx context.Context) error {
 		return fmt.Errorf("invalid good")
 	}
 
-	statements, _, err := miningdetailcli.GetGoodStatements(ctx, &miningdetailpb.Conds{
+	statements, _, err := goodledgerstatementcli.GetGoodStatements(ctx, &goodledgerstatementpb.Conds{
 		GoodID: &basetypes.StringVal{
 			Op:    cruder.EQ,
 			Value: h.ord.GoodID,
@@ -72,6 +77,15 @@ func (h *updateHandler) cancelable(ctx context.Context) error {
 	}, 0, 1)
 	if err != nil {
 		return err
+	}
+
+	switch h.ord.OrderState {
+	case ordertypes.OrderState_OrderStateWaitPayment:
+	case ordertypes.OrderState_OrderStateCheckPayment:
+		if len(statements) > 0 {
+			return fmt.Errorf("had statements can not cancel")
+		}
+		return nil
 	}
 
 	if good.RewardState != goodtypes.BenefitState_BenefitWait {
@@ -113,29 +127,10 @@ func (h *updateHandler) cancelable(ctx context.Context) error {
 	return nil
 }
 
-func (h *updateHandler) processCancel(ctx context.Context) error {
-	_, err := ordermwcli.UpdateOrder(ctx, &ordermwpb.OrderReq{
-		ID:               &h.ord.ID,
-		AppID:            h.AppID,
-		UserID:           h.UserID,
-		UserSetCanceled:  h.UserSetCanceled,
-		AdminSetCanceled: h.AdminSetCanceled,
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (h *updateHandler) processLedger(ctx context.Context) error {
+func (h *updateHandler) processStatements(ctx context.Context) error {
 	offset := int32(0)
 	limit := int32(1000) //nolint
-	detailInfos := []*ledgerstatementpb.StatementReq{}
 	in := ledgertypes.IOType_Incoming
-	out := ledgertypes.IOType_Outcoming
-	ioTypeCR := ledgertypes.IOSubType_CommissionRevoke
-
 	for {
 		infos, _, err := statementmwcli.GetStatements(ctx, &statementmwpb.Conds{
 			OrderID: &basetypes.StringVal{Op: cruder.EQ, Value: h.ord.ID},
@@ -157,7 +152,6 @@ func (h *updateHandler) processLedger(ctx context.Context) error {
 			if commission.Cmp(decimal.NewFromInt(0)) == 0 {
 				continue
 			}
-
 			_, total, err := ledgerstatementcli.GetStatements(ctx, &ledgerstatementpb.Conds{
 				AppID: &basetypes.StringVal{
 					Op:    cruder.EQ,
@@ -186,39 +180,49 @@ func (h *updateHandler) processLedger(ctx context.Context) error {
 			if total == 0 {
 				return fmt.Errorf("commission ledger detail is not exist")
 			}
-
-			inIoExtra := fmt.Sprintf(
-				`{"AppID":"%v","UserID":"%v","ArchivementDetailID":"%v","Amount":"%v","Date":"%v"}`,
-				val.AppID,
-				val.UserID,
-				val.ID,
-				val.Commission,
-				time.Now(),
-			)
-
-			detailInfos = append(detailInfos, &ledgerstatementpb.StatementReq{
-				AppID:      &val.AppID,
-				UserID:     &val.UserID,
-				CoinTypeID: &val.PaymentCoinTypeID,
-				IOType:     &out,
-				IOSubType:  &ioTypeCR,
-				Amount:     &val.Commission,
-				IOExtra:    &inIoExtra,
-			})
-		}
-	}
-
-	if len(detailInfos) > 0 {
-		_, err := ledgerstatementcli.CreateStatements(ctx, detailInfos)
-		if err != nil {
-			return err
+			h.achievementStatements = append(h.achievementStatements, val)
 		}
 	}
 
 	return nil
 }
 
-//nolint:funlen,gocyclo
+func (h *updateHandler) withLockCommission(dispose *dtmcli.SagaDispose) {
+	for _, statement := range h.achievementStatements {
+		req := &ledgermwpb.LedgerReq{
+			AppID:      &statement.AppID,
+			UserID:     &statement.UserID,
+			CoinTypeID: &statement.CoinTypeID,
+			Spendable:  &statement.Commission,
+		}
+		dispose.Add(
+			ordermwsvcname.ServiceDomain,
+			"ledger.middleware.ledger.v2.Middleware/SubBalance",
+			"ledger.middleware.ledger.v2.Middleware/AddBalance",
+			&ledgermwpb.AddBalanceRequest{
+				Info: req,
+			},
+		)
+	}
+}
+
+func (h *updateHandler) withProcessCancel(dispose *dtmcli.SagaDispose) {
+	req := &ordermwpb.OrderReq{
+		ID:               &h.ord.ID,
+		UserSetCanceled:  h.UserSetCanceled,
+		AdminSetCanceled: h.AdminSetCanceled,
+	}
+	dispose.Add(
+		ordermwsvcname.ServiceDomain,
+		"order.middleware.order1.v1.Middleware/SubBalance",
+		"order.middleware.order1.v1.Middleware/AddBalance",
+		&ordermwpb.UpdateOrderRequest{
+			Info: req,
+		},
+	)
+}
+
+//nolint:gocyclo
 func (h *Handler) UpdateOrder(ctx context.Context) (*npool.Order, error) {
 	if h.UserSetCanceled == nil && h.AdminSetCanceled == nil {
 		return nil, fmt.Errorf("nothing todo")
@@ -233,12 +237,6 @@ func (h *Handler) UpdateOrder(ctx context.Context) (*npool.Order, error) {
 	}
 
 	if *h.AppID != ord.AppID || *h.UserID != ord.UserID {
-		return nil, fmt.Errorf("permission denied")
-	}
-	if h.FromAdmin && h.UserSetCanceled != nil {
-		return nil, fmt.Errorf("permission denied")
-	}
-	if !h.FromAdmin && h.AdminSetCanceled != nil {
 		return nil, fmt.Errorf("permission denied")
 	}
 	if h.UserSetCanceled != nil && !*h.UserSetCanceled {
@@ -259,37 +257,40 @@ func (h *Handler) UpdateOrder(ctx context.Context) (*npool.Order, error) {
 		case ordertypes.OrderState_OrderStateWaitPayment:
 			fallthrough //nolint
 		case ordertypes.OrderState_OrderStateCheckPayment:
-			if h.FromAdmin {
+			if h.AdminSetCanceled != nil {
 				return nil, fmt.Errorf("permission denied")
 			}
-			fallthrough //nolint
 		case ordertypes.OrderState_OrderStatePaid:
-			fallthrough //nolint
 		case ordertypes.OrderState_OrderStateInService:
-			if err := handler.validate(ctx); err != nil {
-				return nil, err
-			}
-			if err := handler.processLedger(ctx); err != nil {
-				return nil, err
-			}
-			if err := handler.processCancel(ctx); err != nil {
-				return nil, err
-			}
 		}
 	case ordertypes.OrderType_Offline:
 		fallthrough //nolint
 	case ordertypes.OrderType_Airdrop:
-		if !h.FromAdmin {
+		if h.AdminSetCanceled == nil {
 			return nil, fmt.Errorf("permission denied")
-		}
-		if err := handler.validate(ctx); err != nil {
-			return nil, err
-		}
-		if err := handler.processCancel(ctx); err != nil {
-			return nil, err
 		}
 	default:
 		return nil, fmt.Errorf("order type uncancellable")
+	}
+
+	if err := handler.cancelable(ctx); err != nil {
+		return nil, err
+	}
+
+	if err := handler.processStatements(ctx); err != nil {
+		return nil, err
+	}
+
+	sagaDispose := dtmcli.NewSagaDispose(dtmimp.TransOptions{
+		WaitResult:     true,
+		RequestTimeout: handler.RequestTimeoutSeconds,
+	})
+
+	handler.withLockCommission(sagaDispose)
+	handler.withProcessCancel(sagaDispose)
+
+	if err := dtmcli.WithSaga(ctx, sagaDispose); err != nil {
+		return nil, err
 	}
 
 	return handler.GetOrder(ctx)
