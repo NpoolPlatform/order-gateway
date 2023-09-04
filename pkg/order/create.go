@@ -63,10 +63,11 @@ type createHandler struct {
 
 	goodValueCoins        map[string]decimal.Decimal
 	goodValueUSDs         map[string]decimal.Decimal
-	paymentAmountUSD      decimal.Decimal
 	paymentAmountCoin     decimal.Decimal
 	discountAmountCoin    decimal.Decimal
 	paymentTransferAmount decimal.Decimal
+
+	mainPaymentType *ordertypes.PaymentType
 
 	paymentCoinName           string
 	paymentAddress            string
@@ -81,25 +82,6 @@ func tomorrowStart() time.Time {
 	now := time.Now()
 	y, m, d := now.Date()
 	return time.Date(y, m, d+1, 0, 0, 0, 0, now.Location())
-}
-
-func (h *createHandler) paymentType() (*ordertypes.PaymentType, error) {
-	switch *h.OrderType {
-	case ordertypes.OrderType_Normal:
-		if h.BalanceAmount != nil {
-			if h.paymentTransferAmount.Cmp(decimal.NewFromInt(0)) > 0 {
-				return ordertypes.PaymentType_PayWithTransferAndBalance.Enum(), nil
-			}
-			return ordertypes.PaymentType_PayWithBalanceOnly.Enum(), nil
-		}
-		return ordertypes.PaymentType_PayWithTransferOnly.Enum(), nil
-	case ordertypes.OrderType_Offline:
-		return ordertypes.PaymentType_PayWithOffline.Enum(), nil
-	case ordertypes.OrderType_Airdrop:
-		return ordertypes.PaymentType_PayWithNoPayment.Enum(), nil
-	default:
-		return nil, fmt.Errorf("invalid ordertype")
-	}
 }
 
 func (h *createHandler) validateInit(ctx context.Context) error {
@@ -163,6 +145,32 @@ func (h *createHandler) validateInit(ctx context.Context) error {
 	return nil
 }
 
+func (h *createHandler) checkGoodRequests() error {
+	goodRequiredSet := make(map[string]struct{})
+	goodSet := make(map[string]struct{})
+	for _, goodRequired := range h.orderGood.goodRequireds {
+		goodRequiredSet[goodRequired.RequiredGoodID] = struct{}{}
+	}
+
+	for _, goodReq := range h.Goods {
+		if !goodReq.Parent {
+			if _, ok := goodRequiredSet[goodReq.GoodID]; !ok {
+				return fmt.Errorf("invalid goodrequired")
+			}
+			goodSet[goodReq.GoodID] = struct{}{}
+		}
+	}
+
+	for _, goodRequired := range h.orderGood.goodRequireds {
+		if goodRequired.Must {
+			if _, ok := goodSet[goodRequired.RequiredGoodID]; !ok {
+				return fmt.Errorf("invalid goodrequired must")
+			}
+		}
+	}
+	return nil
+}
+
 // nolint
 func (h *createHandler) SetReduction(ctx context.Context) error {
 	if len(h.CouponIDs) == 0 {
@@ -179,16 +187,6 @@ func (h *createHandler) SetReduction(ctx context.Context) error {
 	}
 	if len(coupons) != len(h.CouponIDs) {
 		return fmt.Errorf("invalid coupon")
-	}
-
-	exist, err := ordermwcli.ExistOrderConds(ctx, &ordermwpb.Conds{
-		CouponIDs: &basetypes.StringSliceVal{Op: cruder.EQ, Value: h.CouponIDs},
-	})
-	if err != nil {
-		return err
-	}
-	if exist {
-		return fmt.Errorf("coupon already used")
 	}
 
 	couponTypeDiscountNum := 0
@@ -317,7 +315,6 @@ func getAccuracy(coin decimal.Decimal) decimal.Decimal {
 }
 
 func (h *createHandler) SetPaymentAmount(ctx context.Context) error {
-	totalPaymentAmountCoin := decimal.NewFromInt(0)
 	totalPaymentAmountUSD := decimal.NewFromInt(0)
 	for _, goodReq := range h.Goods {
 		price := h.goodPrices[*h.AppID+goodReq.GoodID]
@@ -331,7 +328,7 @@ func (h *createHandler) SetPaymentAmount(ctx context.Context) error {
 
 		goodValueCoin := paymentAmountUSD.Div(h.coinCurrency)
 		goodValueCoin = getAccuracy(goodValueCoin)
-		totalPaymentAmountCoin = totalPaymentAmountCoin.Add(goodValueCoin)
+		h.paymentAmountCoin = h.paymentAmountCoin.Add(goodValueCoin)
 		h.goodValueCoins[goodReq.GoodID] = goodValueCoin
 	}
 
@@ -342,15 +339,22 @@ func (h *createHandler) SetPaymentAmount(ctx context.Context) error {
 		"ReductionPercent", h.reductionPercent,
 	)
 
-	discountAmountUSD := totalPaymentAmountUSD.
-		Mul(h.reductionPercent).
-		Div(decimal.NewFromInt(100)). //nolint
-		Add(h.reductionAmount)
+	discountAmountUSD := decimal.NewFromInt(0)
+	if h.reductionPercent != decimal.NewFromInt(0) {
+		discountAmountUSD = totalPaymentAmountUSD.
+			Mul(h.reductionPercent).
+			Div(decimal.NewFromInt(100)) //nolint
+	}
+	discountAmountUSD = discountAmountUSD.Add(h.reductionAmount)
 
 	h.discountAmountCoin = discountAmountUSD.Div(h.coinCurrency)
 	h.discountAmountCoin = getAccuracy(h.discountAmountCoin)
 
-	h.paymentAmountCoin = totalPaymentAmountCoin.Sub(h.discountAmountCoin)
+	if *h.OrderType == ordertypes.OrderType_Airdrop {
+		h.paymentAmountCoin = decimal.NewFromInt(0)
+	}
+
+	h.paymentAmountCoin = h.paymentAmountCoin.Sub(h.discountAmountCoin)
 	if h.paymentAmountCoin.Cmp(decimal.NewFromInt(0)) < 0 {
 		h.paymentAmountCoin = decimal.NewFromInt(0)
 	}
@@ -369,6 +373,34 @@ func (h *createHandler) SetPaymentAmount(ctx context.Context) error {
 		h.paymentTransferAmount = h.paymentTransferAmount.Sub(amount)
 	}
 
+	return nil
+}
+
+func (h *createHandler) paymentType() (*ordertypes.PaymentType, error) {
+	switch *h.OrderType {
+	case ordertypes.OrderType_Normal:
+		if h.BalanceAmount != nil {
+			if h.paymentTransferAmount.Cmp(decimal.NewFromInt(0)) > 0 {
+				return ordertypes.PaymentType_PayWithTransferAndBalance.Enum(), nil
+			}
+			return ordertypes.PaymentType_PayWithBalanceOnly.Enum(), nil
+		}
+		return ordertypes.PaymentType_PayWithTransferOnly.Enum(), nil
+	case ordertypes.OrderType_Offline:
+		return ordertypes.PaymentType_PayWithOffline.Enum(), nil
+	case ordertypes.OrderType_Airdrop:
+		return ordertypes.PaymentType_PayWithNoPayment.Enum(), nil
+	default:
+		return nil, fmt.Errorf("invalid ordertype")
+	}
+}
+
+func (h *createHandler) SetPaymentType(ctx context.Context) error {
+	paymentType, err := h.paymentType()
+	if err != nil {
+		return err
+	}
+	h.mainPaymentType = paymentType
 	return nil
 }
 
@@ -418,44 +450,25 @@ func (h *createHandler) peekAddress(ctx context.Context) (*payaccmwpb.Account, e
 	var account *payaccmwpb.Account
 
 	for _, payment := range payments {
-		if err := accountlock.Lock(payment.AccountID); err != nil {
-			logger.Sugar().Infow("peekAddress", "payment", payment.Address, "ID", payment.ID, "error", err)
-			continue
-		}
-
 		info, err := payaccmwcli.GetAccount(ctx, payment.ID)
 		if err != nil {
-			accountlock.Unlock(payment.AccountID) //nolint
 			logger.Sugar().Infow("peekAddress", "payment", payment.Address, "ID", payment.ID, "error", err)
 			return nil, err
 		}
 
 		if info.Locked || !info.Active || info.Blocked {
-			accountlock.Unlock(payment.AccountID) //nolint
 			continue
 		}
 
 		if info.AvailableAt > uint32(time.Now().Unix()) {
-			accountlock.Unlock(payment.AccountID) //nolint
+			continue
+		}
+		if err := accountlock.Lock(payment.AccountID); err != nil {
+			logger.Sugar().Infow("peekAddress", "payment", payment.Address, "ID", payment.ID, "error", err)
 			continue
 		}
 
-		locked := true
-		lockedBy := basetypes.AccountLockedBy_Payment
-
-		info, err = payaccmwcli.UpdateAccount(ctx, &payaccmwpb.AccountReq{
-			ID:       &payment.ID,
-			Locked:   &locked,
-			LockedBy: &lockedBy,
-		})
-		if err != nil {
-			accountlock.Unlock(payment.AccountID) //nolint
-			logger.Sugar().Infow("peekAddress", "payment", info.Address, "error", err)
-			return nil, err
-		}
-
 		account = info
-		accountlock.Unlock(payment.AccountID) //nolint
 		break
 	}
 
@@ -466,6 +479,31 @@ func (h *createHandler) peekAddress(ctx context.Context) (*payaccmwpb.Account, e
 	h.paymentID = account.ID
 
 	return account, nil
+}
+
+func (h *createHandler) withLockPaymentAccount(dispose *dtmcli.SagaDispose) {
+	switch *h.mainPaymentType {
+	case ordertypes.PaymentType_PayWithTransferOnly:
+		fallthrough //nolint
+	case ordertypes.PaymentType_PayWithTransferAndBalance:
+		fallthrough //nolint
+	case ordertypes.PaymentType_PayWithOffline:
+		locked := true
+		lockedBy := basetypes.AccountLockedBy_Payment
+		req := &payaccmwpb.AccountReq{
+			ID:       &h.paymentID,
+			Locked:   &locked,
+			LockedBy: &lockedBy,
+		}
+		dispose.Add(
+			ordermwsvcname.ServiceDomain,
+			"account.middleware.payment.v1.Middleware/UpdateAccount",
+			"",
+			&payaccmwpb.UpdateAccountRequest{
+				Info: req,
+			},
+		)
+	}
 }
 
 func (h *createHandler) PeekAddress(ctx context.Context) error {
@@ -497,23 +535,7 @@ func (h *createHandler) PeekAddress(ctx context.Context) error {
 	return nil
 }
 
-func (h *createHandler) ReleaseAddress(ctx context.Context) error {
-	if err := accountlock.Lock(h.paymentAccountID); err != nil {
-		return err
-	}
-
-	locked := false
-
-	_, err := payaccmwcli.UpdateAccount(ctx, &payaccmwpb.AccountReq{
-		ID:     &h.paymentID,
-		Locked: &locked,
-	})
-
-	accountlock.Unlock(h.paymentAccountID) //nolint
-	return err
-}
-
-func (h *createHandler) SetBalance(ctx context.Context) error {
+func (h *createHandler) SetAddressBalance(ctx context.Context) error {
 	balance, err := sphinxproxycli.GetBalance(ctx, &sphinxproxypb.GetBalanceRequest{
 		Name:    h.paymentCoinName,
 		Address: h.paymentAddress,
@@ -548,6 +570,9 @@ func (h *createHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
 }
 
 func (h *createHandler) withUpdateBalance(dispose *dtmcli.SagaDispose) {
+	if h.BalanceAmount != nil {
+		return
+	}
 	req := &ledgermwpb.LedgerReq{
 		ID:         &h.ledger.ID,
 		AppID:      h.AppID,
@@ -566,7 +591,7 @@ func (h *createHandler) withUpdateBalance(dispose *dtmcli.SagaDispose) {
 	)
 }
 
-func (h *createHandler) CheckBalance(ctx context.Context) error {
+func (h *createHandler) CheckLedgerBalance(ctx context.Context) error {
 	if h.BalanceAmount == nil {
 		return nil
 	}
@@ -606,7 +631,7 @@ func (h *createHandler) CheckBalance(ctx context.Context) error {
 	return nil
 }
 
-func (h *createHandler) setCreateReqs(ctx context.Context) ([]*ordermwpb.OrderReq, error) {
+func (h *createHandler) setCreateReqs() []*ordermwpb.OrderReq {
 	paymentAmount := h.paymentAmountCoin.String()
 	startAmount := h.paymentAddressStartAmount.String()
 	paymentTransferAmount := h.paymentTransferAmount.String()
@@ -616,11 +641,7 @@ func (h *createHandler) setCreateReqs(ctx context.Context) ([]*ordermwpb.OrderRe
 	discountAmountCoin := h.discountAmountCoin.String()
 	childPaymentType := ordertypes.PaymentType_PayWithParentOrder
 	zeroAmount := "0"
-	orderID := uuid.NewString()
-	paymentType, err := h.paymentType()
-	if err != nil {
-		return nil, err
-	}
+	mainOrderID := uuid.NewString()
 
 	orderReqs := []*ordermwpb.OrderReq{}
 	for _, goodReq := range h.Goods {
@@ -635,6 +656,7 @@ func (h *createHandler) setCreateReqs(ctx context.Context) ([]*ordermwpb.OrderRe
 		logger.Sugar().Infow(
 			"CreateOrder",
 			"PaymentAmountCoin", h.paymentAmountCoin,
+			"DiscountAmountCoin", h.discountAmountCoin,
 			"BalanceAmount", h.BalanceAmount,
 			"ReductionAmount", h.reductionAmount,
 			"ReductionPercent", h.reductionPercent,
@@ -667,7 +689,7 @@ func (h *createHandler) setCreateReqs(ctx context.Context) ([]*ordermwpb.OrderRe
 			id := uuid.NewString()
 			// batch child order
 			orderReq.ID = &id
-			orderReq.ParentOrderID = &orderID
+			orderReq.ParentOrderID = &mainOrderID
 			orderReq.PaymentAmount = &zeroAmount
 			orderReq.DiscountAmount = &zeroAmount
 			orderReq.PaymentType = &childPaymentType
@@ -676,17 +698,17 @@ func (h *createHandler) setCreateReqs(ctx context.Context) ([]*ordermwpb.OrderRe
 			h.IDs = append(h.IDs, id)
 		} else {
 			// parent order or single order
-			orderReq.ID = &orderID
+			orderReq.ID = &mainOrderID
 			orderReq.ParentOrderID = h.ParentOrderID
 			orderReq.PaymentAmount = &paymentAmount
 			orderReq.DiscountAmount = &discountAmountCoin
 			orderReq.CouponIDs = h.CouponIDs
-			orderReq.PaymentType = paymentType
+			orderReq.PaymentType = h.mainPaymentType
 			orderReq.TransferAmount = &paymentTransferAmount
 			orderReq.BalanceAmount = h.BalanceAmount
 			orderReq.PaymentAccountID = &h.paymentAccountID
 			orderReq.PaymentStartAmount = &startAmount
-			h.IDs = append(h.IDs, orderID)
+			h.IDs = append(h.IDs, mainOrderID)
 		}
 
 		topmostGood := h.orderGood.topMostGoods[*h.AppID+goodReq.GoodID]
@@ -695,14 +717,14 @@ func (h *createHandler) setCreateReqs(ctx context.Context) ([]*ordermwpb.OrderRe
 		}
 		orderReqs = append(orderReqs, orderReq)
 	}
-	return orderReqs, nil
+	return orderReqs
 }
 
 func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose, req *ordermwpb.OrderReq) {
 	dispose.Add(
 		ordermwsvcname.ServiceDomain,
 		"order.middleware.order1.v1.Middleware/CreateOrder",
-		"",
+		"order.middleware.order1.v1.Middleware/DeleteOrder",
 		&ordermwpb.CreateOrderRequest{
 			Info: req,
 		},
@@ -713,13 +735,14 @@ func (h *createHandler) withCreateOrders(dispose *dtmcli.SagaDispose, reqs []*or
 	dispose.Add(
 		ordermwsvcname.ServiceDomain,
 		"order.middleware.order1.v1.Middleware/CreateOrders",
-		"",
+		"order.middleware.order1.v1.Middleware/DeleteOrders",
 		&ordermwpb.CreateOrdersRequest{
 			Infos: reqs,
 		},
 	)
 }
 
+//nolint:gocyclo
 func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error) {
 	orderGood, err := h.ToOrderGood(ctx)
 	if err != nil {
@@ -749,25 +772,32 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 		return nil, err
 	}
 
-	if err := handler.PeekAddress(ctx); err != nil {
+	if err := handler.SetPaymentType(ctx); err != nil {
 		return nil, err
 	}
 
-	if err := handler.SetBalance(ctx); err != nil {
-		_ = handler.ReleaseAddress(ctx)
+	switch *handler.mainPaymentType {
+	case ordertypes.PaymentType_PayWithTransferOnly:
+		fallthrough //nolint
+	case ordertypes.PaymentType_PayWithTransferAndBalance:
+		fallthrough //nolint
+	case ordertypes.PaymentType_PayWithOffline:
+		if err := handler.PeekAddress(ctx); err != nil {
+			return nil, err
+		}
+		defer func() {
+			accountlock.Unlock(handler.paymentAccountID) //nolint
+		}()
+		if err := handler.SetAddressBalance(ctx); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := handler.CheckLedgerBalance(ctx); err != nil {
 		return nil, err
 	}
 
-	if err := handler.CheckBalance(ctx); err != nil {
-		_ = handler.ReleaseAddress(ctx)
-		return nil, err
-	}
-
-	createReqs, err := handler.setCreateReqs(ctx)
-	if err != nil {
-		_ = handler.ReleaseAddress(ctx)
-		return nil, err
-	}
+	createReqs := handler.setCreateReqs()
 
 	sagaDispose := dtmcli.NewSagaDispose(dtmimp.TransOptions{
 		WaitResult:     true,
@@ -775,13 +805,11 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	})
 
 	handler.withUpdateStock(sagaDispose)
-	if h.BalanceAmount != nil {
-		handler.withUpdateBalance(sagaDispose)
-	}
-	handler.withCreateOrders(sagaDispose, createReqs)
+	handler.withUpdateBalance(sagaDispose)
+	handler.withCreateOrder(sagaDispose, createReqs[0])
+	handler.withLockPaymentAccount(sagaDispose)
 
 	if err := dtmcli.WithSaga(ctx, sagaDispose); err != nil {
-		_ = handler.ReleaseAddress(ctx)
 		return nil, err
 	}
 
@@ -796,6 +824,7 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	return orders[0], nil
 }
 
+//nolint:gocyclo
 func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err error) {
 	orderGood, err := h.ToOrderGoods(ctx)
 	if err != nil {
@@ -806,6 +835,10 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		orderGood: orderGood,
 	}
 	if err := handler.validateInit(ctx); err != nil {
+		return nil, err
+	}
+
+	if err := handler.checkGoodRequests(); err != nil {
 		return nil, err
 	}
 
@@ -825,25 +858,32 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		return nil, err
 	}
 
-	if err := handler.PeekAddress(ctx); err != nil {
+	if err := handler.SetPaymentType(ctx); err != nil {
 		return nil, err
 	}
 
-	if err := handler.SetBalance(ctx); err != nil {
-		_ = handler.ReleaseAddress(ctx)
+	switch *handler.mainPaymentType {
+	case ordertypes.PaymentType_PayWithTransferOnly:
+		fallthrough //nolint
+	case ordertypes.PaymentType_PayWithTransferAndBalance:
+		fallthrough //nolint
+	case ordertypes.PaymentType_PayWithOffline:
+		if err := handler.PeekAddress(ctx); err != nil {
+			return nil, err
+		}
+		defer func() {
+			accountlock.Unlock(handler.paymentAccountID) //nolint
+		}()
+		if err := handler.SetAddressBalance(ctx); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := handler.CheckLedgerBalance(ctx); err != nil {
 		return nil, err
 	}
 
-	if err := handler.CheckBalance(ctx); err != nil {
-		_ = handler.ReleaseAddress(ctx)
-		return nil, err
-	}
-
-	createReqs, err := handler.setCreateReqs(ctx)
-	if err != nil {
-		_ = handler.ReleaseAddress(ctx)
-		return nil, err
-	}
+	createReqs := handler.setCreateReqs()
 
 	sagaDispose := dtmcli.NewSagaDispose(dtmimp.TransOptions{
 		WaitResult:     true,
@@ -851,13 +891,11 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	})
 
 	handler.withUpdateStock(sagaDispose)
-	if h.BalanceAmount != nil {
-		handler.withUpdateBalance(sagaDispose)
-	}
+	handler.withUpdateBalance(sagaDispose)
 	handler.withCreateOrders(sagaDispose, createReqs)
+	handler.withLockPaymentAccount(sagaDispose)
 
 	if err := dtmcli.WithSaga(ctx, sagaDispose); err != nil {
-		_ = handler.ReleaseAddress(ctx)
 		return nil, err
 	}
 

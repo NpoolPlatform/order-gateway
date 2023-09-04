@@ -11,10 +11,12 @@ import (
 	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
 	topmostgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good/topmost/good"
 	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
+	goodrequiredmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/required"
 	coinpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin"
 	appgoodpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
 	topmostgoodpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/topmost/good"
 	goodpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
+	goodrequiredpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/required"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 
 	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
@@ -25,10 +27,11 @@ import (
 )
 
 type OrderGood struct {
-	goods        map[string]*goodpb.Good
-	appgoods     map[string]*appgoodpb.Good
-	goodCoins    map[string]*coinpb.Coin
-	topMostGoods map[string]*topmostgoodpb.TopMostGood
+	goods         map[string]*goodpb.Good
+	appgoods      map[string]*appgoodpb.Good
+	goodCoins     map[string]*coinpb.Coin
+	topMostGoods  map[string]*topmostgoodpb.TopMostGood
+	goodRequireds []*goodrequiredpb.Required
 }
 
 func (h *Handler) ToOrderGood(ctx context.Context) (*OrderGood, error) {
@@ -53,7 +56,21 @@ func (h *Handler) ToOrderGoods(ctx context.Context) (*OrderGood, error) {
 		goodCoins:    map[string]*coinpb.Coin{},
 		topMostGoods: map[string]*topmostgoodpb.TopMostGood{},
 	}
+	parentGoodNum := 0
 	for _, goodReq := range h.Goods {
+		if goodReq.Parent {
+			parentGoodNum++
+			if parentGoodNum != 1 {
+				return nil, fmt.Errorf("invalid parent")
+			}
+			goodRequireds, _, err := goodrequiredmwcli.GetRequireds(ctx, &goodrequiredpb.Conds{
+				MainGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: goodReq.GoodID},
+			}, 0, 0)
+			if err != nil {
+				return nil, err
+			}
+			ordergood.goodRequireds = goodRequireds
+		}
 		good, err := goodmwcli.GetGood(ctx, goodReq.GoodID)
 		if err != nil {
 			return nil, err
