@@ -83,6 +83,8 @@ func (s *Server) GetOrder(ctx context.Context, in *npool.GetOrderRequest) (*npoo
 	handler, err := order1.NewHandler(
 		ctx,
 		order1.WithID(&in.ID, true),
+		order1.WithAppID(&in.AppID, true),
+		order1.WithUserID(&in.AppID, &in.UserID, true),
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
@@ -114,18 +116,34 @@ func (s *Server) GetOrder(ctx context.Context, in *npool.GetOrderRequest) (*npoo
 }
 
 func (s *Server) GetAppOrders(ctx context.Context, in *npool.GetAppOrdersRequest) (*npool.GetAppOrdersResponse, error) {
-	resp, err := s.GetOrders(ctx, &npool.GetOrdersRequest{
-		AppID:  in.GetAppID(),
-		Offset: in.Offset,
-		Limit:  in.Limit,
-	})
+	handler, err := order1.NewHandler(
+		ctx,
+		order1.WithAppID(&in.AppID, true),
+		order1.WithOffset(in.GetOffset()),
+		order1.WithLimit(in.GetLimit()),
+	)
 	if err != nil {
-		return &npool.GetAppOrdersResponse{}, err
+		logger.Sugar().Errorw(
+			"GetAppOrders",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.GetAppOrdersResponse{}, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	infos, total, err := handler.GetOrders(ctx)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"GetAppOrders",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.GetAppOrdersResponse{}, status.Error(codes.Internal, err.Error())
 	}
 
 	return &npool.GetAppOrdersResponse{
-		Infos: resp.Infos,
-		Total: resp.Total,
+		Infos: infos,
+		Total: total,
 	}, nil
 }
 
