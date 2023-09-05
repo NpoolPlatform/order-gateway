@@ -67,7 +67,6 @@ type createsHandler struct {
 	transferCoinAmount  decimal.Decimal
 	paymentType         types.PaymentType
 	orderStartMode      map[string]types.OrderStartMode
-	goodDurationDays    map[string]uint32
 	orderStartAt        map[string]uint32
 	orderEndAt          map[string]uint32
 }
@@ -530,7 +529,7 @@ func (h *createsHandler) getPaymentStartAmount(ctx context.Context) error {
 	return err
 }
 
-func (h *createsHandler) checkOrderDuration() {
+func (h *createsHandler) resolveStartEnd() {
 	for _, order := range h.Orders {
 		appGood := h.appGoods[order.AppGoodID]
 		goodStartAt := appGood.ServiceStartAt
@@ -545,7 +544,6 @@ func (h *createsHandler) checkOrderDuration() {
 		const secondsPerDay = 24 * 60 * 60
 		h.orderEndAt[order.AppGoodID] = orderStartAt + goodDurationDays*secondsPerDay
 		h.orderStartAt[order.AppGoodID] = orderStartAt
-		h.goodDurationDays[order.AppGoodID] = goodDurationDays
 	}
 }
 
@@ -604,7 +602,7 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 		orderStartAt := h.orderStartAt[order.AppGoodID]
 		orderEndAt := h.orderEndAt[order.AppGoodID]
 		startMode := h.orderStartMode[order.AppGoodID]
-		goodDurationDays := h.goodDurationDays[order.AppGoodID]
+		goodDurationDays := uint32(h.appGoods[order.AppGoodID].DurationDays)
 
 		req := &ordermwpb.OrderReq{
 			ID:                   h.ids[order.AppGoodID],
@@ -682,8 +680,7 @@ func (h *createsHandler) withLockPaymentAccount(dispose *dtmcli.SagaDispose) {
 	)
 }
 
-func (h *createsHandler) checkGoodRequests(ctx context.Context) error {
-	goodSet := make(map[string]struct{})
+func (h *createsHandler) getGoodRequests(ctx context.Context) error {
 	for _, order := range h.Orders {
 		appgood := h.appGoods[order.AppGoodID]
 		if order.Parent {
@@ -694,11 +691,13 @@ func (h *createsHandler) checkGoodRequests(ctx context.Context) error {
 				return err
 			}
 			h.goodRequireds = goodRequireds
-			continue
+			break
 		}
-		goodSet[appgood.GoodID] = struct{}{}
 	}
+	return nil
+}
 
+func (h *createsHandler) checkGoodsInRequests() error {
 	requiredSet := make(map[string]struct{})
 	for _, goodRequired := range h.goodRequireds {
 		requiredSet[goodRequired.RequiredGoodID] = struct{}{}
@@ -713,7 +712,15 @@ func (h *createsHandler) checkGoodRequests(ctx context.Context) error {
 			return fmt.Errorf("invalid goodrequired")
 		}
 	}
+	return nil
+}
 
+func (h *createsHandler) checkMustRequestsInGoods() error {
+	goodSet := make(map[string]struct{})
+	for _, order := range h.Orders {
+		appgood := h.appGoods[order.AppGoodID]
+		goodSet[appgood.GoodID] = struct{}{}
+	}
 	for _, goodRequired := range h.goodRequireds {
 		if goodRequired.Must {
 			if _, ok := goodSet[goodRequired.RequiredGoodID]; !ok {
@@ -750,7 +757,13 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	if err := handler.checkUnitsLimit(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.checkGoodRequests(ctx); err != nil {
+	if err := handler.getGoodRequests(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkGoodsInRequests(); err != nil {
+		return nil, err
+	}
+	if err := handler.checkMustRequestsInGoods(); err != nil {
 		return nil, err
 	}
 	if err := handler.getAppGoodPromotions(ctx); err != nil {
@@ -776,7 +789,7 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	}
 	handler.resolvePaymentType()
 	handler.resolveStartMode()
-	handler.checkOrderDuration()
+	handler.resolveStartEnd()
 
 	if err := handler.peekPaymentAddress(ctx); err != nil {
 		return nil, err
