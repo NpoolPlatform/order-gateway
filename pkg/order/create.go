@@ -11,6 +11,7 @@ import (
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
 	currencymwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin/currency"
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
+	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
 	redis2 "github.com/NpoolPlatform/go-service-framework/pkg/redis"
 	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
 	topmostmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good/topmost/good"
@@ -546,6 +547,20 @@ func (h *createHandler) tomorrowStart() time.Time {
 	return time.Date(y, m, d+1, 0, 0, 0, 0, now.Location())
 }
 
+func (h *createHandler) resolveStartEnd() {
+	goodStartAt := h.appGood.ServiceStartAt
+	if h.appGood.ServiceStartAt == 0 {
+		goodStartAt = h.appGood.StartAt
+	}
+	goodDurationDays := uint32(h.appGood.DurationDays)
+	h.orderStartAt = uint32(h.tomorrowStart().Unix())
+	if goodStartAt > h.orderStartAt {
+		h.orderStartAt = goodStartAt
+	}
+	const secondsPerDay = timedef.SecondsPerDay
+	h.orderEndAt = h.orderStartAt + goodDurationDays*secondsPerDay
+}
+
 func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose) {
 	goodValueCoinAmount := h.goodValueCoinAmount.String()
 	goodValueUSDTAmount := h.goodValueUSDTAmount.String()
@@ -556,18 +571,7 @@ func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose) {
 	coinUSDCurrency := h.coinCurrencyAmount.String()
 	localCoinUSDCurrency := h.localCurrencyAmount.String()
 	liveCoinUSDCurrency := h.liveCurrencyAmount.String()
-
-	goodStartAt := h.appGood.ServiceStartAt
-	if h.appGood.ServiceStartAt == 0 {
-		goodStartAt = h.appGood.StartAt
-	}
 	goodDurationDays := uint32(h.appGood.DurationDays)
-	h.orderStartAt = uint32(h.tomorrowStart().Unix())
-	if goodStartAt > h.orderStartAt {
-		h.orderStartAt = goodStartAt
-	}
-	const secondsPerDay = 24 * 60 * 60
-	h.orderEndAt = h.orderStartAt + goodDurationDays*secondsPerDay
 
 	req := &ordermwpb.OrderReq{
 		ID:                   h.ID,
@@ -716,6 +720,7 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	}
 	handler.resolvePaymentType()
 	handler.resolveStartMode()
+	handler.resolveStartEnd()
 
 	if err := handler.peekPaymentAddress(ctx); err != nil {
 		return nil, err
