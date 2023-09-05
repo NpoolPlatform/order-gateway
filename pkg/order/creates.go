@@ -45,7 +45,6 @@ import (
 
 type createsHandler struct {
 	*Handler
-	mainOrderID         *string
 	ids                 map[string]*string
 	user                *usermwpb.User
 	appGoods            map[string]*appgoodmwpb.Good
@@ -644,7 +643,7 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 				req.PaymentStartAmount = &paymentStartAmount
 			}
 		} else {
-			req.ParentOrderID = h.mainOrderID
+			req.ParentOrderID = h.ParentOrderID
 			childPaymentType := types.PaymentType_PayWithParentOrder
 			req.PaymentType = &childPaymentType
 		}
@@ -801,12 +800,12 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		id := uuid.NewString()
 		handler.ids[order.AppGoodID] = &id
 		if order.Parent {
-			handler.mainOrderID = &id
+			h.ParentOrderID = &id
 		}
 		h.IDs = append(h.IDs, id)
 	}
 
-	key := fmt.Sprintf("%v:%v:%v:%v", basetypes.Prefix_PrefixCreateOrder, *h.AppID, *h.UserID, handler.mainOrderID)
+	key := fmt.Sprintf("%v:%v:%v:%v", basetypes.Prefix_PrefixCreateOrder, *h.AppID, *h.UserID, h.ParentOrderID)
 	if err := redis2.TryLock(key, 0); err != nil {
 		return nil, err
 	}
