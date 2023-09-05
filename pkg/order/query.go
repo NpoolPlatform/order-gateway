@@ -123,7 +123,7 @@ func (h *queryHandler) getAppGoods(ctx context.Context) error {
 			Value: goodIDs,
 		},
 		AppID: &basetypes.StringVal{
-			Op:    cruder.IN,
+			Op:    cruder.EQ,
 			Value: *h.AppID,
 		},
 	}, 0, int32(len(goodIDs)))

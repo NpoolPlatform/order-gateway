@@ -16,7 +16,7 @@ func (s *Server) GetOrders(ctx context.Context, in *npool.GetOrdersRequest) (*np
 	handler, err := order1.NewHandler(
 		ctx,
 		order1.WithAppID(&in.AppID, true),
-		order1.WithUserID(&in.AppID, &in.UserID, false),
+		order1.WithUserID(&in.UserID, true),
 		order1.WithOffset(in.GetOffset()),
 		order1.WithLimit(in.GetLimit()),
 	)
@@ -84,7 +84,7 @@ func (s *Server) GetOrder(ctx context.Context, in *npool.GetOrderRequest) (*npoo
 		ctx,
 		order1.WithID(&in.ID, true),
 		order1.WithAppID(&in.AppID, true),
-		order1.WithUserID(&in.AppID, &in.UserID, true),
+		order1.WithUserID(&in.UserID, true),
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
