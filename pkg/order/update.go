@@ -30,6 +30,7 @@ import (
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
 	ledgerstatementpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger/statement"
 
+	usermwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	statementmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/achievement/statement"
 	statementmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/achievement/statement"
 
@@ -38,65 +39,135 @@ import (
 
 type updateHandler struct {
 	*Handler
-	ord                   *ordermwpb.Order
+	order                 *ordermwpb.Order
+	appGood               *appgoodmwpb.Good
 	achievementStatements []*statementmwpb.Statement
 }
 
-//nolint:gocyclo
-func (h *updateHandler) cancelable(ctx context.Context) error {
-	appgood, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodmwpb.Conds{
+func (h *updateHandler) checkCancelParam() error {
+	if h.UserSetCanceled == nil && h.AdminSetCanceled == nil {
+		return fmt.Errorf("nothing todo")
+	}
+	if h.UserSetCanceled != nil && !*h.UserSetCanceled {
+		return fmt.Errorf("nothing todo")
+	}
+	if h.AdminSetCanceled != nil && !*h.AdminSetCanceled {
+		return fmt.Errorf("nothing todo")
+	}
+	return nil
+}
+
+func (h *updateHandler) checkUser(ctx context.Context) error {
+	user, err := usermwcli.GetUser(ctx, *h.AppID, *h.UserID)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return fmt.Errorf("invalid user")
+	}
+	return nil
+}
+
+func (h *updateHandler) checkOrder(ctx context.Context) error {
+	order, err := ordermwcli.GetOrder(ctx, *h.ID)
+	if err != nil {
+		return err
+	}
+	if order == nil {
+		return fmt.Errorf("invalid order")
+	}
+	if *h.AppID != order.AppID || *h.UserID != order.UserID {
+		return fmt.Errorf("permission denied")
+	}
+	h.order = order
+	return nil
+}
+
+func (h *updateHandler) checkOrderType() error {
+	switch h.order.OrderType {
+	case ordertypes.OrderType_Normal:
+		switch h.order.OrderState {
+		case ordertypes.OrderState_OrderStateWaitPayment:
+			fallthrough //nolint
+		case ordertypes.OrderState_OrderStateCheckPayment:
+			if h.AdminSetCanceled != nil {
+				return fmt.Errorf("permission denied")
+			}
+		case ordertypes.OrderState_OrderStatePaid:
+		case ordertypes.OrderState_OrderStateInService:
+		}
+	case ordertypes.OrderType_Offline:
+		fallthrough //nolint
+	case ordertypes.OrderType_Airdrop:
+		if h.AdminSetCanceled == nil {
+			return fmt.Errorf("permission denied")
+		}
+	default:
+		return fmt.Errorf("order type uncancellable")
+	}
+	return nil
+}
+
+func (h *updateHandler) getAppGood(ctx context.Context) error {
+	good, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodmwpb.Conds{
 		AppID: &basetypes.StringVal{
 			Op:    cruder.EQ,
-			Value: h.ord.AppID,
+			Value: h.order.AppID,
 		},
 		GoodID: &basetypes.StringVal{
 			Op:    cruder.EQ,
-			Value: h.ord.GoodID,
+			Value: h.order.GoodID,
 		},
 	})
 	if err != nil {
 		return err
 	}
-	if appgood == nil {
+	if good == nil {
 		return fmt.Errorf("invalid appgood")
 	}
+	h.appGood = good
+	return nil
+}
 
-	good, err := goodmwcli.GetGood(ctx, h.ord.GoodID)
+func (h *updateHandler) checkGood(ctx context.Context) error {
+	good, err := goodmwcli.GetGood(ctx, h.order.GoodID)
 	if err != nil {
 		return err
 	}
 	if good == nil {
 		return fmt.Errorf("invalid good")
 	}
+	if good.RewardState != goodtypes.BenefitState_BenefitWait {
+		return fmt.Errorf("app good uncancellable benefit state not wait")
+	}
+	return nil
+}
 
-	statements, _, err := goodledgerstatementcli.GetGoodStatements(ctx, &goodledgerstatementpb.Conds{
+func (h *updateHandler) checkCancelable(ctx context.Context) error {
+	goodStatements, _, err := goodledgerstatementcli.GetGoodStatements(ctx, &goodledgerstatementpb.Conds{
 		GoodID: &basetypes.StringVal{
 			Op:    cruder.EQ,
-			Value: h.ord.GoodID,
+			Value: h.order.GoodID,
 		},
 	}, 0, 1)
 	if err != nil {
 		return err
 	}
 
-	switch h.ord.OrderState {
+	switch h.order.OrderState {
 	case ordertypes.OrderState_OrderStateWaitPayment:
 	case ordertypes.OrderState_OrderStateCheckPayment:
-		if len(statements) > 0 {
+		if len(goodStatements) > 0 {
 			return fmt.Errorf("had statements can not cancel")
 		}
 		return nil
 	}
 
-	if good.RewardState != goodtypes.BenefitState_BenefitWait {
-		return fmt.Errorf("app good uncancellable benefit state not wait")
-	}
-
-	switch appgood.CancelMode {
+	switch h.appGood.CancelMode {
 	case goodtypes.CancelMode_Uncancellable:
 		return fmt.Errorf("app good uncancellable")
 	case goodtypes.CancelMode_CancellableBeforeStart:
-		switch h.ord.OrderState {
+		switch h.order.OrderState {
 		case ordertypes.OrderState_OrderStatePaid:
 		case ordertypes.OrderState_OrderStateInService:
 			return fmt.Errorf("order state is uncancellable")
@@ -104,36 +175,36 @@ func (h *updateHandler) cancelable(ctx context.Context) error {
 			return fmt.Errorf("order state is uncancellable")
 		}
 	case goodtypes.CancelMode_CancellableBeforeBenefit:
-		switch h.ord.OrderState {
+		switch h.order.OrderState {
 		case ordertypes.OrderState_OrderStatePaid:
 		case ordertypes.OrderState_OrderStateInService:
-			if len(statements) > 0 {
-				lastBenefitDate := statements[0].BenefitDate
+			if len(goodStatements) > 0 {
+				lastBenefitDate := goodStatements[0].BenefitDate
 				const secondsPerDay = 24 * 60 * 60
-				checkBenefitStartAt := lastBenefitDate + secondsPerDay - appgood.CancellableBeforeStart
-				checkBenefitEndAt := lastBenefitDate + secondsPerDay + appgood.CancellableBeforeStart
+				checkBenefitStartAt := lastBenefitDate + secondsPerDay - h.appGood.CancellableBeforeStart
+				checkBenefitEndAt := lastBenefitDate + secondsPerDay + h.appGood.CancellableBeforeStart
 				now := uint32(time.Now().Unix())
 				if checkBenefitStartAt <= now && now <= checkBenefitEndAt {
-					return fmt.Errorf("invalid cancel in during time")
+					return fmt.Errorf("invalid cancel in benefit time")
 				}
 			}
 		default:
 			return fmt.Errorf("order state is uncancellable")
 		}
 	default:
-		return fmt.Errorf("unknown CancelMode type %v", appgood.CancelMode)
+		return fmt.Errorf("unknown CancelMode type %v", h.appGood.CancelMode)
 	}
 
 	return nil
 }
 
-func (h *updateHandler) processStatements(ctx context.Context) error {
+func (h *updateHandler) getCommission(ctx context.Context) error {
 	offset := int32(0)
 	limit := int32(1000) //nolint
 	in := ledgertypes.IOType_Incoming
 	for {
 		infos, _, err := statementmwcli.GetStatements(ctx, &statementmwpb.Conds{
-			OrderID: &basetypes.StringVal{Op: cruder.EQ, Value: h.ord.ID},
+			OrderID: &basetypes.StringVal{Op: cruder.EQ, Value: h.order.ID},
 		}, offset, limit)
 		if err != nil {
 			return err
@@ -153,26 +224,11 @@ func (h *updateHandler) processStatements(ctx context.Context) error {
 				continue
 			}
 			_, total, err := ledgerstatementcli.GetStatements(ctx, &ledgerstatementpb.Conds{
-				AppID: &basetypes.StringVal{
-					Op:    cruder.EQ,
-					Value: val.AppID,
-				},
-				UserID: &basetypes.StringVal{
-					Op:    cruder.EQ,
-					Value: val.UserID,
-				},
-				IOType: &basetypes.Uint32Val{
-					Op:    cruder.EQ,
-					Value: uint32(in),
-				},
-				IOSubType: &basetypes.Uint32Val{
-					Op:    cruder.EQ,
-					Value: uint32(ledgertypes.IOSubType_Commission),
-				},
-				IOExtra: &basetypes.StringVal{
-					Op:    cruder.LIKE,
-					Value: h.ord.ID,
-				},
+				AppID:     &basetypes.StringVal{Op: cruder.EQ, Value: val.AppID},
+				UserID:    &basetypes.StringVal{Op: cruder.EQ, Value: val.UserID},
+				IOType:    &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(in)},
+				IOSubType: &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(ledgertypes.IOSubType_Commission)},
+				IOExtra:   &basetypes.StringVal{Op: cruder.LIKE, Value: h.order.ID},
 			}, 0, 1)
 			if err != nil {
 				return err
@@ -208,7 +264,7 @@ func (h *updateHandler) withLockCommission(dispose *dtmcli.SagaDispose) {
 
 func (h *updateHandler) withProcessCancel(dispose *dtmcli.SagaDispose) {
 	req := &ordermwpb.OrderReq{
-		ID:               &h.ord.ID,
+		ID:               &h.order.ID,
 		UserSetCanceled:  h.UserSetCanceled,
 		AdminSetCanceled: h.AdminSetCanceled,
 	}
@@ -222,68 +278,39 @@ func (h *updateHandler) withProcessCancel(dispose *dtmcli.SagaDispose) {
 	)
 }
 
-//nolint:gocyclo
 func (h *Handler) UpdateOrder(ctx context.Context) (*npool.Order, error) {
-	if h.UserSetCanceled == nil && h.AdminSetCanceled == nil {
-		return nil, fmt.Errorf("nothing todo")
-	}
-
-	ord, err := ordermwcli.GetOrder(ctx, *h.ID)
-	if err != nil {
-		return nil, err
-	}
-	if ord == nil {
-		return nil, fmt.Errorf("invalid order")
-	}
-
-	if *h.AppID != ord.AppID || *h.UserID != ord.UserID {
-		return nil, fmt.Errorf("permission denied")
-	}
-	if h.UserSetCanceled != nil && !*h.UserSetCanceled {
-		return h.GetOrder(ctx)
-	}
-	if h.AdminSetCanceled != nil && !*h.AdminSetCanceled {
-		return h.GetOrder(ctx)
-	}
-
 	handler := &updateHandler{
 		Handler: h,
-		ord:     ord,
 	}
-
-	switch ord.OrderType {
-	case ordertypes.OrderType_Normal:
-		switch ord.OrderState {
-		case ordertypes.OrderState_OrderStateWaitPayment:
-			fallthrough //nolint
-		case ordertypes.OrderState_OrderStateCheckPayment:
-			if h.AdminSetCanceled != nil {
-				return nil, fmt.Errorf("permission denied")
-			}
-		case ordertypes.OrderState_OrderStatePaid:
-		case ordertypes.OrderState_OrderStateInService:
-		}
-	case ordertypes.OrderType_Offline:
-		fallthrough //nolint
-	case ordertypes.OrderType_Airdrop:
-		if h.AdminSetCanceled == nil {
-			return nil, fmt.Errorf("permission denied")
-		}
-	default:
-		return nil, fmt.Errorf("order type uncancellable")
+	if err := handler.checkCancelParam(); err != nil {
+		return nil, err
 	}
-
-	if err := handler.cancelable(ctx); err != nil {
+	if err := handler.checkUser(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkOrder(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkOrderType(); err != nil {
+		return nil, err
+	}
+	if err := handler.getAppGood(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkGood(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkCancelable(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.getCommission(ctx); err != nil {
 		return nil, err
 	}
 
-	if err := handler.processStatements(ctx); err != nil {
-		return nil, err
-	}
-
+	const timeoutSeconds = 10
 	sagaDispose := dtmcli.NewSagaDispose(dtmimp.TransOptions{
 		WaitResult:     true,
-		RequestTimeout: handler.RequestTimeoutSeconds,
+		RequestTimeout: timeoutSeconds,
 	})
 
 	handler.withLockCommission(sagaDispose)

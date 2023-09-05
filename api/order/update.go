@@ -18,10 +18,8 @@ func (s *Server) UpdateOrder(ctx context.Context, in *npool.UpdateOrderRequest) 
 		ctx,
 		order1.WithID(&in.ID, true),
 		order1.WithAppID(&in.AppID, true),
-		order1.WithUserID(&in.AppID, &in.UserID, true),
-		order1.WithPaymentID(&in.PaymentID, true),
+		order1.WithUserID(&in.UserID, true),
 		order1.WithUserSetCanceled(in.Canceled, true),
-		order1.WithFromAdmin(false),
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
@@ -52,10 +50,8 @@ func (s *Server) UpdateUserOrder(ctx context.Context, in *npool.UpdateUserOrderR
 		ctx,
 		order1.WithID(&in.ID, true),
 		order1.WithAppID(&in.AppID, true),
-		order1.WithUserID(&in.AppID, &in.TargetUserID, true),
-		order1.WithPaymentID(&in.PaymentID, true),
+		order1.WithUserID(&in.TargetUserID, true),
 		order1.WithAdminSetCanceled(in.Canceled, true),
-		order1.WithFromAdmin(true),
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
@@ -86,10 +82,8 @@ func (s *Server) UpdateAppUserOrder(ctx context.Context, in *npool.UpdateAppUser
 		ctx,
 		order1.WithID(&in.ID, true),
 		order1.WithAppID(&in.TargetAppID, true),
-		order1.WithUserID(&in.TargetAppID, &in.TargetUserID, true),
-		order1.WithPaymentID(&in.PaymentID, true),
+		order1.WithUserID(&in.TargetUserID, true),
 		order1.WithAdminSetCanceled(in.Canceled, true),
-		order1.WithFromAdmin(true),
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
