@@ -19,24 +19,24 @@ import (
 )
 
 type Handler struct {
-	ID                    *string
-	AppID                 *string
-	UserID                *string
-	AppGoodID             *string
-	Units                 string
-	PaymentCoinID         *string
-	ParentOrderID         *string
-	BalanceAmount         *string
-	OrderType             *ordertypes.OrderType
-	CouponIDs             []string
-	InvestmentType        *ordertypes.InvestmentType
-	UserSetCanceled       *bool
-	AdminSetCanceled      *bool
-	PaymentID             *string
-	Offset                int32
-	Limit                 int32
-	Orders                []*npool.CreateOrdersRequest_OrderReq
-	RequestTimeoutSeconds int64
+	ID               *string
+	AppID            *string
+	UserID           *string
+	AppGoodID        *string
+	Units            string
+	PaymentCoinID    *string
+	ParentOrderID    *string
+	BalanceAmount    *string
+	OrderType        *ordertypes.OrderType
+	CouponIDs        []string
+	InvestmentType   *ordertypes.InvestmentType
+	UserSetCanceled  *bool
+	AdminSetCanceled *bool
+	PaymentID        *string
+	Offset           int32
+	Limit            int32
+	Orders           []*npool.CreateOrdersRequest_OrderReq
+	IDs              []string
 }
 
 func NewHandler(ctx context.Context, options ...func(context.Context, *Handler) error) (*Handler, error) {
