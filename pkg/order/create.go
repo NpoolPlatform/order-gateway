@@ -7,6 +7,7 @@ import (
 
 	payaccmwcli "github.com/NpoolPlatform/account-middleware/pkg/client/payment"
 	accountlock "github.com/NpoolPlatform/account-middleware/pkg/lock"
+	accountmwsvcname "github.com/NpoolPlatform/account-middleware/pkg/servicename"
 	usermwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
 	currencymwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin/currency"
@@ -15,7 +16,9 @@ import (
 	redis2 "github.com/NpoolPlatform/go-service-framework/pkg/redis"
 	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
 	topmostmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good/topmost/good"
+	goodmwsvcname "github.com/NpoolPlatform/good-middleware/pkg/servicename"
 	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
+	ledgermwsvcname "github.com/NpoolPlatform/ledger-middleware/pkg/servicename"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
 	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
@@ -506,11 +509,13 @@ func (h *createHandler) getPaymentStartAmount(ctx context.Context) error {
 
 func (h *createHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
 	req := &appgoodstockmwpb.StockReq{
+		ID:        &h.appGood.AppGoodStockID,
+		GoodID:    &h.appGood.GoodID,
 		AppGoodID: h.AppGoodID,
 		Locked:    &h.Units,
 	}
 	dispose.Add(
-		ordermwsvcname.ServiceDomain,
+		goodmwsvcname.ServiceDomain,
 		"good.middleware.app.good1.stock.v1.Middleware/AddStock",
 		"good.middleware.app.good1.stock.v1.Middleware/SubStock",
 		&appgoodstockmwpb.AddStockRequest{
@@ -532,7 +537,7 @@ func (h *createHandler) withUpdateBalance(dispose *dtmcli.SagaDispose) {
 		Spendable:  &amount,
 	}
 	dispose.Add(
-		ordermwsvcname.ServiceDomain,
+		ledgermwsvcname.ServiceDomain,
 		"ledger.middleware.ledger.v2.Middleware/SubBalance",
 		"ledger.middleware.ledger.v2.Middleware/AddBalance",
 		&ledgermwpb.AddBalanceRequest{
@@ -632,7 +637,7 @@ func (h *createHandler) withLockPaymentAccount(dispose *dtmcli.SagaDispose) {
 		LockedBy: &lockedBy,
 	}
 	dispose.Add(
-		ordermwsvcname.ServiceDomain,
+		accountmwsvcname.ServiceDomain,
 		"account.middleware.payment.v1.Middleware/UpdateAccount",
 		"",
 		&payaccmwpb.UpdateAccountRequest{

@@ -28,6 +28,7 @@ func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) 
 		order1.WithOrderType(&orderType, true),
 		order1.WithBalanceAmount(in.PayWithBalanceAmount, false),
 		order1.WithCouponIDs(in.CouponIDs, false),
+		order1.WithInvestmentType(&in.InvestmentType, true),
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
@@ -70,6 +71,7 @@ func (s *Server) CreateUserOrder(ctx context.Context, in *npool.CreateUserOrderR
 		order1.WithPaymentCoinID(&in.PaymentCoinID, true),
 		order1.WithParentOrderID(in.ParentOrderID, false),
 		order1.WithOrderType(&in.OrderType, true),
+		order1.WithInvestmentType(&in.InvestmentType, true),
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
@@ -112,6 +114,7 @@ func (s *Server) CreateAppUserOrder(ctx context.Context, in *npool.CreateAppUser
 		order1.WithPaymentCoinID(&in.PaymentCoinID, true),
 		order1.WithParentOrderID(in.ParentOrderID, false),
 		order1.WithOrderType(&in.OrderType, true),
+		order1.WithInvestmentType(&in.InvestmentType, true),
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
