@@ -339,6 +339,7 @@ func (h *Handler) GetOrder(ctx context.Context) (*npool.Order, error) {
 		orders:          []*ordermwpb.Order{order},
 		infos:           []*npool.Order{},
 		users:           map[string]*usermwpb.User{},
+		parentOrders:    map[string]*ordermwpb.Order{},
 		appGoods:        map[string]*appgoodsmwpb.Good{},
 		accountPayments: map[string]*payaccmwpb.Account{},
 		coupons:         map[string]*allocatedmwpb.Coupon{},
