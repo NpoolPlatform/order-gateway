@@ -27,6 +27,7 @@ import (
 
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 
+	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 
 	"github.com/google/uuid"
@@ -37,7 +38,9 @@ type queryHandler struct {
 	orders          []*ordermwpb.Order
 	infos           []*npool.Order
 	users           map[string]*usermwpb.User
+	parentOrders    map[string]*ordermwpb.Order
 	appGoods        map[string]*appgoodsmwpb.Good
+	parentAppGoods  map[string]*appgoodsmwpb.Good
 	accountPayments map[string]*payaccmwpb.Account
 	coupons         map[string]*allocatedmwpb.Coupon
 	coins           map[string]*appcoinmwpb.Coin
@@ -51,7 +54,8 @@ func (h *queryHandler) getUsers(ctx context.Context) error {
 		uids = append(uids, ord.UserID)
 	}
 	users, _, err := usermwcli.GetUsers(ctx, &usermwpb.Conds{
-		IDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: uids},
+		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		IDs:   &basetypes.StringSliceVal{Op: cruder.IN, Value: uids},
 	}, 0, int32(len(uids)))
 	if err != nil {
 		return err
@@ -111,6 +115,26 @@ func (h *queryHandler) getCoupons(ctx context.Context) error {
 	return nil
 }
 
+func (h *queryHandler) getParentOrders(ctx context.Context) error {
+	ids := []string{}
+	for _, ord := range h.orders {
+		if ord.ParentOrderID != uuid.Nil.String() {
+			ids = append(ids, ord.ParentOrderID)
+		}
+	}
+	orders, _, err := ordercli.GetOrders(ctx, &ordermwpb.Conds{
+		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		IDs:   &basetypes.StringSliceVal{Op: cruder.IN, Value: ids},
+	}, h.Offset, h.Limit)
+	if err != nil {
+		return err
+	}
+	for _, order := range orders {
+		h.parentOrders[order.ID] = order
+	}
+	return nil
+}
+
 func (h *queryHandler) getAppGoods(ctx context.Context) error {
 	goodIDs := []string{}
 	for _, val := range h.orders {
@@ -118,14 +142,8 @@ func (h *queryHandler) getAppGoods(ctx context.Context) error {
 	}
 
 	appGoods, _, err := appgoodscli.GetGoods(ctx, &appgoodsmwpb.Conds{
-		GoodIDs: &basetypes.StringSliceVal{
-			Op:    cruder.IN,
-			Value: goodIDs,
-		},
-		AppID: &basetypes.StringVal{
-			Op:    cruder.EQ,
-			Value: *h.AppID,
-		},
+		GoodIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: goodIDs},
+		AppID:   &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 	}, 0, int32(len(goodIDs)))
 	if err != nil {
 		return err
@@ -133,6 +151,29 @@ func (h *queryHandler) getAppGoods(ctx context.Context) error {
 
 	for _, appGood := range appGoods {
 		h.appGoods[appGood.AppID+appGood.GoodID] = appGood
+	}
+	return nil
+}
+
+func (h *queryHandler) getParentAppGoods(ctx context.Context) error {
+	goodIDs := []string{}
+	for _, val := range h.parentOrders {
+		goodIDs = append(goodIDs, val.GetGoodID())
+	}
+	if len(goodIDs) == 0 {
+		return nil
+	}
+
+	appGoods, _, err := appgoodscli.GetGoods(ctx, &appgoodsmwpb.Conds{
+		GoodIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: goodIDs},
+		AppID:   &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+	}, 0, int32(len(goodIDs)))
+	if err != nil {
+		return err
+	}
+
+	for _, appGood := range appGoods {
+		h.parentAppGoods[appGood.AppID+appGood.GoodID] = appGood
 	}
 	return nil
 }
@@ -153,14 +194,8 @@ func (h *queryHandler) getCoins(ctx context.Context) error {
 	}
 
 	coins, _, err := appcoinmwcli.GetCoins(ctx, &appcoinmwpb.Conds{
-		AppID: &basetypes.StringVal{
-			Op:    cruder.EQ,
-			Value: *h.AppID,
-		},
-		CoinTypeIDs: &basetypes.StringSliceVal{
-			Op:    cruder.IN,
-			Value: coinTypeIDs,
-		},
+		AppID:       &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		CoinTypeIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: coinTypeIDs},
 	}, 0, int32(len(coinTypeIDs)))
 	if err != nil {
 		return err
@@ -194,10 +229,14 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 			PaymentFinishAmount:     ord.PaymentFinishAmount,
 			PayWithBalanceAmount:    ord.BalanceAmount,
 			OrderType:               ord.OrderType,
+			PaymentType:             ord.PaymentType,
 			CreatedAt:               ord.CreatedAt,
 			State:                   ord.OrderState,
 			StartAt:                 ord.StartAt,
 			EndAt:                   ord.EndAt,
+			InvestmentType:          ord.InvestmentType,
+			LastBenefitAt:           ord.LastBenefitAt,
+			PaidAt:                  ord.PaidAt,
 		}
 
 		user, ok := h.users[ord.UserID]
@@ -231,6 +270,7 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 		info.CoinName = coin.Name
 		info.CoinLogo = coin.Logo
 		info.CoinUnit = coin.Unit
+		info.CoinPresale = coin.Presale
 
 		if ord.PaymentID != invalidID && ord.PaymentID != "" {
 			coin, ok = h.coins[ord.PaymentCoinTypeID]
@@ -265,6 +305,21 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 			})
 		}
 
+		if ord.ParentOrderID != uuid.Nil.String() {
+			porder, ok := h.parentOrders[ord.ParentOrderID]
+			if ok {
+				info.ParentOrderGoodID = porder.GoodID
+				pgood, ok := h.parentAppGoods[ord.AppID+porder.GoodID]
+				if ok {
+					info.ParentOrderGoodName = pgood.GoodName
+				}
+			}
+		}
+
+		if ord.PaymentType == types.PaymentType_PayWithParentOrder {
+			info.PayWithParent = true
+		}
+
 		infos = append(infos, info)
 	}
 	h.infos = infos
@@ -290,6 +345,12 @@ func (h *Handler) GetOrder(ctx context.Context) (*npool.Order, error) {
 		coins:           map[string]*appcoinmwpb.Coin{},
 	}
 	if err := handler.getUsers(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.getParentOrders(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.getParentAppGoods(ctx); err != nil {
 		return nil, err
 	}
 	if err := handler.getAppGoods(ctx); err != nil {
@@ -337,12 +398,19 @@ func (h *Handler) GetOrders(ctx context.Context) ([]*npool.Order, uint32, error)
 		orders:          ords,
 		infos:           []*npool.Order{},
 		users:           map[string]*usermwpb.User{},
+		parentOrders:    map[string]*ordermwpb.Order{},
 		appGoods:        map[string]*appgoodsmwpb.Good{},
 		accountPayments: map[string]*payaccmwpb.Account{},
 		coupons:         map[string]*allocatedmwpb.Coupon{},
 		coins:           map[string]*appcoinmwpb.Coin{},
 	}
 	if err := handler.getUsers(ctx); err != nil {
+		return nil, 0, err
+	}
+	if err := handler.getParentOrders(ctx); err != nil {
+		return nil, 0, err
+	}
+	if err := handler.getParentAppGoods(ctx); err != nil {
 		return nil, 0, err
 	}
 	if err := handler.getAppGoods(ctx); err != nil {
