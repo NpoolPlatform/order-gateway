@@ -26,7 +26,7 @@ func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) 
 		order1.WithPaymentCoinID(&in.PaymentCoinID, true),
 		order1.WithParentOrderID(in.ParentOrderID, false),
 		order1.WithOrderType(&orderType, true),
-		order1.WithBalanceAmount(in.GetPayWithBalanceAmount(), false),
+		order1.WithBalanceAmount(in.PayWithBalanceAmount, false),
 		order1.WithCouponIDs(in.CouponIDs, false),
 	)
 	if err != nil {

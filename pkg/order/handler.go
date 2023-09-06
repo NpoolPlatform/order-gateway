@@ -177,16 +177,22 @@ func WithUnits(amount string, must bool) func(context.Context, *Handler) error {
 	}
 }
 
-func WithBalanceAmount(amount string, must bool) func(context.Context, *Handler) error {
+func WithBalanceAmount(amount *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
-		_amount, err := decimal.NewFromString(amount)
+		if amount == nil {
+			if must {
+				return fmt.Errorf("invalid parentorderid")
+			}
+			return nil
+		}
+		_amount, err := decimal.NewFromString(*amount)
 		if err != nil {
 			return err
 		}
 		if _amount.Cmp(decimal.NewFromInt32(0)) <= 0 {
 			return fmt.Errorf("units is 0")
 		}
-		h.BalanceAmount = &amount
+		h.BalanceAmount = amount
 		return nil
 	}
 }
