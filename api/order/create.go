@@ -139,3 +139,40 @@ func (s *Server) CreateAppUserOrder(ctx context.Context, in *npool.CreateAppUser
 		Info: info,
 	}, nil
 }
+
+func (s *Server) CreateOrders(ctx context.Context, in *npool.CreateOrdersRequest) (*npool.CreateOrdersResponse, error) {
+	orderType := ordertypes.OrderType_Normal
+	handler, err := order1.NewHandler(
+		ctx,
+		order1.WithAppID(&in.AppID, true),
+		order1.WithUserID(&in.UserID, true),
+		order1.WithPaymentCoinID(&in.PaymentCoinID, true),
+		order1.WithOrderType(&orderType, true),
+		order1.WithBalanceAmount(in.PayWithBalanceAmount, false),
+		order1.WithCouponIDs(in.CouponIDs, false),
+		order1.WithInvestmentType(&in.InvestmentType, true),
+		order1.WithOrders(in.Orders, true),
+	)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"CreateOrders",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.CreateOrdersResponse{}, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	infos, err := handler.CreateOrders(ctx)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"CreateOrders",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.CreateOrdersResponse{}, status.Error(codes.Internal, err.Error())
+	}
+
+	return &npool.CreateOrdersResponse{
+		Infos: infos,
+	}, nil
+}

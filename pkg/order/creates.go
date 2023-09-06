@@ -183,7 +183,7 @@ func (h *createsHandler) checkUnitsLimit(ctx context.Context) error {
 	}
 	for _, order := range h.Orders {
 		appGood := h.appGoods[order.AppGoodID]
-		units, err := decimal.NewFromString(h.Units)
+		units, err := decimal.NewFromString(order.Units)
 		if err != nil {
 			return err
 		}
@@ -270,8 +270,10 @@ func (h *createsHandler) calculateOrderUSDTPrice() error {
 		promotion := h.promotions[order.AppGoodID]
 		if promotion == nil {
 			h.goodValueUSDTAmount[order.AppGoodID] = amount.Mul(units)
+			h.goodValueCoinAmount[order.AppGoodID] = h.goodValueUSDTAmount[order.AppGoodID].Div(h.coinCurrencyAmount)
+			h.goodValueCoinAmount[order.AppGoodID] = h.getAccuracy(h.goodValueCoinAmount[order.AppGoodID])
 			h.paymentUSDTAmount = h.paymentUSDTAmount.Add(h.goodValueUSDTAmount[order.AppGoodID])
-			return nil
+			continue
 		}
 		amount, err = decimal.NewFromString(promotion.Price)
 		if err != nil {
@@ -552,9 +554,12 @@ func (h *createsHandler) resolveStartEnd() {
 
 func (h *createsHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
 	for _, order := range h.Orders {
+		appGood := h.appGoods[order.AppGoodID]
 		req := &appgoodstockmwpb.StockReq{
+			ID:        &appGood.AppGoodStockID,
+			GoodID:    &appGood.GoodID,
 			AppGoodID: &order.AppGoodID,
-			Locked:    &h.Units,
+			Locked:    &order.Units,
 		}
 		dispose.Add(
 			goodmwsvcname.ServiceDomain,
@@ -612,8 +617,8 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 			AppID:                h.AppID,
 			UserID:               h.UserID,
 			GoodID:               &h.appGoods[order.AppGoodID].GoodID,
-			AppGoodID:            h.AppGoodID,
-			Units:                &h.Units,
+			AppGoodID:            &order.AppGoodID,
+			Units:                &order.Units,
 			GoodValue:            &goodValueCoinAmount,
 			GoodValueUSD:         &goodValueUSDTAmount,
 			DurationDays:         &goodDurationDays,
@@ -737,7 +742,16 @@ func (h *createsHandler) checkMustRequestsInGoods() error {
 //nolint:funlen,gocyclo
 func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err error) {
 	handler := &createsHandler{
-		Handler: h,
+		Handler:             h,
+		ids:                 map[string]*string{},
+		appGoods:            map[string]*appgoodmwpb.Good{},
+		coupons:             map[string]*allocatedmwpb.Coupon{},
+		promotions:          map[string]*topmostmwpb.TopMostGood{},
+		goodValueUSDTAmount: map[string]decimal.Decimal{},
+		goodValueCoinAmount: map[string]decimal.Decimal{},
+		orderStartMode:      map[string]types.OrderStartMode{},
+		orderStartAt:        map[string]uint32{},
+		orderEndAt:          map[string]uint32{},
 	}
 	if err := handler.getUser(ctx); err != nil {
 		return nil, err
@@ -772,6 +786,9 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	if err := handler.getAppGoodPromotions(ctx); err != nil {
 		return nil, err
 	}
+	if err := handler.checkPaymentCoinCurrency(ctx); err != nil {
+		return nil, err
+	}
 	if err := handler.calculateOrderUSDTPrice(); err != nil {
 		return nil, err
 	}
@@ -779,9 +796,6 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		return nil, err
 	}
 	if err := handler.calculateFixAmountCouponReduction(); err != nil {
-		return nil, err
-	}
-	if err := handler.checkPaymentCoinCurrency(ctx); err != nil {
 		return nil, err
 	}
 	if err := handler.checkPaymentCoinAmount(); err != nil {
