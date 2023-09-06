@@ -79,6 +79,9 @@ func (h *updateHandler) checkOrder(ctx context.Context) error {
 	if *h.AppID != order.AppID || *h.UserID != order.UserID {
 		return fmt.Errorf("permission denied")
 	}
+	if order.PaymentType == ordertypes.PaymentType_PayWithParentOrder {
+		return fmt.Errorf("permission denied")
+	}
 	h.order = order
 	return nil
 }
@@ -95,12 +98,20 @@ func (h *updateHandler) checkOrderType() error {
 			}
 		case ordertypes.OrderState_OrderStatePaid:
 		case ordertypes.OrderState_OrderStateInService:
+		default:
+			return fmt.Errorf("orderstate uncancellable")
 		}
 	case ordertypes.OrderType_Offline:
 		fallthrough //nolint
 	case ordertypes.OrderType_Airdrop:
 		if h.AdminSetCanceled == nil {
 			return fmt.Errorf("permission denied")
+		}
+		switch h.order.OrderState {
+		case ordertypes.OrderState_OrderStatePaid:
+		case ordertypes.OrderState_OrderStateInService:
+		default:
+			return fmt.Errorf("orderstate uncancellable")
 		}
 	default:
 		return fmt.Errorf("order type uncancellable")
@@ -156,6 +167,7 @@ func (h *updateHandler) checkCancelable(ctx context.Context) error {
 
 	switch h.order.OrderState {
 	case ordertypes.OrderState_OrderStateWaitPayment:
+		fallthrough //nolint
 	case ordertypes.OrderState_OrderStateCheckPayment:
 		if len(goodStatements) > 0 {
 			return fmt.Errorf("had statements can not cancel")
