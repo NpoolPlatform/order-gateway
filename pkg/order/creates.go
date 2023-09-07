@@ -403,7 +403,7 @@ func (h *createsHandler) checkTransferCoinAmount() error {
 
 func (h *createsHandler) resolvePaymentType() {
 	if h.transferCoinAmount.Cmp(decimal.NewFromInt(0)) == 0 && //nolint
-		h.transferCoinAmount.Cmp(decimal.NewFromInt(0)) == 0 {
+		h.balanceCoinAmount.Cmp(decimal.NewFromInt(0)) == 0 {
 		h.paymentType = types.PaymentType_PayWithNoPayment
 		return
 	}
