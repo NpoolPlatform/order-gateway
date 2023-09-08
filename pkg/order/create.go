@@ -698,6 +698,7 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 
 	handler := &createHandler{
 		Handler: h,
+		coupons: map[string]*allocatedmwpb.Coupon{},
 	}
 	if err := handler.getUser(ctx); err != nil {
 		return nil, err

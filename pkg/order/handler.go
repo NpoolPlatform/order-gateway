@@ -151,7 +151,7 @@ func WithParentOrderID(id *string, must bool) func(context.Context, *Handler) er
 		if err != nil {
 			return err
 		}
-		exist, err := ordermwcli.ExistOrder(ctx, *h.ParentOrderID)
+		exist, err := ordermwcli.ExistOrder(ctx, *id)
 		if err != nil {
 			return err
 		}
