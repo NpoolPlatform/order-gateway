@@ -24,6 +24,7 @@ import (
 	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
 	inspiretypes "github.com/NpoolPlatform/message/npool/basetypes/inspire/v1"
+	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
@@ -198,23 +199,20 @@ func (h *createHandler) checkUnitsLimit(ctx context.Context) error {
 	if !h.appGood.EnablePurchase {
 		return fmt.Errorf("app good is not enabled purchase")
 	}
-	purchaseCountStr, err := ordermwcli.SumOrderUnits(
-		ctx,
-		&ordermwpb.Conds{
-			AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-			UserID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
-			GoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.appGood.GoodID},
-			OrderStates: &basetypes.Uint32SliceVal{
-				Op: cruder.IN,
-				Value: []uint32{
-					uint32(types.OrderState_OrderStatePaid),
-					uint32(types.OrderState_OrderStateInService),
-					uint32(types.OrderState_OrderStateExpired),
-					uint32(types.OrderState_OrderStateWaitPayment),
-				},
+	purchaseCountStr, err := ordermwcli.SumOrderUnits(ctx, &ordermwpb.Conds{
+		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		UserID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
+		GoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.appGood.GoodID},
+		OrderStates: &basetypes.Uint32SliceVal{
+			Op: cruder.IN,
+			Value: []uint32{
+				uint32(types.OrderState_OrderStatePaid),
+				uint32(types.OrderState_OrderStateInService),
+				uint32(types.OrderState_OrderStateExpired),
+				uint32(types.OrderState_OrderStateWaitPayment),
 			},
 		},
-	)
+	})
 	if err != nil {
 		return err
 	}
@@ -396,6 +394,14 @@ func (h *createHandler) checkTransferCoinAmount() error {
 }
 
 func (h *createHandler) resolvePaymentType() {
+	switch *h.OrderType {
+	case ordertypes.OrderType_Offline:
+		h.paymentType = types.PaymentType_PayWithOffline
+		return
+	case ordertypes.OrderType_Airdrop:
+		h.paymentType = types.PaymentType_PayWithNoPayment
+		return
+	}
 	if h.transferCoinAmount.Cmp(decimal.NewFromInt(0)) == 0 &&
 		h.balanceCoinAmount.Cmp(decimal.NewFromInt(0)) == 0 {
 		h.paymentType = types.PaymentType_PayWithNoPayment
