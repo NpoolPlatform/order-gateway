@@ -862,8 +862,6 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		if err := handler.getPaymentStartAmount(ctx); err != nil {
 			return nil, err
 		}
-		id := uuid.NewString()
-		handler.balanceLockID = &id
 	}
 
 	for _, order := range h.Orders {
@@ -876,6 +874,10 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 
 		id = uuid.NewString()
 		handler.stockLockIDs[order.AppGoodID] = &id
+	}
+	if handler.balanceCoinAmount.Cmp(decimal.NewFromInt(0)) <= 0 {
+		id := uuid.NewString()
+		handler.balanceLockID = &id
 	}
 
 	key := fmt.Sprintf("%v:%v:%v:%v", basetypes.Prefix_PrefixCreateOrder, *h.AppID, *h.UserID, h.ParentOrderID)

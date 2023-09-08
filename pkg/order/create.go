@@ -776,8 +776,6 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 		if err := handler.getPaymentStartAmount(ctx); err != nil {
 			return nil, err
 		}
-		id := uuid.NewString()
-		handler.balanceLockID = &id
 	}
 
 	id := uuid.NewString()
@@ -786,6 +784,10 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	}
 	id = uuid.NewString()
 	handler.stockLockID = &id
+	if handler.balanceCoinAmount.Cmp(decimal.NewFromInt(0)) <= 0 {
+		id := uuid.NewString()
+		handler.balanceLockID = &id
+	}
 
 	key := fmt.Sprintf("%v:%v:%v:%v", basetypes.Prefix_PrefixCreateOrder, *h.AppID, *h.UserID, id)
 	if err := redis2.TryLock(key, 0); err != nil {
