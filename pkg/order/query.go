@@ -229,6 +229,7 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 			PaymentStartAmount:      ord.PaymentStartAmount,
 			PaymentFinishAmount:     ord.PaymentFinishAmount,
 			PayWithBalanceAmount:    ord.BalanceAmount,
+			TransferAmount:          ord.TransferAmount,
 			OrderType:               ord.OrderType,
 			PaymentType:             ord.PaymentType,
 			CreatedAt:               ord.CreatedAt,
