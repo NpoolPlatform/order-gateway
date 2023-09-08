@@ -3,18 +3,18 @@ module github.com/NpoolPlatform/order-gateway
 go 1.17
 
 require (
-	github.com/NpoolPlatform/account-middleware v0.0.0-20230712122024-60dc0bb4c0c0
+	github.com/NpoolPlatform/account-middleware v0.0.0-20230908122122-cd58a2b8c771
 	github.com/NpoolPlatform/appuser-middleware v0.0.0-20230513100509-b19f356ebd4b
 	github.com/NpoolPlatform/basal-middleware v0.0.0-20230518061816-62bd589c0f63
-	github.com/NpoolPlatform/chain-middleware v0.0.0-20230712041523-2e1d215244e0
+	github.com/NpoolPlatform/chain-middleware v0.0.0-20230906092012-a63f3a7b0b54
 	github.com/NpoolPlatform/dtm-cluster v0.0.0-20230901092100-75e025eff821
 	github.com/NpoolPlatform/go-service-framework v0.0.0-20230814035104-e1466b5c157e
-	github.com/NpoolPlatform/good-middleware v0.0.0-20230905075718-a4cefe1bff92
-	github.com/NpoolPlatform/inspire-middleware v0.0.0-20230811101104-636b885293d2
-	github.com/NpoolPlatform/ledger-middleware v0.0.0-20230904073215-11b88e0a0ea7
+	github.com/NpoolPlatform/good-middleware v0.0.0-20230908123355-e4a2233e306b
+	github.com/NpoolPlatform/inspire-middleware v0.0.0-20230907035923-c90b50a84df2
+	github.com/NpoolPlatform/ledger-middleware v0.0.0-20230908093825-dace2fee13a1
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20230825073905-d23e4d838f99
 	github.com/NpoolPlatform/message v0.0.0-20230908135834-75858428a3cc
-	github.com/NpoolPlatform/order-middleware v0.0.0-20230908150842-e42cde949673
+	github.com/NpoolPlatform/order-middleware v0.0.0-20230908163651-e341753c1fc8
 	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20230216075025-a90a86bfd19b
 	github.com/dtm-labs/dtm v1.17.1
 	github.com/go-resty/resty/v2 v2.7.0
