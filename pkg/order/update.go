@@ -121,14 +121,8 @@ func (h *updateHandler) checkOrderType() error {
 
 func (h *updateHandler) getAppGood(ctx context.Context) error {
 	good, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodmwpb.Conds{
-		AppID: &basetypes.StringVal{
-			Op:    cruder.EQ,
-			Value: h.order.AppID,
-		},
-		GoodID: &basetypes.StringVal{
-			Op:    cruder.EQ,
-			Value: h.order.GoodID,
-		},
+		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: h.order.AppID},
+		GoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.order.GoodID},
 	})
 	if err != nil {
 		return err
@@ -156,10 +150,7 @@ func (h *updateHandler) checkGood(ctx context.Context) error {
 
 func (h *updateHandler) checkCancelable(ctx context.Context) error {
 	goodStatements, _, err := goodledgerstatementcli.GetGoodStatements(ctx, &goodledgerstatementpb.Conds{
-		GoodID: &basetypes.StringVal{
-			Op:    cruder.EQ,
-			Value: h.order.GoodID,
-		},
+		GoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.order.GoodID},
 	}, 0, 1)
 	if err != nil {
 		return err
@@ -169,42 +160,38 @@ func (h *updateHandler) checkCancelable(ctx context.Context) error {
 	case ordertypes.OrderState_OrderStateWaitPayment:
 		fallthrough //nolint
 	case ordertypes.OrderState_OrderStateCheckPayment:
-		if len(goodStatements) > 0 {
-			return fmt.Errorf("had statements can not cancel")
-		}
 		return nil
 	}
 
 	switch h.appGood.CancelMode {
 	case goodtypes.CancelMode_Uncancellable:
-		return fmt.Errorf("app good uncancellable")
+		return fmt.Errorf("permission denied")
 	case goodtypes.CancelMode_CancellableBeforeStart:
 		switch h.order.OrderState {
 		case ordertypes.OrderState_OrderStatePaid:
-		case ordertypes.OrderState_OrderStateInService:
-			return fmt.Errorf("order state is uncancellable")
 		default:
-			return fmt.Errorf("order state is uncancellable")
+			return fmt.Errorf("permission denied")
 		}
 	case goodtypes.CancelMode_CancellableBeforeBenefit:
 		switch h.order.OrderState {
 		case ordertypes.OrderState_OrderStatePaid:
 		case ordertypes.OrderState_OrderStateInService:
-			if len(goodStatements) > 0 {
-				lastBenefitDate := goodStatements[0].BenefitDate
-				const secondsPerDay = 24 * 60 * 60
-				checkBenefitStartAt := lastBenefitDate + secondsPerDay - h.appGood.CancellableBeforeStart
-				checkBenefitEndAt := lastBenefitDate + secondsPerDay + h.appGood.CancellableBeforeStart
-				now := uint32(time.Now().Unix())
-				if checkBenefitStartAt <= now && now <= checkBenefitEndAt {
-					return fmt.Errorf("invalid cancel in benefit time")
-				}
+			if len(goodStatements) == 0 {
+				return nil
+			}
+			lastBenefitDate := goodStatements[0].BenefitDate
+			const secondsPerDay = 24 * 60 * 60
+			checkBenefitStartAt := lastBenefitDate + secondsPerDay - h.appGood.CancellableBeforeStart
+			checkBenefitEndAt := lastBenefitDate + secondsPerDay + h.appGood.CancellableBeforeStart
+			now := uint32(time.Now().Unix())
+			if checkBenefitStartAt <= now && now <= checkBenefitEndAt {
+				return fmt.Errorf("permission denied")
 			}
 		default:
-			return fmt.Errorf("order state is uncancellable")
+			return fmt.Errorf("permission denied")
 		}
 	default:
-		return fmt.Errorf("unknown CancelMode type %v", h.appGood.CancelMode)
+		return fmt.Errorf("invalid cancelmode %v", h.appGood.CancelMode)
 	}
 
 	return nil

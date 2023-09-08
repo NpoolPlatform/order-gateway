@@ -8,7 +8,7 @@ import (
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	redis2 "github.com/NpoolPlatform/go-service-framework/pkg/redis"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
-	constant1 "github.com/NpoolPlatform/order-gateway/pkg/message/const"
+	servicename "github.com/NpoolPlatform/order-gateway/pkg/servicename"
 	"github.com/NpoolPlatform/order-middleware/pkg/db"
 	"github.com/NpoolPlatform/order-middleware/pkg/db/ent"
 	entorder "github.com/NpoolPlatform/order-middleware/pkg/db/ent/order"
@@ -22,7 +22,7 @@ const (
 )
 
 func lockKey() string {
-	serviceID := config.GetStringValueWithNameSpace(constant1.ServiceName, keyServiceID)
+	serviceID := config.GetStringValueWithNameSpace(servicename.ServiceDomain, keyServiceID)
 	return fmt.Sprintf("migrator:%v", serviceID)
 }
 
