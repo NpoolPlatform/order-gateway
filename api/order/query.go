@@ -105,11 +105,6 @@ func (s *Server) GetOrder(ctx context.Context, in *npool.GetOrderRequest) (*npoo
 		return &npool.GetOrderResponse{}, status.Error(codes.Internal, err.Error())
 	}
 
-	if info.AppID != in.GetAppID() || info.UserID != in.GetUserID() {
-		logger.Sugar().Errorw("GetOrder", "Order", info, "error", "permission denied")
-		return &npool.GetOrderResponse{}, status.Error(codes.PermissionDenied, "permission denied")
-	}
-
 	return &npool.GetOrderResponse{
 		Info: info,
 	}, nil

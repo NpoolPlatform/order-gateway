@@ -333,6 +333,9 @@ func (h *Handler) GetOrder(ctx context.Context) (*npool.Order, error) {
 	if order == nil {
 		return nil, err
 	}
+	if *h.AppID != order.AppID || *h.UserID != order.UserID {
+		return nil, fmt.Errorf("permission denied")
+	}
 
 	handler := &queryHandler{
 		Handler:         h,

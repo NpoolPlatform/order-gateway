@@ -177,6 +177,26 @@ func (h *createsHandler) getAppGoods(ctx context.Context) error {
 	return nil
 }
 
+func (h *createsHandler) checkAppGoodCoin(ctx context.Context) error {
+	for _, good := range h.appGoods {
+		goodCoin, err := appcoinmwcli.GetCoinOnly(ctx, &appcoinmwpb.Conds{
+			AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+			CoinTypeID: &basetypes.StringVal{Op: cruder.EQ, Value: good.CoinTypeID},
+		})
+		if err != nil {
+			return err
+		}
+		if goodCoin == nil {
+			return fmt.Errorf("invalid appgood coin")
+		}
+		if h.paymentCoin.ENV != goodCoin.ENV {
+			return fmt.Errorf("good coin mismatch payment coin")
+		}
+	}
+
+	return nil
+}
+
 func (h *createsHandler) checkUnitsLimit(ctx context.Context) error {
 	if *h.OrderType != types.OrderType_Normal {
 		return nil
@@ -769,6 +789,9 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		return nil, err
 	}
 	if err := handler.getAppGoods(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkAppGoodCoin(ctx); err != nil {
 		return nil, err
 	}
 	if err := handler.checkUnitsLimit(ctx); err != nil {
