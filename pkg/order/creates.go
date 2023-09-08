@@ -72,6 +72,8 @@ type createsHandler struct {
 	orderStartMode      map[string]types.OrderStartMode
 	orderStartAt        map[string]uint32
 	orderEndAt          map[string]uint32
+	stockLockIDs        map[string]*string
+	balanceLockID       *string
 }
 
 func (h *createsHandler) tomorrowStart() time.Time {
@@ -422,6 +424,14 @@ func (h *createsHandler) checkTransferCoinAmount() error {
 }
 
 func (h *createsHandler) resolvePaymentType() {
+	switch *h.OrderType {
+	case types.OrderType_Offline:
+		h.paymentType = types.PaymentType_PayWithOffline
+		return
+	case types.OrderType_Airdrop:
+		h.paymentType = types.PaymentType_PayWithNoPayment
+		return
+	}
 	if h.transferCoinAmount.Cmp(decimal.NewFromInt(0)) == 0 &&
 		h.balanceCoinAmount.Cmp(decimal.NewFromInt(0)) == 0 {
 		h.paymentType = types.PaymentType_PayWithNoPayment
@@ -580,6 +590,7 @@ func (h *createsHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
 			GoodID:    &appGood.GoodID,
 			AppGoodID: &order.AppGoodID,
 			Locked:    &order.Units,
+			LockID:    h.stockLockIDs[order.AppGoodID],
 		}
 		dispose.Add(
 			goodmwsvcname.ServiceDomain,
@@ -603,6 +614,7 @@ func (h *createsHandler) withUpdateBalance(dispose *dtmcli.SagaDispose) {
 		UserID:     h.UserID,
 		CoinTypeID: h.PaymentCoinID,
 		Spendable:  &amount,
+		Locked:     h.balanceLockID,
 	}
 	dispose.Add(
 		ledgermwsvcname.ServiceDomain,
@@ -652,6 +664,7 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 			StartAt:              &orderStartAt,
 			EndAt:                &orderEndAt,
 			StartMode:            &startMode,
+			AppGoodStockLockID:   h.stockLockIDs[order.AppGoodID],
 		}
 		if h.promotions[order.AppGoodID] != nil {
 			req.PromotionID = &h.promotions[order.AppGoodID].ID
@@ -667,6 +680,7 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 				req.PaymentAccountID = &h.paymentAccount.AccountID
 				paymentStartAmount := h.paymentStartAmount.String()
 				req.PaymentStartAmount = &paymentStartAmount
+				req.LedgerLockID = h.balanceLockID
 			}
 		} else {
 			req.ParentOrderID = h.ParentOrderID
@@ -772,6 +786,7 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		orderStartMode:      map[string]types.OrderStartMode{},
 		orderStartAt:        map[string]uint32{},
 		orderEndAt:          map[string]uint32{},
+		stockLockIDs:        map[string]*string{},
 	}
 	if err := handler.getUser(ctx); err != nil {
 		return nil, err
@@ -847,6 +862,8 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		if err := handler.getPaymentStartAmount(ctx); err != nil {
 			return nil, err
 		}
+		id := uuid.NewString()
+		handler.balanceLockID = &id
 	}
 
 	for _, order := range h.Orders {
@@ -856,6 +873,9 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 			h.ParentOrderID = &id
 		}
 		h.IDs = append(h.IDs, id)
+
+		id = uuid.NewString()
+		handler.stockLockIDs[order.AppGoodID] = &id
 	}
 
 	key := fmt.Sprintf("%v:%v:%v:%v", basetypes.Prefix_PrefixCreateOrder, *h.AppID, *h.UserID, h.ParentOrderID)

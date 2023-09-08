@@ -24,7 +24,6 @@ import (
 	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
 	inspiretypes "github.com/NpoolPlatform/message/npool/basetypes/inspire/v1"
-	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
@@ -69,6 +68,8 @@ type createHandler struct {
 	orderStartMode      types.OrderStartMode
 	orderStartAt        uint32
 	orderEndAt          uint32
+	stockLockID         *string
+	balanceLockID       *string
 }
 
 func (h *createHandler) getUser(ctx context.Context) error {
@@ -395,10 +396,10 @@ func (h *createHandler) checkTransferCoinAmount() error {
 
 func (h *createHandler) resolvePaymentType() {
 	switch *h.OrderType {
-	case ordertypes.OrderType_Offline:
+	case types.OrderType_Offline:
 		h.paymentType = types.PaymentType_PayWithOffline
 		return
-	case ordertypes.OrderType_Airdrop:
+	case types.OrderType_Airdrop:
 		h.paymentType = types.PaymentType_PayWithNoPayment
 		return
 	}
@@ -537,6 +538,7 @@ func (h *createHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
 		GoodID:    &h.appGood.GoodID,
 		AppGoodID: h.AppGoodID,
 		Locked:    &h.Units,
+		LockID:    h.stockLockID,
 	}
 	dispose.Add(
 		goodmwsvcname.ServiceDomain,
@@ -559,6 +561,7 @@ func (h *createHandler) withUpdateBalance(dispose *dtmcli.SagaDispose) {
 		UserID:     h.UserID,
 		CoinTypeID: h.PaymentCoinID,
 		Spendable:  &amount,
+		LockID:     h.balanceLockID,
 	}
 	dispose.Add(
 		ledgermwsvcname.ServiceDomain,
@@ -629,6 +632,8 @@ func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose) {
 		StartAt:              &h.orderStartAt,
 		EndAt:                &h.orderEndAt,
 		StartMode:            &h.orderStartMode,
+		AppGoodStockLockID:   h.stockLockID,
+		LedgerLockID:         h.balanceLockID,
 	}
 	if h.promotion != nil {
 		req.PromotionID = &h.promotion.ID
@@ -771,12 +776,16 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 		if err := handler.getPaymentStartAmount(ctx); err != nil {
 			return nil, err
 		}
+		id := uuid.NewString()
+		handler.balanceLockID = &id
 	}
 
 	id := uuid.NewString()
 	if h.ID == nil {
 		h.ID = &id
 	}
+	id = uuid.NewString()
+	handler.stockLockID = &id
 
 	key := fmt.Sprintf("%v:%v:%v:%v", basetypes.Prefix_PrefixCreateOrder, *h.AppID, *h.UserID, id)
 	if err := redis2.TryLock(key, 0); err != nil {

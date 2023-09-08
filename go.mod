@@ -13,8 +13,8 @@ require (
 	github.com/NpoolPlatform/inspire-middleware v0.0.0-20230811101104-636b885293d2
 	github.com/NpoolPlatform/ledger-middleware v0.0.0-20230904073215-11b88e0a0ea7
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20230825073905-d23e4d838f99
-	github.com/NpoolPlatform/message v0.0.0-20230908073822-7e02b413acd8
-	github.com/NpoolPlatform/order-middleware v0.0.0-20230908075123-fe11e6f59776
+	github.com/NpoolPlatform/message v0.0.0-20230908135834-75858428a3cc
+	github.com/NpoolPlatform/order-middleware v0.0.0-20230908150842-e42cde949673
 	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20230216075025-a90a86bfd19b
 	github.com/dtm-labs/dtm v1.17.1
 	github.com/go-resty/resty/v2 v2.7.0
@@ -23,8 +23,6 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/stretchr/testify v1.8.1
 	github.com/urfave/cli/v2 v2.16.3
-	go.opentelemetry.io/otel v1.10.0
-	go.opentelemetry.io/otel/trace v1.10.0
 	google.golang.org/grpc v1.55.0
 	google.golang.org/protobuf v1.30.0
 )
@@ -111,8 +109,10 @@ require (
 	github.com/zclconf/go-cty v1.8.0 // indirect
 	go.mongodb.org/mongo-driver v1.9.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.31.0 // indirect
+	go.opentelemetry.io/otel v1.10.0 // indirect
 	go.opentelemetry.io/otel/exporters/jaeger v1.6.3 // indirect
 	go.opentelemetry.io/otel/sdk v1.6.3 // indirect
+	go.opentelemetry.io/otel/trace v1.10.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/ratelimit v0.2.0 // indirect

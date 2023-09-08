@@ -6,9 +6,11 @@ import (
 	"time"
 
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
+	ledgermwsvcname "github.com/NpoolPlatform/ledger-middleware/pkg/servicename"
 	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
 	"github.com/dtm-labs/dtm/client/dtmcli/dtmimp"
+	"github.com/google/uuid"
 
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
 	ledgertypes "github.com/NpoolPlatform/message/npool/basetypes/ledger/v1"
@@ -30,6 +32,8 @@ import (
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
 	ledgerstatementpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger/statement"
 
+	orderlockmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order/orderlock"
+
 	usermwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	statementmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/achievement/statement"
 	statementmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/achievement/statement"
@@ -42,6 +46,7 @@ type updateHandler struct {
 	order                 *ordermwpb.Order
 	appGood               *appgoodmwpb.Good
 	achievementStatements []*statementmwpb.Statement
+	commissionLockIDs     map[string]*string
 }
 
 func (h *updateHandler) checkCancelParam() error {
@@ -236,10 +241,37 @@ func (h *updateHandler) getCommission(ctx context.Context) error {
 				return fmt.Errorf("commission ledger detail is not exist")
 			}
 			h.achievementStatements = append(h.achievementStatements, val)
+			id := uuid.NewString()
+			h.commissionLockIDs[val.ID] = &id
 		}
 	}
 
 	return nil
+}
+
+func (h *updateHandler) withCreateCommissionLockIDs(dispose *dtmcli.SagaDispose) {
+	if len(h.achievementStatements) == 0 {
+		return
+	}
+	reqs := []*orderlockmwpb.OrderLockReq{}
+	for _, statement := range h.achievementStatements {
+		req := &orderlockmwpb.OrderLockReq{
+			ID:       h.commissionLockIDs[statement.ID],
+			AppID:    &statement.AppID,
+			UserID:   &statement.UserID,
+			OrderID:  h.ID,
+			LockType: ordertypes.OrderLockType_LockCommission.Enum(),
+		}
+		reqs = append(reqs, req)
+	}
+	dispose.Add(
+		ordermwsvcname.ServiceDomain,
+		"order.middleware.order1.orderlock.v1.Middleware/CreateOrderLocks",
+		"order.middleware.order1.orderlock.v1.Middleware/DeleteOrderLocks",
+		&orderlockmwpb.CreateOrderLocksRequest{
+			Infos: reqs,
+		},
+	)
 }
 
 func (h *updateHandler) withLockCommission(dispose *dtmcli.SagaDispose) {
@@ -249,9 +281,10 @@ func (h *updateHandler) withLockCommission(dispose *dtmcli.SagaDispose) {
 			UserID:     &statement.UserID,
 			CoinTypeID: &statement.CoinTypeID,
 			Spendable:  &statement.Commission,
+			LockID:     h.commissionLockIDs[statement.ID],
 		}
 		dispose.Add(
-			ordermwsvcname.ServiceDomain,
+			ledgermwsvcname.ServiceDomain,
 			"ledger.middleware.ledger.v2.Middleware/SubBalance",
 			"ledger.middleware.ledger.v2.Middleware/AddBalance",
 			&ledgermwpb.AddBalanceRequest{
@@ -279,7 +312,8 @@ func (h *updateHandler) withProcessCancel(dispose *dtmcli.SagaDispose) {
 
 func (h *Handler) UpdateOrder(ctx context.Context) (*npool.Order, error) {
 	handler := &updateHandler{
-		Handler: h,
+		Handler:           h,
+		commissionLockIDs: map[string]*string{},
 	}
 	if err := handler.checkCancelParam(); err != nil {
 		return nil, err
@@ -312,6 +346,7 @@ func (h *Handler) UpdateOrder(ctx context.Context) (*npool.Order, error) {
 		RequestTimeout: timeoutSeconds,
 	})
 
+	handler.withCreateCommissionLockIDs(sagaDispose)
 	handler.withLockCommission(sagaDispose)
 	handler.withProcessCancel(sagaDispose)
 
