@@ -6,7 +6,6 @@ import (
 	"time"
 
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
-	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	ledgermwsvcname "github.com/NpoolPlatform/ledger-middleware/pkg/servicename"
 	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
