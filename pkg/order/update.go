@@ -5,39 +5,33 @@ import (
 	"fmt"
 	"time"
 
-	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
+	usermwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
+	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
+	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
+	statementmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/achievement/statement"
+	goodledgerstatementcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/good/ledger/statement"
+	ledgerstatementcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/ledger/statement"
 	ledgermwsvcname "github.com/NpoolPlatform/ledger-middleware/pkg/servicename"
 	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
-	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
-	"github.com/dtm-labs/dtm/client/dtmcli/dtmimp"
-	"github.com/google/uuid"
-
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
 	ledgertypes "github.com/NpoolPlatform/message/npool/basetypes/ledger/v1"
 	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
-
-	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
-	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
-
-	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
-	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
-	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
-
-	goodledgerstatementcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/good/ledger/statement"
-
-	ledgerstatementcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/ledger/statement"
+	statementmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/achievement/statement"
 	goodledgerstatementpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/good/ledger/statement"
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
 	ledgerstatementpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger/statement"
-
+	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
+	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	orderlockmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order/orderlock"
+	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
+	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
 
-	usermwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
-	statementmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/achievement/statement"
-	statementmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/achievement/statement"
+	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
+	"github.com/dtm-labs/dtm/client/dtmcli/dtmimp"
 
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
 
@@ -58,6 +52,9 @@ func (h *updateHandler) checkCancelParam() error {
 	}
 	if h.AdminSetCanceled != nil && !*h.AdminSetCanceled {
 		return fmt.Errorf("nothing todo")
+	}
+	if h.order.AdminSetCanceled || h.order.UserSetCanceled {
+		return fmt.Errorf("permission denied")
 	}
 	return nil
 }
@@ -315,13 +312,13 @@ func (h *Handler) UpdateOrder(ctx context.Context) (*npool.Order, error) {
 		Handler:           h,
 		commissionLockIDs: map[string]*string{},
 	}
-	if err := handler.checkCancelParam(); err != nil {
-		return nil, err
-	}
 	if err := handler.checkUser(ctx); err != nil {
 		return nil, err
 	}
 	if err := handler.checkOrder(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkCancelParam(); err != nil {
 		return nil, err
 	}
 	if err := handler.checkOrderType(); err != nil {
