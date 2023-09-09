@@ -294,7 +294,7 @@ func (h *createHandler) checkParentOrderGoodRequired(ctx context.Context) error 
 	return nil
 }
 
-func (h *createHandler) checkGoodRequests(ctx context.Context) error {
+func (h *createHandler) checkGoodRequestMust(ctx context.Context) error {
 	if h.ParentOrderID != nil {
 		return nil
 	}
@@ -304,24 +304,29 @@ func (h *createHandler) checkGoodRequests(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if len(goodRequireds) == 0 {
-		goodRequireds, _, err = goodrequiredmwcli.GetRequireds(ctx, &goodrequiredpb.Conds{
-			RequiredGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.appGood.GoodID},
-		}, 0, 1)
-		if err != nil {
-			return err
-		}
-		if len(goodRequireds) > 0 {
-			return fmt.Errorf("parentorderid is empty")
-		}
-		return nil
-	}
-
 	for _, goodRequired := range goodRequireds {
 		if goodRequired.Must {
 			return fmt.Errorf("invalid must goodrequired")
 		}
 	}
+	return nil
+}
+
+func (h *createHandler) checkGoodRequest(ctx context.Context) error {
+	if h.ParentOrderID != nil {
+		return nil
+	}
+
+	goodRequireds, _, err := goodrequiredmwcli.GetRequireds(ctx, &goodrequiredpb.Conds{
+		RequiredGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.appGood.GoodID},
+	}, 0, 1)
+	if err != nil {
+		return err
+	}
+	if len(goodRequireds) > 0 {
+		return fmt.Errorf("parentorderid is empty")
+	}
+
 	return nil
 }
 
@@ -835,7 +840,10 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	if err := handler.checkParentOrderGoodRequired(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.checkGoodRequests(ctx); err != nil {
+	if err := handler.checkGoodRequestMust(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkGoodRequest(ctx); err != nil {
 		return nil, err
 	}
 	if err := handler.getAppGoodPromotion(ctx); err != nil {
