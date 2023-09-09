@@ -8,6 +8,7 @@ import (
 	payaccmwcli "github.com/NpoolPlatform/account-middleware/pkg/client/payment"
 	accountlock "github.com/NpoolPlatform/account-middleware/pkg/lock"
 	accountmwsvcname "github.com/NpoolPlatform/account-middleware/pkg/servicename"
+	appmwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/app"
 	usermwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
 	currencymwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin/currency"
@@ -21,6 +22,7 @@ import (
 	ledgermwsvcname "github.com/NpoolPlatform/ledger-middleware/pkg/servicename"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
+	appmwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/app"
 	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
 	inspiretypes "github.com/NpoolPlatform/message/npool/basetypes/inspire/v1"
@@ -49,6 +51,7 @@ import (
 type createsHandler struct {
 	*Handler
 	ids                 map[string]*string
+	app                 *appmwpb.App
 	user                *usermwpb.User
 	appGoods            map[string]*appgoodmwpb.Good
 	goodRequireds       []*goodrequiredpb.Required
@@ -80,6 +83,18 @@ func (h *createsHandler) tomorrowStart() time.Time {
 	now := time.Now()
 	y, m, d := now.Date()
 	return time.Date(y, m, d+1, 0, 0, 0, 0, now.Location())
+}
+
+func (h *createsHandler) getApp(ctx context.Context) error {
+	app, err := appmwcli.GetApp(ctx, *h.AppID)
+	if err != nil {
+		return err
+	}
+	if app == nil {
+		return fmt.Errorf("invalid app")
+	}
+	h.app = app
+	return nil
 }
 
 func (h *createsHandler) getUser(ctx context.Context) error {
@@ -137,13 +152,23 @@ func (h *createsHandler) getCoupons(ctx context.Context) error {
 
 func (h *createsHandler) validateDiscountCoupon() error {
 	discountCoupons := 0
+	fixAmountCoupons := uint32(0)
+	specialOfferCoupons := uint32(0)
 	for _, coupon := range h.coupons {
-		if coupon.CouponType == inspiretypes.CouponType_Discount {
+		switch coupon.CouponType {
+		case inspiretypes.CouponType_Discount:
 			discountCoupons++
+		case inspiretypes.CouponType_FixAmount:
+			fixAmountCoupons++
+		case inspiretypes.CouponType_SpecialOffer:
+			specialOfferCoupons++
 		}
 	}
 	if discountCoupons > 1 {
 		return fmt.Errorf("invalid discountcoupon")
+	}
+	if fixAmountCoupons > h.app.MaxTypedCouponsPerOrder || specialOfferCoupons > h.app.MaxTypedCouponsPerOrder {
+		return fmt.Errorf("invalid fixamountcoupon")
 	}
 	return nil
 }
@@ -787,6 +812,9 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		orderStartAt:        map[string]uint32{},
 		orderEndAt:          map[string]uint32{},
 		stockLockIDs:        map[string]*string{},
+	}
+	if err := handler.getApp(ctx); err != nil {
+		return nil, err
 	}
 	if err := handler.getUser(ctx); err != nil {
 		return nil, err
