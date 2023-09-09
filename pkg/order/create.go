@@ -8,6 +8,7 @@ import (
 	payaccmwcli "github.com/NpoolPlatform/account-middleware/pkg/client/payment"
 	accountlock "github.com/NpoolPlatform/account-middleware/pkg/lock"
 	accountmwsvcname "github.com/NpoolPlatform/account-middleware/pkg/servicename"
+	appmwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/app"
 	usermwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
 	currencymwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin/currency"
@@ -16,11 +17,13 @@ import (
 	redis2 "github.com/NpoolPlatform/go-service-framework/pkg/redis"
 	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
 	topmostmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good/topmost/good"
+	goodrequiredmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/required"
 	goodmwsvcname "github.com/NpoolPlatform/good-middleware/pkg/servicename"
 	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
 	ledgermwsvcname "github.com/NpoolPlatform/ledger-middleware/pkg/servicename"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
+	appmwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/app"
 	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
 	inspiretypes "github.com/NpoolPlatform/message/npool/basetypes/inspire/v1"
@@ -31,6 +34,7 @@ import (
 	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
 	appgoodstockmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/stock"
 	topmostmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/topmost/good"
+	goodrequiredpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/required"
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
@@ -47,8 +51,10 @@ import (
 
 type createHandler struct {
 	*Handler
+	app                 *appmwpb.App
 	user                *usermwpb.User
 	appGood             *appgoodmwpb.Good
+	parentOrder         *ordermwpb.Order
 	paymentCoin         *appcoinmwpb.Coin
 	paymentAccount      *payaccmwpb.Account
 	paymentStartAmount  decimal.Decimal
@@ -81,6 +87,18 @@ func (h *createHandler) getUser(ctx context.Context) error {
 		return fmt.Errorf("invalid user")
 	}
 	h.user = user
+	return nil
+}
+
+func (h *createHandler) getApp(ctx context.Context) error {
+	app, err := appmwcli.GetApp(ctx, *h.AppID)
+	if err != nil {
+		return err
+	}
+	if app == nil {
+		return fmt.Errorf("invalid app")
+	}
+	h.app = app
 	return nil
 }
 
@@ -127,13 +145,23 @@ func (h *createHandler) getCoupons(ctx context.Context) error {
 
 func (h *createHandler) validateDiscountCoupon() error {
 	discountCoupons := 0
+	fixAmountCoupons := uint32(0)
+	specialOfferCoupons := uint32(0)
 	for _, coupon := range h.coupons {
-		if coupon.CouponType == inspiretypes.CouponType_Discount {
+		switch coupon.CouponType {
+		case inspiretypes.CouponType_Discount:
 			discountCoupons++
+		case inspiretypes.CouponType_FixAmount:
+			fixAmountCoupons++
+		case inspiretypes.CouponType_SpecialOffer:
+			specialOfferCoupons++
 		}
 	}
 	if discountCoupons > 1 {
 		return fmt.Errorf("invalid discountcoupon")
+	}
+	if fixAmountCoupons > h.app.MaxTypedCouponsPerOrder || specialOfferCoupons > h.app.MaxTypedCouponsPerOrder {
+		return fmt.Errorf("invalid fixamountcoupon")
 	}
 	return nil
 }
@@ -231,6 +259,69 @@ func (h *createHandler) checkUnitsLimit(ctx context.Context) error {
 		return fmt.Errorf("too many units")
 	}
 
+	return nil
+}
+
+func (h *createHandler) getParentOrder(ctx context.Context) error {
+	if h.ParentOrderID == nil {
+		return nil
+	}
+	order, err := ordermwcli.GetOrder(ctx, *h.ParentOrderID)
+	if err != nil {
+		return err
+	}
+	if order == nil {
+		return fmt.Errorf("invalid parentorderid")
+	}
+	h.parentOrder = order
+	return nil
+}
+
+func (h *createHandler) checkParentOrderGoodRequired(ctx context.Context) error {
+	if h.ParentOrderID == nil {
+		return nil
+	}
+	goodRequired, err := goodrequiredmwcli.GetRequiredOnly(ctx, &goodrequiredpb.Conds{
+		MainGoodID:     &basetypes.StringVal{Op: cruder.EQ, Value: h.parentOrder.GoodID},
+		RequiredGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.appGood.GoodID},
+	})
+	if err != nil {
+		return err
+	}
+	if goodRequired == nil {
+		return fmt.Errorf("invalid goodrequired")
+	}
+	return nil
+}
+
+func (h *createHandler) checkGoodRequests(ctx context.Context) error {
+	if h.ParentOrderID != nil {
+		return nil
+	}
+	goodRequireds, _, err := goodrequiredmwcli.GetRequireds(ctx, &goodrequiredpb.Conds{
+		MainGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.appGood.GoodID},
+	}, 0, 0)
+	if err != nil {
+		return err
+	}
+	if len(goodRequireds) == 0 {
+		goodRequireds, _, err = goodrequiredmwcli.GetRequireds(ctx, &goodrequiredpb.Conds{
+			RequiredGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.appGood.GoodID},
+		}, 0, 1)
+		if err != nil {
+			return err
+		}
+		if len(goodRequireds) > 0 {
+			return fmt.Errorf("parentorderid is empty")
+		}
+		return nil
+	}
+
+	for _, goodRequired := range goodRequireds {
+		if goodRequired.Must {
+			return fmt.Errorf("invalid must goodrequired")
+		}
+	}
 	return nil
 }
 
@@ -711,6 +802,9 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 		Handler: h,
 		coupons: map[string]*allocatedmwpb.Coupon{},
 	}
+	if err := handler.getApp(ctx); err != nil {
+		return nil, err
+	}
 	if err := handler.getUser(ctx); err != nil {
 		return nil, err
 	}
@@ -733,6 +827,15 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 		return nil, err
 	}
 	if err := handler.checkUnitsLimit(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.getParentOrder(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkParentOrderGoodRequired(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkGoodRequests(ctx); err != nil {
 		return nil, err
 	}
 	if err := handler.getAppGoodPromotion(ctx); err != nil {
