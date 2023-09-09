@@ -122,10 +122,7 @@ func (h *updateHandler) checkOrderType() error {
 }
 
 func (h *updateHandler) getAppGood(ctx context.Context) error {
-	good, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodmwpb.Conds{
-		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: h.order.AppID},
-		GoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.order.GoodID},
-	})
+	good, err := appgoodmwcli.GetGood(ctx, h.order.AppGoodID)
 	if err != nil {
 		return err
 	}
@@ -144,8 +141,11 @@ func (h *updateHandler) checkGood(ctx context.Context) error {
 	if good == nil {
 		return fmt.Errorf("invalid good")
 	}
-	if good.RewardState != goodtypes.BenefitState_BenefitWait {
-		return fmt.Errorf("app good uncancellable benefit state not wait")
+	switch good.RewardState {
+	case goodtypes.BenefitState_BenefitWait:
+	case goodtypes.BenefitState_BenefitCheckWait:
+	default:
+		return fmt.Errorf("permission denied")
 	}
 	return nil
 }
