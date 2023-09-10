@@ -16,6 +16,7 @@ import (
 	redis2 "github.com/NpoolPlatform/go-service-framework/pkg/redis"
 	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
 	topmostmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good/topmost/good"
+	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	goodrequiredmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/required"
 	goodmwsvcname "github.com/NpoolPlatform/good-middleware/pkg/servicename"
 	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
@@ -33,6 +34,7 @@ import (
 	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
 	appgoodstockmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/stock"
 	topmostmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/topmost/good"
+	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
 	goodrequiredpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/required"
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
@@ -54,6 +56,9 @@ type createsHandler struct {
 	app                 *appmwpb.App
 	user                *usermwpb.User
 	appGoods            map[string]*appgoodmwpb.Good
+	goods               map[string]*goodmwpb.Good
+	parentAppGood       *appgoodmwpb.Good
+	parentGood          *goodmwpb.Good
 	goodRequireds       []*goodrequiredpb.Required
 	paymentCoin         *appcoinmwpb.Coin
 	paymentAccount      *payaccmwpb.Account
@@ -191,15 +196,61 @@ func (h *createsHandler) checkMaxUnpaidOrders(ctx context.Context) error {
 }
 
 func (h *createsHandler) getAppGoods(ctx context.Context) error {
+	var appGoodIDs []string
+	var parentAppGoodID string
 	for _, order := range h.Orders {
-		good, err := appgoodmwcli.GetGood(ctx, order.AppGoodID)
-		if err != nil {
-			return err
+		appGoodIDs = append(appGoodIDs, order.AppGoodID)
+		if order.Parent {
+			parentAppGoodID = order.AppGoodID
 		}
-		if good == nil {
-			return fmt.Errorf("invalid good")
+	}
+	goods, _, err := appgoodmwcli.GetGoods(ctx, &appgoodmwpb.Conds{
+		IDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: appGoodIDs},
+	}, int32(0), int32(len(appGoodIDs)))
+	if err != nil {
+		return err
+	}
+	if len(goods) < len(appGoodIDs) {
+		return fmt.Errorf("invalid appgoods")
+	}
+	for _, good := range goods {
+		h.appGoods[good.ID] = good
+		if good.ID == parentAppGoodID {
+			h.parentAppGood = good
 		}
-		h.appGoods[order.AppGoodID] = good
+	}
+	if h.parentAppGood == nil {
+		return fmt.Errorf("invalid parent appgood")
+	}
+	return nil
+}
+
+func (h *createsHandler) getGoods(ctx context.Context) error {
+	var goodIDs []string
+	var parentGoodID string
+	for _, appGood := range h.appGoods {
+		goodIDs = append(goodIDs, appGood.GoodID)
+		if appGood.ID == h.parentAppGood.ID {
+			parentGoodID = appGood.GoodID
+		}
+	}
+	goods, _, err := goodmwcli.GetGoods(ctx, &goodmwpb.Conds{
+		IDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: goodIDs},
+	}, int32(0), int32(len(goodIDs)))
+	if err != nil {
+		return err
+	}
+	if len(goods) < len(goodIDs) {
+		return fmt.Errorf("invalid goods")
+	}
+	for _, good := range goods {
+		h.goods[good.ID] = good
+		if good.ID == parentGoodID {
+			h.parentGood = good
+		}
+	}
+	if h.parentGood == nil {
+		return fmt.Errorf("invalid parent good")
 	}
 	return nil
 }
@@ -832,6 +883,9 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		return nil, err
 	}
 	if err := handler.getAppGoods(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.getGoods(ctx); err != nil {
 		return nil, err
 	}
 	if err := handler.checkAppGoodCoin(ctx); err != nil {

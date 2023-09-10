@@ -206,11 +206,6 @@ func (h *createHandler) checkGood(ctx context.Context) error {
 	if good == nil {
 		return fmt.Errorf("invalid good")
 	}
-	switch good.RewardState {
-	case goodtypes.BenefitState_BenefitWait:
-	default:
-		return fmt.Errorf("permission denied")
-	}
 	return nil
 }
 
@@ -910,18 +905,18 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 		}
 	}
 
-	id := uuid.NewString()
+	id1 := uuid.NewString()
 	if h.ID == nil {
-		h.ID = &id
+		h.ID = &id1
 	}
-	id = uuid.NewString()
-	handler.stockLockID = &id
-	if handler.balanceCoinAmount.Cmp(decimal.NewFromInt(0)) <= 0 {
-		id := uuid.NewString()
-		handler.balanceLockID = &id
+	id2 := uuid.NewString()
+	handler.stockLockID = &id2
+	if handler.balanceCoinAmount.Cmp(decimal.NewFromInt(0)) > 0 {
+		id3 := uuid.NewString()
+		handler.balanceLockID = &id3
 	}
 
-	key := fmt.Sprintf("%v:%v:%v:%v", basetypes.Prefix_PrefixCreateOrder, *h.AppID, *h.UserID, id)
+	key := fmt.Sprintf("%v:%v:%v:%v", basetypes.Prefix_PrefixCreateOrder, *h.AppID, *h.UserID, id1)
 	if err := redis2.TryLock(key, 0); err != nil {
 		return nil, err
 	}
