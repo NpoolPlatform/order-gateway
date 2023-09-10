@@ -93,8 +93,6 @@ func (h *updateHandler) checkOrderType() error {
 	case ordertypes.OrderType_Normal:
 		switch h.order.OrderState {
 		case ordertypes.OrderState_OrderStateWaitPayment:
-			fallthrough //nolint
-		case ordertypes.OrderState_OrderStateCheckPayment:
 			if h.AdminSetCanceled != nil {
 				return fmt.Errorf("permission denied")
 			}
@@ -143,7 +141,6 @@ func (h *updateHandler) checkGood(ctx context.Context) error {
 	}
 	switch good.RewardState {
 	case goodtypes.BenefitState_BenefitWait:
-	case goodtypes.BenefitState_BenefitCheckWait:
 	default:
 		return fmt.Errorf("permission denied")
 	}
@@ -160,8 +157,6 @@ func (h *updateHandler) checkCancelable(ctx context.Context) error {
 
 	switch h.order.OrderState {
 	case ordertypes.OrderState_OrderStateWaitPayment:
-		fallthrough //nolint
-	case ordertypes.OrderState_OrderStateCheckPayment:
 		return nil
 	}
 
