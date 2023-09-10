@@ -127,6 +127,9 @@ func (h *updateHandler) getAppGood(ctx context.Context) error {
 	if good == nil {
 		return fmt.Errorf("invalid appgood")
 	}
+	if good.AppID != *h.AppID || good.GoodID != h.order.GoodID {
+		return fmt.Errorf("invalid appgood")
+	}
 	h.appGood = good
 	return nil
 }

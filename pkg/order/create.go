@@ -17,6 +17,7 @@ import (
 	redis2 "github.com/NpoolPlatform/go-service-framework/pkg/redis"
 	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
 	topmostmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good/topmost/good"
+	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	goodrequiredmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/required"
 	goodmwsvcname "github.com/NpoolPlatform/good-middleware/pkg/servicename"
 	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
@@ -172,6 +173,7 @@ func (h *createHandler) checkMaxUnpaidOrders(ctx context.Context) error {
 	orderCount, err := ordermwcli.CountOrders(ctx, &ordermwpb.Conds{
 		AppID:        &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 		UserID:       &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
+		OrderType:    &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(types.OrderType_Normal)},
 		PaymentState: &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(types.PaymentState_PaymentStateWait)},
 	})
 	if err != nil {
@@ -193,6 +195,22 @@ func (h *createHandler) getAppGood(ctx context.Context) error {
 		return fmt.Errorf("invalid good")
 	}
 	h.appGood = good
+	return nil
+}
+
+func (h *createHandler) checkGood(ctx context.Context) error {
+	good, err := goodmwcli.GetGood(ctx, h.appGood.GoodID)
+	if err != nil {
+		return err
+	}
+	if good == nil {
+		return fmt.Errorf("invalid good")
+	}
+	switch good.RewardState {
+	case goodtypes.BenefitState_BenefitWait:
+	default:
+		return fmt.Errorf("permission denied")
+	}
 	return nil
 }
 
@@ -826,6 +844,9 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 		return nil, err
 	}
 	if err := handler.getAppGood(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkGood(ctx); err != nil {
 		return nil, err
 	}
 	if err := handler.checkAppGoodCoin(ctx); err != nil {
