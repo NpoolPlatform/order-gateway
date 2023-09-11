@@ -1,3 +1,4 @@
+//nolint:dupl
 package order
 
 import (
@@ -178,7 +179,6 @@ func (h *createsHandler) validateDiscountCoupon() error {
 	return nil
 }
 
-//nolint:dupl
 func (h *createsHandler) checkMaxUnpaidOrders(ctx context.Context) error {
 	const maxUnpaidOrders = uint32(5)
 	orderCount, err := ordermwcli.CountOrders(ctx, &ordermwpb.Conds{

@@ -151,16 +151,17 @@ func (h *updateHandler) checkGood(ctx context.Context) error {
 }
 
 func (h *updateHandler) checkCancelable(ctx context.Context) error {
+	switch h.order.OrderState {
+	case ordertypes.OrderState_OrderStateWaitPayment:
+		return nil
+	default:
+	}
+
 	goodStatements, _, err := goodledgerstatementcli.GetGoodStatements(ctx, &goodledgerstatementpb.Conds{
 		GoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.order.GoodID},
 	}, 0, 1)
 	if err != nil {
 		return err
-	}
-
-	switch h.order.OrderState {
-	case ordertypes.OrderState_OrderStateWaitPayment:
-		return nil
 	}
 
 	switch h.appGood.CancelMode {
