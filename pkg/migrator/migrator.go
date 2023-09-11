@@ -262,6 +262,7 @@ func migrateOrder(ctx context.Context, tx *ent.Tx) error {
 	return nil
 }
 
+//nolint:funlen
 func Migrate(ctx context.Context) error {
 	var err error
 
