@@ -242,18 +242,10 @@ func (h *createHandler) checkUnitsLimit(ctx context.Context) error {
 		return fmt.Errorf("app good is not enabled purchase")
 	}
 	purchaseCountStr, err := ordermwcli.SumOrderUnits(ctx, &ordermwpb.Conds{
-		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		UserID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
-		GoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.appGood.GoodID},
-		OrderStates: &basetypes.Uint32SliceVal{
-			Op: cruder.IN,
-			Value: []uint32{
-				uint32(types.OrderState_OrderStatePaid),
-				uint32(types.OrderState_OrderStateInService),
-				uint32(types.OrderState_OrderStateExpired),
-				uint32(types.OrderState_OrderStateWaitPayment),
-			},
-		},
+		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		UserID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
+		GoodID:     &basetypes.StringVal{Op: cruder.EQ, Value: h.appGood.GoodID},
+		OrderState: &basetypes.Uint32Val{Op: cruder.NEQ, Value: uint32(types.OrderState_OrderStateCanceled)},
 	})
 	if err != nil {
 		return err
