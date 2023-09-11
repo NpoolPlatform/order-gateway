@@ -13,7 +13,7 @@ require (
 	github.com/NpoolPlatform/inspire-middleware v0.0.0-20230907035923-c90b50a84df2
 	github.com/NpoolPlatform/ledger-middleware v0.0.0-20230908093825-dace2fee13a1
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20230825073905-d23e4d838f99
-	github.com/NpoolPlatform/message v0.0.0-20230910114939-93fab576f50a
+	github.com/NpoolPlatform/message v0.0.0-20230911022549-8cfbdcf1d22d
 	github.com/NpoolPlatform/order-middleware v0.0.0-20230910111152-0dc718973845
 	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20230216075025-a90a86bfd19b
 	github.com/dtm-labs/dtm v1.17.1
