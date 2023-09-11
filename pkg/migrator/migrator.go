@@ -327,6 +327,54 @@ func Migrate(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		_, err = tx.
+			ExecContext(
+				ctx,
+				"update orders set good_value_usd='0' where good_value_usd is NULL",
+			)
+		if err != nil {
+			return err
+		}
+		_, err = tx.
+			ExecContext(
+				ctx,
+				"update orders set transfer_amount='0' where transfer_amount is NULL",
+			)
+		if err != nil {
+			return err
+		}
+		_, err = tx.
+			ExecContext(
+				ctx,
+				"update orders set balance_amount='0' where balance_amount is NULL",
+			)
+		if err != nil {
+			return err
+		}
+		_, err = tx.
+			ExecContext(
+				ctx,
+				"update orders set coin_usd_currency='0' where coin_usd_currency is NULL",
+			)
+		if err != nil {
+			return err
+		}
+		_, err = tx.
+			ExecContext(
+				ctx,
+				"update orders set live_coin_usd_currency='0' where live_coin_usd_currency is NULL",
+			)
+		if err != nil {
+			return err
+		}
+		_, err = tx.
+			ExecContext(
+				ctx,
+				"update orders set local_coin_usd_currency='0' where local_coin_usd_currency is NULL",
+			)
+		if err != nil {
+			return err
+		}
 
 		if err := migrateOrder(_ctx, tx); err != nil {
 			logger.Sugar().Errorw("Migrate", "error", err)
