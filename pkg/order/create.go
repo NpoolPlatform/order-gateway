@@ -173,6 +173,7 @@ func (h *createHandler) checkMaxUnpaidOrders(ctx context.Context) error {
 	orderCount, err := ordermwcli.CountOrders(ctx, &ordermwpb.Conds{
 		AppID:        &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 		UserID:       &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
+		AppGoodID:    &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
 		OrderType:    &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(types.OrderType_Normal)},
 		PaymentState: &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(types.PaymentState_PaymentStateWait)},
 	})
