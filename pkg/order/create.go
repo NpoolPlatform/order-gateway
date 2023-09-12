@@ -245,7 +245,7 @@ func (h *createHandler) checkUnitsLimit(ctx context.Context) error {
 	purchaseCountStr, err := ordermwcli.SumOrderUnits(ctx, &ordermwpb.Conds{
 		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 		UserID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
-		GoodID:     &basetypes.StringVal{Op: cruder.EQ, Value: h.appGood.GoodID},
+		AppGoodID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
 		OrderState: &basetypes.Uint32Val{Op: cruder.NEQ, Value: uint32(types.OrderState_OrderStateCanceled)},
 	})
 	if err != nil {
