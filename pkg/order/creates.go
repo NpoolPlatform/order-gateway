@@ -686,7 +686,7 @@ func (h *createsHandler) withUpdateBalance(dispose *dtmcli.SagaDispose) {
 		UserID:     h.UserID,
 		CoinTypeID: h.PaymentCoinID,
 		Spendable:  &amount,
-		Locked:     h.balanceLockID,
+		LockID:     h.balanceLockID,
 	}
 	dispose.Add(
 		ledgermwsvcname.ServiceDomain,
@@ -748,11 +748,11 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 			req.TransferAmount = &transferCoinAmount
 			req.BalanceAmount = &balanceCoinAmount
 			req.CouponIDs = h.CouponIDs
+			req.LedgerLockID = h.balanceLockID
 			if h.paymentAccount != nil {
 				req.PaymentAccountID = &h.paymentAccount.AccountID
 				paymentStartAmount := h.paymentStartAmount.String()
 				req.PaymentStartAmount = &paymentStartAmount
-				req.LedgerLockID = h.balanceLockID
 			}
 		} else {
 			req.ParentOrderID = h.ParentOrderID
@@ -946,17 +946,17 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	}
 
 	for _, order := range h.Orders {
-		id := uuid.NewString()
-		handler.ids[order.AppGoodID] = &id
+		id1 := uuid.NewString()
+		handler.ids[order.AppGoodID] = &id1
 		if order.Parent {
-			h.ParentOrderID = &id
+			h.ParentOrderID = &id1
 		}
-		h.IDs = append(h.IDs, id)
+		h.IDs = append(h.IDs, id1)
 
-		id = uuid.NewString()
-		handler.stockLockIDs[order.AppGoodID] = &id
+		id2 := uuid.NewString()
+		handler.stockLockIDs[order.AppGoodID] = &id2
 	}
-	if handler.balanceCoinAmount.Cmp(decimal.NewFromInt(0)) <= 0 {
+	if handler.balanceCoinAmount.Cmp(decimal.NewFromInt(0)) > 0 {
 		id := uuid.NewString()
 		handler.balanceLockID = &id
 	}
