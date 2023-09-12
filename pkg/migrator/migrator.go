@@ -204,6 +204,7 @@ func migrateOrder(ctx context.Context, tx *ent.Tx) error {
 			SetOrderType(order.Type).
 			SetCoinTypeID(good.CoinTypeID).
 			SetPaymentCoinTypeID(payment.CoinInfoID).
+			SetPaymentType(types.PaymentType_PayWithTransferAndBalance.String()).
 			SetTransferAmount(payment.Amount).
 			SetBalanceAmount(payment.PayWithBalanceAmount).
 			SetCoinUsdCurrency(payment.CoinUsdCurrency).
