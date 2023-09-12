@@ -42,6 +42,7 @@ import (
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
+	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
 	sphinxproxycli "github.com/NpoolPlatform/sphinx-proxy/pkg/client"
@@ -60,7 +61,7 @@ type createsHandler struct {
 	goods               map[string]*goodmwpb.Good
 	parentAppGood       *appgoodmwpb.Good
 	parentGood          *goodmwpb.Good
-	goodRequireds       []*goodrequiredpb.Required
+	requiredGoods       map[string]*goodrequiredpb.Required
 	paymentCoin         *appcoinmwpb.Coin
 	paymentAccount      *payaccmwpb.Account
 	paymentStartAmount  decimal.Decimal
@@ -197,10 +198,13 @@ func (h *createsHandler) checkMaxUnpaidOrders(ctx context.Context) error {
 
 func (h *createsHandler) getAppGoods(ctx context.Context) error {
 	var appGoodIDs []string
-	var parentAppGoodID string
+	parentAppGoodID := uuid.Nil.String()
 	for _, order := range h.Orders {
 		appGoodIDs = append(appGoodIDs, order.AppGoodID)
 		if order.Parent {
+			if parentAppGoodID != uuid.Nil.String() {
+				return fmt.Errorf("too many parents")
+			}
 			parentAppGoodID = order.AppGoodID
 		}
 	}
@@ -790,52 +794,53 @@ func (h *createsHandler) withLockPaymentAccount(dispose *dtmcli.SagaDispose) {
 	)
 }
 
-func (h *createsHandler) getGoodRequests(ctx context.Context) error {
-	for _, order := range h.Orders {
-		appgood := h.appGoods[order.AppGoodID]
-		if order.Parent {
-			goodRequireds, _, err := goodrequiredmwcli.GetRequireds(ctx, &goodrequiredpb.Conds{
-				MainGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: appgood.GoodID},
-			}, 0, 0)
-			if err != nil {
-				return err
-			}
-			h.goodRequireds = goodRequireds
+func (h *createsHandler) getRequiredGoods(ctx context.Context) error {
+	offset := int32(0)
+	limit := constant.DefaultRowLimit
+
+	for {
+		goods, _, err := goodrequiredmwcli.GetRequireds(ctx, &goodrequiredpb.Conds{
+			MainGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.parentAppGood.GoodID},
+		}, offset, limit)
+		if err != nil {
+			return err
+		}
+		if len(goods) == 0 {
 			break
 		}
+		for _, good := range goods {
+			h.requiredGoods[good.RequiredGoodID] = good
+		}
+		offset += limit
 	}
 	return nil
 }
 
-func (h *createsHandler) checkGoodsInRequests() error {
-	requiredSet := make(map[string]struct{})
-	for _, goodRequired := range h.goodRequireds {
-		requiredSet[goodRequired.RequiredGoodID] = struct{}{}
-	}
-
+func (h *createsHandler) validateOrderGoods() error {
 	for _, order := range h.Orders {
-		appgood := h.appGoods[order.AppGoodID]
 		if order.Parent {
 			continue
 		}
-		if _, ok := requiredSet[appgood.GoodID]; !ok {
-			return fmt.Errorf("invalid goodrequired")
+		appgood := h.appGoods[order.AppGoodID]
+		if _, ok := h.requiredGoods[appgood.GoodID]; !ok {
+			return fmt.Errorf("invalid requiredgood")
 		}
 	}
 	return nil
 }
 
-func (h *createsHandler) checkMustRequestsInGoods() error {
-	goodSet := make(map[string]struct{})
+func (h *createsHandler) validateRequiredGoods() error {
+	orderGoodIDs := map[string]struct{}{}
 	for _, order := range h.Orders {
 		appgood := h.appGoods[order.AppGoodID]
-		goodSet[appgood.GoodID] = struct{}{}
+		orderGoodIDs[appgood.GoodID] = struct{}{}
 	}
-	for _, goodRequired := range h.goodRequireds {
-		if goodRequired.Must {
-			if _, ok := goodSet[goodRequired.RequiredGoodID]; !ok {
-				return fmt.Errorf("invalid goodrequired must")
-			}
+	for _, good := range h.requiredGoods {
+		if !good.Must {
+			continue
+		}
+		if _, ok := orderGoodIDs[good.RequiredGoodID]; !ok {
+			return fmt.Errorf("miss requiredgood")
 		}
 	}
 	return nil
@@ -847,6 +852,8 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		Handler:             h,
 		ids:                 map[string]*string{},
 		appGoods:            map[string]*appgoodmwpb.Good{},
+		goods:               map[string]*goodmwpb.Good{},
+		requiredGoods:       map[string]*goodrequiredpb.Required{},
 		coupons:             map[string]*allocatedmwpb.Coupon{},
 		promotions:          map[string]*topmostmwpb.TopMostGood{},
 		goodValueUSDTAmount: map[string]decimal.Decimal{},
@@ -886,13 +893,13 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	if err := handler.checkUnitsLimit(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.getGoodRequests(ctx); err != nil {
+	if err := handler.getRequiredGoods(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.checkGoodsInRequests(); err != nil {
+	if err := handler.validateOrderGoods(); err != nil {
 		return nil, err
 	}
-	if err := handler.checkMustRequestsInGoods(); err != nil {
+	if err := handler.validateRequiredGoods(); err != nil {
 		return nil, err
 	}
 	if err := handler.getAppGoodPromotions(ctx); err != nil {
