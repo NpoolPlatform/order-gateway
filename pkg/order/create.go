@@ -169,7 +169,7 @@ func (h *createHandler) validateDiscountCoupon() error {
 }
 
 func (h *createHandler) checkMaxUnpaidOrders(ctx context.Context) error {
-	const maxUnpaidOrders = uint32(5)
+	const maxUnpaidOrders = uint32(10000)
 	orderCount, err := ordermwcli.CountOrders(ctx, &ordermwpb.Conds{
 		AppID:        &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 		UserID:       &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
