@@ -30,7 +30,7 @@ var orderStateMap = map[string]*types.OrderState{
 	"DefaultState":   types.OrderState_DefaultOrderState.Enum(),
 	"WaitPayment":    types.OrderState_OrderStateWaitPayment.Enum(),
 	"Paid":           types.OrderState_OrderStatePaid.Enum(),
-	"PaymentTimeout": types.OrderState_OrderStatePaymentTimeout.Enum(),
+	"PaymentTimeout": types.OrderState_OrderStateCanceled.Enum(),
 	"Canceled":       types.OrderState_OrderStateCanceled.Enum(),
 	"InService":      types.OrderState_OrderStateInService.Enum(),
 	"Expired":        types.OrderState_OrderStateExpired.Enum(),
@@ -191,6 +191,14 @@ func migrateOrder(ctx context.Context, tx *ent.Tx) error {
 		// payment_amount
 		paymentAmount := payment.Amount.Add(payment.PayWithBalanceAmount)
 
+		paymentType := types.PaymentType_PayWithTransferAndBalance
+		switch order.Type {
+		case types.OrderType_Offline.String():
+			paymentType = types.PaymentType_PayWithOffline
+		case types.OrderType_Airdrop.String():
+			paymentType = types.PaymentType_PayWithNoPayment
+		}
+
 		_, err = tx.Order.Update().
 			Where(
 				entorder.ID(order.ID),
@@ -204,7 +212,7 @@ func migrateOrder(ctx context.Context, tx *ent.Tx) error {
 			SetOrderType(order.Type).
 			SetCoinTypeID(good.CoinTypeID).
 			SetPaymentCoinTypeID(payment.CoinInfoID).
-			SetPaymentType(types.PaymentType_PayWithTransferAndBalance.String()).
+			SetPaymentType(paymentType.String()).
 			SetTransferAmount(payment.Amount).
 			SetBalanceAmount(payment.PayWithBalanceAmount).
 			SetCoinUsdCurrency(payment.CoinUsdCurrency).
@@ -240,6 +248,10 @@ func migrateOrder(ctx context.Context, tx *ent.Tx) error {
 		if paymentState == types.PaymentState_PaymentStateDone.String() {
 			paidAt = payment.UpdatedAt
 		}
+		cancelState := types.OrderState_DefaultOrderState
+		if order.State == "PaymentTimeout" {
+			cancelState = types.OrderState_OrderStatePaymentTimeout
+		}
 
 		if _, err := tx.
 			OrderState.
@@ -254,6 +266,7 @@ func migrateOrder(ctx context.Context, tx *ent.Tx) error {
 			SetPaymentTransactionID(payment.ChainTransactionID).
 			SetPaymentFinishAmount(payment.FinishAmount).
 			SetPaymentState(paymentState).
+			SetCancelState(cancelState.String()).
 			SetPaidAt(paidAt).
 			Save(ctx); err != nil {
 			return err
