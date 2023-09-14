@@ -8,6 +8,10 @@ import (
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	"github.com/NpoolPlatform/order-gateway/api"
 	"github.com/NpoolPlatform/order-gateway/pkg/migrator"
+<<<<<<< HEAD
+=======
+	"github.com/NpoolPlatform/order-middleware/pkg/db"
+>>>>>>> 2bbb23e94a2bdb9ca89f5300f366ec505a93ba50
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	cli "github.com/urfave/cli/v2"
 	"google.golang.org/grpc"
@@ -18,19 +22,32 @@ var runCmd = &cli.Command{
 	Aliases: []string{"s"},
 	Usage:   "Run the daemon",
 	Action: func(c *cli.Context) error {
+<<<<<<< HEAD
 		err := action.Run(
+=======
+		return action.Run(
+>>>>>>> 2bbb23e94a2bdb9ca89f5300f366ec505a93ba50
 			c.Context,
 			run,
 			rpcRegister,
 			rpcGatewayRegister,
 			watch,
 		)
+<<<<<<< HEAD
 
 		return err
+=======
+>>>>>>> 2bbb23e94a2bdb9ca89f5300f366ec505a93ba50
 	},
 }
 
 func run(ctx context.Context) error {
+<<<<<<< HEAD
+=======
+	if err := db.Init(); err != nil {
+		return err
+	}
+>>>>>>> 2bbb23e94a2bdb9ca89f5300f366ec505a93ba50
 	if err := migrator.Migrate(ctx); err != nil {
 		return err
 	}
@@ -64,5 +81,10 @@ func rpcGatewayRegister(mux *runtime.ServeMux, endpoint string, opts []grpc.Dial
 	if err != nil {
 		return err
 	}
+<<<<<<< HEAD
+=======
+
+	_ = apicli.Register(mux)
+>>>>>>> 2bbb23e94a2bdb9ca89f5300f366ec505a93ba50
 	return nil
 }

@@ -84,6 +84,7 @@ type createsHandler struct {
 	orderEndAt          map[string]uint32
 	stockLockIDs        map[string]*string
 	balanceLockID       *string
+	parentOrder         *npool.CreateOrdersRequest_OrderReq
 }
 
 func (h *createsHandler) tomorrowStart() time.Time {
@@ -185,7 +186,7 @@ func (h *createsHandler) checkMaxUnpaidOrders(ctx context.Context) error {
 	orderCount, err := ordermwcli.CountOrders(ctx, &ordermwpb.Conds{
 		AppID:        &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 		UserID:       &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
-		AppGoodID:    &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
+		AppGoodID:    &basetypes.StringVal{Op: cruder.EQ, Value: h.parentAppGood.ID},
 		OrderType:    &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(types.OrderType_Normal)},
 		PaymentState: &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(types.PaymentState_PaymentStateWait)},
 	})
@@ -198,7 +199,7 @@ func (h *createsHandler) checkMaxUnpaidOrders(ctx context.Context) error {
 	return nil
 }
 
-func (h *createsHandler) getAppGoods(ctx context.Context) error {
+func (h *createsHandler) checkAppGoods(ctx context.Context) error {
 	var appGoodIDs []string
 	parentAppGoodID := uuid.Nil.String()
 	for _, order := range h.Orders {
@@ -220,6 +221,9 @@ func (h *createsHandler) getAppGoods(ctx context.Context) error {
 		return fmt.Errorf("invalid appgoods")
 	}
 	for _, good := range goods {
+		if !good.EnablePurchase {
+			return fmt.Errorf("appgood is not enabled purchase")
+		}
 		h.appGoods[good.ID] = good
 		if good.ID == parentAppGoodID {
 			h.parentAppGood = good
@@ -231,7 +235,7 @@ func (h *createsHandler) getAppGoods(ctx context.Context) error {
 	return nil
 }
 
-func (h *createsHandler) getGoods(ctx context.Context) error {
+func (h *createsHandler) checkGoods(ctx context.Context) error {
 	var goodIDs []string
 	var parentGoodID string
 	for _, appGood := range h.appGoods {
@@ -281,47 +285,50 @@ func (h *createsHandler) checkAppGoodCoin(ctx context.Context) error {
 	return nil
 }
 
+func (h *createsHandler) checkParentOrder() error {
+	for _, order := range h.Orders {
+		if order.Parent {
+			h.parentOrder = order
+			return nil
+		}
+	}
+	if h.parentOrder == nil {
+		return fmt.Errorf("invalid parent order")
+	}
+	return nil
+}
+
 func (h *createsHandler) checkUnitsLimit(ctx context.Context) error {
 	if *h.OrderType != types.OrderType_Normal {
 		return nil
 	}
-	for _, order := range h.Orders {
-		appGood := h.appGoods[order.AppGoodID]
-		units, err := decimal.NewFromString(order.Units)
-		if err != nil {
-			return err
-		}
-		if appGood.PurchaseLimit > 0 && units.Cmp(decimal.NewFromInt32(appGood.PurchaseLimit)) > 0 {
-			return fmt.Errorf("too many units")
-		}
-		if !appGood.EnablePurchase {
-			return fmt.Errorf("app good is not enabled purchase")
-		}
-		purchaseCountStr, err := ordermwcli.SumOrderUnits(
-			ctx,
-			&ordermwpb.Conds{
-				AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-				UserID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
-				AppGoodID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
-				OrderState: &basetypes.Uint32Val{Op: cruder.NEQ, Value: uint32(types.OrderState_OrderStateCanceled)},
-			},
-		)
-		if err != nil {
-			return err
-		}
-		purchaseCount, err := decimal.NewFromString(purchaseCountStr)
-		if err != nil {
-			return err
-		}
-
-		userPurchaseLimit, err := decimal.NewFromString(appGood.UserPurchaseLimit)
-		if err != nil {
-			return err
-		}
-
-		if userPurchaseLimit.Cmp(decimal.NewFromInt(0)) > 0 && purchaseCount.Add(units).Cmp(userPurchaseLimit) > 0 {
-			return fmt.Errorf("too many units")
-		}
+	appGood := h.parentAppGood
+	units, err := decimal.NewFromString(h.parentOrder.Units)
+	if err != nil {
+		return err
+	}
+	if appGood.PurchaseLimit > 0 && units.Cmp(decimal.NewFromInt32(appGood.PurchaseLimit)) > 0 {
+		return fmt.Errorf("too many units")
+	}
+	purchaseCountStr, err := ordermwcli.SumOrderUnits(ctx, &ordermwpb.Conds{
+		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		UserID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
+		AppGoodID:  &basetypes.StringVal{Op: cruder.EQ, Value: appGood.ID},
+		OrderState: &basetypes.Uint32Val{Op: cruder.NEQ, Value: uint32(types.OrderState_OrderStateCanceled)},
+	})
+	if err != nil {
+		return err
+	}
+	purchaseCount, err := decimal.NewFromString(purchaseCountStr)
+	if err != nil {
+		return err
+	}
+	userPurchaseLimit, err := decimal.NewFromString(appGood.UserPurchaseLimit)
+	if err != nil {
+		return err
+	}
+	if userPurchaseLimit.Cmp(decimal.NewFromInt(0)) > 0 && purchaseCount.Add(units).Cmp(userPurchaseLimit) > 0 {
+		return fmt.Errorf("too many units")
 	}
 	return nil
 }
@@ -880,16 +887,19 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	if err := handler.validateDiscountCoupon(); err != nil {
 		return nil, err
 	}
+	if err := handler.checkAppGoods(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkGoods(ctx); err != nil {
+		return nil, err
+	}
 	if err := handler.checkMaxUnpaidOrders(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.getAppGoods(ctx); err != nil {
-		return nil, err
-	}
-	if err := handler.getGoods(ctx); err != nil {
-		return nil, err
-	}
 	if err := handler.checkAppGoodCoin(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkParentOrder(); err != nil {
 		return nil, err
 	}
 	if err := handler.checkUnitsLimit(ctx); err != nil {
@@ -954,7 +964,6 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 			h.ParentOrderID = &id1
 		}
 		h.IDs = append(h.IDs, id1)
-
 		id2 := uuid.NewString()
 		handler.stockLockIDs[order.AppGoodID] = &id2
 	}
