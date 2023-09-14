@@ -4,258 +4,175 @@ package order
 import (
 	"context"
 
-	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/appgood"
-	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
-	commonpb "github.com/NpoolPlatform/message/npool"
-	appgoodpb "github.com/NpoolPlatform/message/npool/good/mgr/v1/appgood"
-	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
-	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
+	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 
-	commontracer "github.com/NpoolPlatform/order-gateway/pkg/tracer"
-
-	constant "github.com/NpoolPlatform/order-gateway/pkg/message/const"
+	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	order1 "github.com/NpoolPlatform/order-gateway/pkg/order"
 
-	"go.opentelemetry.io/otel"
-	scodes "go.opentelemetry.io/otel/codes"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
-	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
-	ordermgrpb "github.com/NpoolPlatform/message/npool/order/mgr/v1/order"
-
-	"github.com/shopspring/decimal"
-
-	"github.com/google/uuid"
 )
 
-func createOrder(ctx context.Context, in *npool.CreateOrderRequest) (*npool.Order, error) { //nolint
-	var err error
-
-	_, span := otel.Tracer(constant.ServiceName).Start(ctx, "CreateOrder")
-	defer span.End()
-
-	defer func() {
-		if err != nil {
-			span.SetStatus(scodes.Error, err.Error())
-			span.RecordError(err)
-		}
-	}()
-
-	if _, err := uuid.Parse(in.GetAppID()); err != nil {
-		logger.Sugar().Errorw("CreateOrder", "AppID", in.GetAppID(), "error", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	if _, err := uuid.Parse(in.GetUserID()); err != nil {
-		logger.Sugar().Errorw("CreateOrder", "UserID", in.GetUserID(), "error", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	if _, err := uuid.Parse(in.GetGoodID()); err != nil {
-		logger.Sugar().Errorw("CreateOrder", "GoodID", in.GetGoodID(), "error", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	units, err := decimal.NewFromString(in.GetUnits())
-	if err != nil {
-		logger.Sugar().Errorw("CreateOrder", "Units", in.GetUnits())
-		return nil, status.Error(codes.InvalidArgument, "Units is 0")
-	}
-	if units.Cmp(decimal.NewFromInt32(0)) <= 0 {
-		logger.Sugar().Errorw("CreateOrder", "Units", in.GetUnits())
-		return nil, status.Error(codes.InvalidArgument, "Units is 0")
-	}
-	if _, err := uuid.Parse(in.GetPaymentCoinID()); err != nil {
-		logger.Sugar().Errorw("CreateOrder", "PaymentCoinID", in.GetPaymentCoinID(), "error", err)
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	if in.ParentOrderID != nil {
-		if _, err := uuid.Parse(in.GetParentOrderID()); err != nil {
-			logger.Sugar().Errorw("CreateOrder", "ParentOrderID", in.GetParentOrderID(), "error", err)
-			return nil, status.Error(codes.InvalidArgument, err.Error())
-		}
-	}
-	if in.PayWithBalanceAmount != nil {
-		amount, err := decimal.NewFromString(in.GetPayWithBalanceAmount())
-		if err != nil {
-			logger.Sugar().Errorw("CreateOrder", "PayWithBalanceAmount", in.GetPayWithBalanceAmount(), "error", err)
-			return nil, status.Error(codes.InvalidArgument, err.Error())
-		}
-		if amount.Cmp(decimal.NewFromInt(0)) < 0 {
-			logger.Sugar().Errorw("CreateOrder", "PayWithBalanceAmount", in.GetPayWithBalanceAmount())
-			return nil, status.Error(codes.InvalidArgument, "PayWithBalanceAmount less than 0")
-		}
-	}
-	if in.FixAmountID != nil {
-		if _, err := uuid.Parse(in.GetFixAmountID()); err != nil {
-			logger.Sugar().Errorw("CreateOrder", "FixAmountID", in.GetFixAmountID(), "error", err)
-			return nil, status.Error(codes.InvalidArgument, err.Error())
-		}
-	}
-	if in.DiscountID != nil {
-		if _, err := uuid.Parse(in.GetDiscountID()); err != nil {
-			logger.Sugar().Errorw("CreateOrder", "DiscountID", in.GetDiscountID(), "error", err)
-			return nil, status.Error(codes.InvalidArgument, err.Error())
-		}
-	}
-	if in.SpecialOfferID != nil {
-		if _, err := uuid.Parse(in.GetSpecialOfferID()); err != nil {
-			logger.Sugar().Errorw("CreateOrder", "SpecialOfferID", in.GetSpecialOfferID(), "error", err)
-			return nil, status.Error(codes.InvalidArgument, err.Error())
-		}
-	}
-	for _, id := range in.GetCouponIDs() {
-		if _, err := uuid.Parse(id); err != nil {
-			logger.Sugar().Errorw("CreateOrder", "error", err)
-			return nil, status.Error(codes.InvalidArgument, err.Error())
-		}
-	}
-
-	span = commontracer.TraceInvoker(span, "order", "gateway", "CreateOrder")
-
-	// Here we may create sub order according to good info, but we only return main order
-	info, err := order1.CreateOrder(ctx, &order1.OrderCreate{
-		AppID:          in.GetAppID(),
-		UserID:         in.GetUserID(),
-		GoodID:         in.GetGoodID(),
-		PaymentCoinID:  in.GetPaymentCoinID(),
-		Units:          in.GetUnits(),
-		ParentOrderID:  in.ParentOrderID,
-		BalanceAmount:  in.PayWithBalanceAmount,
-		FixAmountID:    in.FixAmountID,
-		DiscountID:     in.DiscountID,
-		SpecialOfferID: in.SpecialOfferID,
-		OrderType:      in.GetOrderType(),
-		CouponIDs:      in.CouponIDs,
-	})
-	if err != nil {
-		logger.Sugar().Errorw("CreateOrder", "error", err)
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	return info, nil
-}
-
 func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) (*npool.CreateOrderResponse, error) {
-	ag, err := appgoodmwcli.GetGoodOnly(ctx, &appgoodpb.Conds{
-		AppID: &commonpb.StringVal{
-			Op:    cruder.EQ,
-			Value: in.AppID,
-		},
-		GoodID: &commonpb.StringVal{
-			Op:    cruder.EQ,
-			Value: in.GoodID,
-		},
-	})
-	if err != nil {
-		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, err.Error())
-	}
-	if ag == nil {
-		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, "invalid app good")
-	}
-	units, err := decimal.NewFromString(in.Units)
-	if err != nil {
-		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, err.Error())
-	}
-	if ag.PurchaseLimit > 0 && units.Cmp(decimal.NewFromInt32(ag.PurchaseLimit)) > 0 {
-		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, "too many units")
-	}
-
-	if !ag.EnablePurchase {
-		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, "app good is not enabled purchase")
-	}
-
-	purchaseCountStr, err := ordermwcli.SumOrderUnits(
+	orderType := ordertypes.OrderType_Normal
+	handler, err := order1.NewHandler(
 		ctx,
-		&ordermwpb.Conds{
-			AppID:  &commonpb.StringVal{Op: cruder.EQ, Value: in.AppID},
-			UserID: &commonpb.StringVal{Op: cruder.EQ, Value: in.UserID},
-			GoodID: &commonpb.StringVal{Op: cruder.EQ, Value: in.GoodID},
-			States: &commonpb.Uint32SliceVal{
-				Op: cruder.IN,
-				Value: []uint32{
-					uint32(ordermgrpb.OrderState_Paid),
-					uint32(ordermgrpb.OrderState_InService),
-					uint32(ordermgrpb.OrderState_Expired),
-					uint32(ordermgrpb.OrderState_WaitPayment),
-				},
-			},
-		},
+		order1.WithAppID(&in.AppID, true),
+		order1.WithUserID(&in.UserID, true),
+		order1.WithAppGoodID(&in.AppGoodID, true),
+		order1.WithUnits(in.Units, true),
+		order1.WithPaymentCoinID(&in.PaymentCoinID, true),
+		order1.WithParentOrderID(in.ParentOrderID, false),
+		order1.WithOrderType(&orderType, true),
+		order1.WithBalanceAmount(in.PayWithBalanceAmount, false),
+		order1.WithCouponIDs(in.CouponIDs, false),
+		order1.WithInvestmentType(&in.InvestmentType, true),
 	)
 	if err != nil {
-		return nil, err
+		logger.Sugar().Errorw(
+			"CreateOrder",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.CreateOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	purchaseCount, err := decimal.NewFromString(purchaseCountStr)
+	info, err := handler.CreateOrder(ctx)
 	if err != nil {
-		return nil, err
-	}
-
-	userPurchaseLimit, err := decimal.NewFromString(ag.UserPurchaseLimit)
-	if err != nil {
-		logger.Sugar().Errorw("ValidateInit", "error", err)
+		logger.Sugar().Errorw(
+			"CreateOrder",
+			"In", in,
+			"Error", err,
+		)
 		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, err.Error())
 	}
 
-	if userPurchaseLimit.Cmp(decimal.NewFromInt(0)) > 0 && purchaseCount.Add(units).Cmp(userPurchaseLimit) > 0 {
-		return &npool.CreateOrderResponse{}, status.Error(codes.Internal, "too many units")
-	}
-
-	in.OrderType = ordermgrpb.OrderType_Normal
-	ord, err := createOrder(ctx, in)
-	if err != nil {
-		return &npool.CreateOrderResponse{}, err
-	}
 	return &npool.CreateOrderResponse{
-		Info: ord,
+		Info: info,
 	}, nil
 }
 
 func (s *Server) CreateUserOrder(ctx context.Context, in *npool.CreateUserOrderRequest) (*npool.CreateUserOrderResponse, error) {
 	switch in.OrderType {
-	case ordermgrpb.OrderType_Offline:
-	case ordermgrpb.OrderType_Airdrop:
+	case ordertypes.OrderType_Offline:
+	case ordertypes.OrderType_Airdrop:
 	default:
 		return &npool.CreateUserOrderResponse{}, status.Errorf(codes.InvalidArgument, "order type invalid")
 	}
 
-	ord, err := createOrder(ctx, &npool.CreateOrderRequest{
-		AppID:         in.AppID,
-		UserID:        in.TargetUserID,
-		GoodID:        in.GoodID,
-		PaymentCoinID: in.PaymentCoinID,
-		Units:         in.Units,
-		ParentOrderID: in.ParentOrderID,
-		OrderType:     in.OrderType,
-	})
+	handler, err := order1.NewHandler(
+		ctx,
+		order1.WithAppID(&in.AppID, true),
+		order1.WithUserID(&in.TargetUserID, true),
+		order1.WithAppGoodID(&in.AppGoodID, true),
+		order1.WithUnits(in.Units, true),
+		order1.WithPaymentCoinID(&in.PaymentCoinID, true),
+		order1.WithParentOrderID(in.ParentOrderID, false),
+		order1.WithOrderType(&in.OrderType, true),
+		order1.WithInvestmentType(&in.InvestmentType, true),
+	)
 	if err != nil {
-		return &npool.CreateUserOrderResponse{}, err
+		logger.Sugar().Errorw(
+			"CreateUserOrder",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.CreateUserOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
 	}
+
+	info, err := handler.CreateOrder(ctx)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"CreateUserOrder",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.CreateUserOrderResponse{}, status.Error(codes.Internal, err.Error())
+	}
+
 	return &npool.CreateUserOrderResponse{
-		Info: ord,
+		Info: info,
 	}, nil
 }
 
 func (s *Server) CreateAppUserOrder(ctx context.Context, in *npool.CreateAppUserOrderRequest) (*npool.CreateAppUserOrderResponse, error) {
 	switch in.OrderType {
-	case ordermgrpb.OrderType_Offline:
-	case ordermgrpb.OrderType_Airdrop:
+	case ordertypes.OrderType_Offline:
+	case ordertypes.OrderType_Airdrop:
 	default:
 		return &npool.CreateAppUserOrderResponse{}, status.Errorf(codes.InvalidArgument, "order type invalid")
 	}
 
-	ord, err := createOrder(ctx, &npool.CreateOrderRequest{
-		AppID:         in.TargetAppID,
-		UserID:        in.TargetUserID,
-		GoodID:        in.GoodID,
-		PaymentCoinID: in.PaymentCoinID,
-		Units:         in.Units,
-		ParentOrderID: in.ParentOrderID,
-		OrderType:     in.OrderType,
-	})
+	handler, err := order1.NewHandler(
+		ctx,
+		order1.WithAppID(&in.TargetAppID, true),
+		order1.WithUserID(&in.TargetUserID, true),
+		order1.WithAppGoodID(&in.AppGoodID, true),
+		order1.WithUnits(in.Units, true),
+		order1.WithPaymentCoinID(&in.PaymentCoinID, true),
+		order1.WithParentOrderID(in.ParentOrderID, false),
+		order1.WithOrderType(&in.OrderType, true),
+		order1.WithInvestmentType(&in.InvestmentType, true),
+	)
 	if err != nil {
-		return &npool.CreateAppUserOrderResponse{}, err
+		logger.Sugar().Errorw(
+			"CreateAppUserOrder",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.CreateAppUserOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
 	}
+
+	info, err := handler.CreateOrder(ctx)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"CreateAppUserOrder",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.CreateAppUserOrderResponse{}, status.Error(codes.Internal, err.Error())
+	}
+
 	return &npool.CreateAppUserOrderResponse{
-		Info: ord,
+		Info: info,
+	}, nil
+}
+
+func (s *Server) CreateOrders(ctx context.Context, in *npool.CreateOrdersRequest) (*npool.CreateOrdersResponse, error) {
+	orderType := ordertypes.OrderType_Normal
+	handler, err := order1.NewHandler(
+		ctx,
+		order1.WithAppID(&in.AppID, true),
+		order1.WithUserID(&in.UserID, true),
+		order1.WithPaymentCoinID(&in.PaymentCoinID, true),
+		order1.WithOrderType(&orderType, true),
+		order1.WithBalanceAmount(in.PayWithBalanceAmount, false),
+		order1.WithCouponIDs(in.CouponIDs, false),
+		order1.WithInvestmentType(&in.InvestmentType, true),
+		order1.WithOrders(in.Orders, true),
+	)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"CreateOrders",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.CreateOrdersResponse{}, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	infos, err := handler.CreateOrders(ctx)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"CreateOrders",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.CreateOrdersResponse{}, status.Error(codes.Internal, err.Error())
+	}
+
+	return &npool.CreateOrdersResponse{
+		Infos: infos,
 	}, nil
 }

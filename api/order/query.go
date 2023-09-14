@@ -10,30 +10,38 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/google/uuid"
 )
 
 func (s *Server) GetOrders(ctx context.Context, in *npool.GetOrdersRequest) (*npool.GetOrdersResponse, error) {
-	if _, err := uuid.Parse(in.GetAppID()); err != nil {
-		logger.Sugar().Errorw("GetOrders", "AppID", in.GetAppID(), "error", err)
-		return &npool.GetOrdersResponse{}, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	if _, err := uuid.Parse(in.GetUserID()); err != nil {
-		logger.Sugar().Errorw("GetOrders", "UserID", in.GetUserID(), "error", err)
-		return &npool.GetOrdersResponse{}, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	ords, n, err := order1.GetOrders(ctx, in.GetAppID(), in.GetUserID(), in.GetOffset(), in.GetLimit())
+	handler, err := order1.NewHandler(
+		ctx,
+		order1.WithAppID(&in.AppID, true),
+		order1.WithUserID(&in.UserID, true),
+		order1.WithOffset(in.GetOffset()),
+		order1.WithLimit(in.GetLimit()),
+	)
 	if err != nil {
-		logger.Sugar().Errorw("GetOrders", "error", err)
+		logger.Sugar().Errorw(
+			"GetOrders",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.GetOrdersResponse{}, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	infos, total, err := handler.GetOrders(ctx)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"GetOrders",
+			"In", in,
+			"Error", err,
+		)
 		return &npool.GetOrdersResponse{}, status.Error(codes.Internal, err.Error())
 	}
 
 	return &npool.GetOrdersResponse{
-		Infos: ords,
-		Total: n,
+		Infos: infos,
+		Total: total,
 	}, nil
 }
 
@@ -72,52 +80,65 @@ func (s *Server) GetAppUserOrders(ctx context.Context, in *npool.GetAppUserOrder
 }
 
 func (s *Server) GetOrder(ctx context.Context, in *npool.GetOrderRequest) (*npool.GetOrderResponse, error) {
-	if _, err := uuid.Parse(in.GetAppID()); err != nil {
-		logger.Sugar().Errorw("GetOrder", "AppID", in.GetAppID(), "error", err)
-		return &npool.GetOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	if _, err := uuid.Parse(in.GetUserID()); err != nil {
-		logger.Sugar().Errorw("GetOrder", "UserID", in.GetUserID(), "error", err)
-		return &npool.GetOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	if _, err := uuid.Parse(in.GetID()); err != nil {
-		logger.Sugar().Errorw("GetOrder", "ID", in.GetID(), "error", err)
-		return &npool.GetOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	ord, err := order1.GetOrder(ctx, in.GetID())
+	handler, err := order1.NewHandler(
+		ctx,
+		order1.WithID(&in.ID, true),
+		order1.WithAppID(&in.AppID, true),
+		order1.WithUserID(&in.UserID, true),
+	)
 	if err != nil {
-		logger.Sugar().Errorw("GetOrder", "error", err)
+		logger.Sugar().Errorw(
+			"GetOrder",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.GetOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	info, err := handler.GetOrder(ctx)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"GetOrder",
+			"In", in,
+			"Error", err,
+		)
 		return &npool.GetOrderResponse{}, status.Error(codes.Internal, err.Error())
 	}
 
-	if ord.AppID != in.GetAppID() || ord.UserID != in.GetUserID() {
-		logger.Sugar().Errorw("GetOrder", "Order", ord, "error", "permission denied")
-		return &npool.GetOrderResponse{}, status.Error(codes.PermissionDenied, "permission denied")
-	}
-
 	return &npool.GetOrderResponse{
-		Info: ord,
+		Info: info,
 	}, nil
 }
 
 func (s *Server) GetAppOrders(ctx context.Context, in *npool.GetAppOrdersRequest) (*npool.GetAppOrdersResponse, error) {
-	if _, err := uuid.Parse(in.GetAppID()); err != nil {
-		logger.Sugar().Errorw("GetAppOrders", "AppID", in.GetAppID(), "error", err)
+	handler, err := order1.NewHandler(
+		ctx,
+		order1.WithAppID(&in.AppID, true),
+		order1.WithOffset(in.GetOffset()),
+		order1.WithLimit(in.GetLimit()),
+	)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"GetAppOrders",
+			"In", in,
+			"Error", err,
+		)
 		return &npool.GetAppOrdersResponse{}, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	ords, n, err := order1.GetAppOrders(ctx, in.GetAppID(), in.GetOffset(), in.GetLimit())
+	infos, total, err := handler.GetOrders(ctx)
 	if err != nil {
-		logger.Sugar().Errorw("GetAppOrders", "error", err)
+		logger.Sugar().Errorw(
+			"GetAppOrders",
+			"In", in,
+			"Error", err,
+		)
 		return &npool.GetAppOrdersResponse{}, status.Error(codes.Internal, err.Error())
 	}
 
 	return &npool.GetAppOrdersResponse{
-		Infos: ords,
-		Total: n,
+		Infos: infos,
+		Total: total,
 	}, nil
 }
 
