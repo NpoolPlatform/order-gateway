@@ -275,7 +275,7 @@ func (h *updateHandler) withLockCommission(dispose *dtmcli.SagaDispose) {
 		req := &ledgermwpb.LedgerReq{
 			AppID:      &statement.AppID,
 			UserID:     &statement.UserID,
-			CoinTypeID: &statement.CoinTypeID,
+			CoinTypeID: &statement.PaymentCoinTypeID,
 			Spendable:  &statement.Commission,
 			LockID:     h.commissionLockIDs[statement.ID],
 		}
