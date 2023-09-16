@@ -554,10 +554,16 @@ func (h *createsHandler) peekExistAddress(ctx context.Context) (*payaccmwpb.Acco
 		return nil, err
 	}
 	for _, account := range accounts {
-		if account.Locked || !account.Active || account.Blocked {
+		if err := accountlock.Lock(account.AccountID); err != nil {
 			continue
 		}
-		if account.AvailableAt > uint32(time.Now().Unix()) {
+		usable, err := h.recheckPaymentAccount(ctx, account.ID)
+		if err != nil {
+			accountlock.Unlock(account.AccountID)
+			return nil, err
+		}
+		if !usable {
+			accountlock.Unlock(account.AccountID)
 			continue
 		}
 		return account, nil
@@ -593,7 +599,7 @@ func (h *createsHandler) peekNewAddress(ctx context.Context) (*payaccmwpb.Accoun
 	return h.peekExistAddress(ctx)
 }
 
-func (h *createsHandler) peekPaymentAddress(ctx context.Context) error {
+func (h *createsHandler) acquirePaymentAddress(ctx context.Context) error {
 	switch h.paymentType {
 	case types.PaymentType_PayWithBalanceOnly:
 		fallthrough //nolint
@@ -612,24 +618,33 @@ func (h *createsHandler) peekPaymentAddress(ctx context.Context) error {
 	return nil
 }
 
-func (h *createsHandler) recheckPaymentAccount(ctx context.Context) error {
-	account, err := payaccmwcli.GetAccount(ctx, h.paymentAccount.ID)
+func (h *createsHandler) releasePaymentAddress() {
+	if h.paymentAccount != nil {
+		accountlock.Unlock(h.paymentAccount.AccountID)
+	}
+}
+
+func (h *createsHandler) recheckPaymentAccount(ctx context.Context, paymentAccountID string) (bool, error) {
+	account, err := payaccmwcli.GetAccount(ctx, paymentAccountID)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if account == nil {
-		return fmt.Errorf("invalid account")
+		return false, fmt.Errorf("invalid account")
 	}
 	if account.Locked || !account.Active || account.Blocked {
-		return fmt.Errorf("invalid account")
+		return false, nil
 	}
 	if account.AvailableAt > uint32(time.Now().Unix()) {
-		return fmt.Errorf("invalid account")
+		return false, nil
 	}
-	return nil
+	return true, nil
 }
 
 func (h *createsHandler) getPaymentStartAmount(ctx context.Context) error {
+	if h.paymentAccount == nil {
+		return nil
+	}
 	balance, err := sphinxproxycli.GetBalance(ctx, &sphinxproxypb.GetBalanceRequest{
 		Name:    h.paymentCoin.CoinName,
 		Address: h.paymentAccount.Address,
@@ -939,22 +954,12 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	handler.resolveStartMode()
 	handler.resolveStartEnd()
 
-	if err := handler.peekPaymentAddress(ctx); err != nil {
+	if err := handler.acquirePaymentAddress(ctx); err != nil {
 		return nil, err
 	}
-	if handler.paymentAccount != nil {
-		if err := accountlock.Lock(handler.paymentAccount.AccountID); err != nil {
-			return nil, err
-		}
-		if err := handler.recheckPaymentAccount(ctx); err != nil {
-			return nil, err
-		}
-		defer func() {
-			_ = accountlock.Unlock(handler.paymentAccount.AccountID)
-		}()
-		if err := handler.getPaymentStartAmount(ctx); err != nil {
-			return nil, err
-		}
+	defer handler.releasePaymentAddress()
+	if err := handler.getPaymentStartAmount(ctx); err != nil {
+		return nil, err
 	}
 
 	for _, order := range h.Orders {
