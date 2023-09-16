@@ -534,7 +534,7 @@ func (h *createsHandler) resolveStartMode() {
 		appGood := h.appGoods[order.AppGoodID]
 		if appGood.StartMode == goodtypes.GoodStartMode_GoodStartModeTBD {
 			h.orderStartMode[order.AppGoodID] = types.OrderStartMode_OrderStartTBD
-			return
+			continue
 		}
 		h.orderStartMode[order.AppGoodID] = types.OrderStartMode_OrderStartConfirmed
 	}
