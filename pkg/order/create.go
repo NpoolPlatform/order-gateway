@@ -279,6 +279,9 @@ func (h *createHandler) getParentOrder(ctx context.Context) error {
 	if order == nil {
 		return fmt.Errorf("invalid parentorderid")
 	}
+	if order.AppID != *h.AppID || order.UserID != *h.UserID {
+		return fmt.Errorf("invalid parentorder")
+	}
 	h.parentOrder = order
 	return nil
 }
