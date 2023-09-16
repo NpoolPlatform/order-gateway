@@ -559,11 +559,11 @@ func (h *createsHandler) peekExistAddress(ctx context.Context) (*payaccmwpb.Acco
 		}
 		usable, err := h.recheckPaymentAccount(ctx, account.ID)
 		if err != nil {
-			accountlock.Unlock(account.AccountID)
+			_ = accountlock.Unlock(account.AccountID)
 			return nil, err
 		}
 		if !usable {
-			accountlock.Unlock(account.AccountID)
+			_ = accountlock.Unlock(account.AccountID)
 			continue
 		}
 		return account, nil
@@ -620,7 +620,7 @@ func (h *createsHandler) acquirePaymentAddress(ctx context.Context) error {
 
 func (h *createsHandler) releasePaymentAddress() {
 	if h.paymentAccount != nil {
-		accountlock.Unlock(h.paymentAccount.AccountID)
+		_ = accountlock.Unlock(h.paymentAccount.AccountID)
 	}
 }
 
