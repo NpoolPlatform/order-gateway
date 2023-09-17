@@ -4,31 +4,22 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
-
 	payaccmwcli "github.com/NpoolPlatform/account-middleware/pkg/client/payment"
-	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
-
 	usermwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
-	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
-
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
-	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
-
+	appgoodscli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
 	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
+	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
+	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
+	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
+	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
+	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
+	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
+	appgoodsmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
-
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	ordercli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
-
-	appgoodscli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
-	appgoodsmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
-
-	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
-
-	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
-	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 
 	"github.com/google/uuid"
 )
@@ -45,8 +36,6 @@ type queryHandler struct {
 	coupons         map[string]*allocatedmwpb.Coupon
 	coins           map[string]*appcoinmwpb.Coin
 }
-
-var invalidID = uuid.UUID{}.String()
 
 func (h *queryHandler) getUsers(ctx context.Context) error {
 	uids := []string{}
@@ -208,8 +197,6 @@ func (h *queryHandler) getCoins(ctx context.Context) error {
 }
 
 func (h *queryHandler) formalize(ctx context.Context) { //nolint
-	infos := []*npool.Order{}
-
 	for _, ord := range h.orders {
 		info := &npool.Order{
 			ID:                      ord.ID,
@@ -245,19 +232,12 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 			PaidAt:                  ord.PaidAt,
 		}
 
-		user, ok := h.users[ord.UserID]
-		if !ok {
-			logger.Sugar().Warnw("expand", "UserID", ord.UserID, "OrderID", ord.ID)
-		}
-
-		if user != nil {
+		if user, ok := h.users[ord.UserID]; ok {
 			info.EmailAddress = user.EmailAddress
 			info.PhoneNO = user.PhoneNO
 		}
-
 		appGood, ok := h.appGoods[ord.AppID+ord.GoodID]
 		if !ok {
-			logger.Sugar().Warnw("expand", "AppID", ord.AppID, "GoodID", ord.GoodID)
 			continue
 		}
 
@@ -269,7 +249,6 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 
 		coin, ok := h.coins[info.CoinTypeID]
 		if !ok {
-			logger.Sugar().Warnw("expand", "AppID", info.AppID, "CoinTypeID", info.CoinTypeID)
 			continue
 		}
 
@@ -278,15 +257,7 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 		info.CoinUnit = coin.Unit
 		info.CoinPresale = coin.Presale
 
-		if ord.PaymentID != invalidID && ord.PaymentID != "" {
-			coin, ok = h.coins[ord.PaymentCoinTypeID]
-			if !ok {
-				logger.Sugar().Warnw("expand", "AppID", info.AppID, "PaymentCoinTypeID", info.PaymentCoinTypeID)
-				continue
-			}
-		}
-
-		if coin != nil {
+		if coin, ok := h.coins[ord.PaymentCoinTypeID]; ok {
 			info.PaymentCoinName = coin.Name
 			info.PaymentCoinLogo = coin.Logo
 			info.PaymentCoinUnit = coin.Unit
@@ -296,7 +267,6 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 		if ok {
 			info.PaymentAddress = acc.Address
 		}
-
 		for _, id := range ord.CouponIDs {
 			coup, ok := h.coupons[id]
 			if !ok {
@@ -310,25 +280,19 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 				CouponValue: coup.Denomination,
 			})
 		}
-
 		if ord.ParentOrderID != uuid.Nil.String() {
-			porder, ok := h.parentOrders[ord.ParentOrderID]
-			if ok {
+			if porder, ok := h.parentOrders[ord.ParentOrderID]; ok {
 				info.ParentOrderGoodID = porder.GoodID
-				pgood, ok := h.parentAppGoods[ord.AppID+porder.GoodID]
-				if ok {
+				if pgood, ok := h.parentAppGoods[ord.AppID+porder.GoodID]; ok {
 					info.ParentOrderGoodName = pgood.GoodName
 				}
 			}
 		}
-
 		if ord.PaymentType == types.PaymentType_PayWithParentOrder {
 			info.PayWithParent = true
 		}
-
-		infos = append(infos, info)
+		h.infos = append(h.infos, info)
 	}
-	h.infos = infos
 }
 
 func (h *Handler) GetOrder(ctx context.Context) (*npool.Order, error) {
