@@ -1,4 +1,3 @@
-//nolint:dupl
 package order
 
 import (
@@ -25,17 +24,23 @@ import (
 	goodrequiredpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/required"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
-	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
+	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
 
 	"github.com/dtm-labs/dtm/client/dtmcli/dtmimp"
+
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
 
 type createHandler struct {
 	*baseCreateHandler
-	appGood   *appgoodmwpb.Good
-	promotion *topmostmwpb.TopMostGood
+	appGood          *appgoodmwpb.Good
+	topMostGoods     []*topmostmwpb.TopMostGood
+	priceTopMostGood *topmostmwpb.TopMostGood
+	orderStartMode   types.OrderStartMode
+	orderStartAt     uint32
+	orderEndAt       uint32
 }
 
 func (h *createHandler) checkGood(ctx context.Context) error {
@@ -79,47 +84,6 @@ func (h *createHandler) checkAppGoodCoin(ctx context.Context) error {
 	return nil
 }
 
-func (h *createHandler) checkUnitsLimit(ctx context.Context) error {
-	if *h.OrderType != types.OrderType_Normal {
-		return nil
-	}
-	units, err := decimal.NewFromString(h.Units)
-	if err != nil {
-		return err
-	}
-	if h.appGood.PurchaseLimit > 0 && units.Cmp(decimal.NewFromInt32(h.appGood.PurchaseLimit)) > 0 {
-		return fmt.Errorf("too many units")
-	}
-	if !h.appGood.EnablePurchase {
-		return fmt.Errorf("app good is not enabled purchase")
-	}
-	purchaseCountStr, err := ordermwcli.SumOrderUnits(ctx, &ordermwpb.Conds{
-		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		UserID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
-		AppGoodID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
-		OrderState: &basetypes.Uint32Val{Op: cruder.NEQ, Value: uint32(types.OrderState_OrderStateCanceled)},
-	})
-	if err != nil {
-		return err
-	}
-	purchaseCount, err := decimal.NewFromString(purchaseCountStr)
-	if err != nil {
-		return err
-	}
-
-	userPurchaseLimit, err := decimal.NewFromString(h.appGood.UserPurchaseLimit)
-	if err != nil {
-		return err
-	}
-
-	if userPurchaseLimit.Cmp(decimal.NewFromInt(0)) > 0 &&
-		purchaseCount.Add(units).Cmp(userPurchaseLimit) > 0 {
-		return fmt.Errorf("too many units")
-	}
-
-	return nil
-}
-
 func (h *createHandler) checkParentOrderGoodRequired(ctx context.Context) error {
 	if h.ParentOrderID == nil {
 		return nil
@@ -138,44 +102,55 @@ func (h *createHandler) checkParentOrderGoodRequired(ctx context.Context) error 
 }
 
 func (h *createHandler) getAppGoodPromotion(ctx context.Context) error {
-	promotion, err := topmostmwcli.GetTopMostGoodOnly(ctx, &topmostmwpb.Conds{
-		AppID:       &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		AppGoodID:   &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
-		TopMostType: &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(goodtypes.GoodTopMostType_TopMostPromotion)},
-		// TODO: Promotion time for now
-		// TODO: Other topmost check
-	})
-	if err != nil {
-		return err
+	offset := int32(0)
+	limit := constant.DefaultRowLimit
+
+	for {
+		goods, _, err := topmostmwcli.GetTopMostGoods(ctx, &topmostmwpb.Conds{
+			AppID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+			AppGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
+			// TODO: Promotion time for now
+			// TODO: Other topmost check
+		}, offset, limit)
+		if err != nil {
+			return err
+		}
+		if len(goods) == 0 {
+			break
+		}
+		h.topMostGoods = append(h.topMostGoods, goods...)
+		offset += limit
 	}
-	h.promotion = promotion
 	return nil
 }
 
-func (h *createHandler) calculateOrderUSDTPrice() error {
+func (h *createHandler) calculateOrderUSDPrice() error {
 	units, err := decimal.NewFromString(h.Units)
 	if err != nil {
 		return err
 	}
-	amount, err := decimal.NewFromString(h.appGood.Price)
+	unitPrice, err := decimal.NewFromString(h.appGood.Price)
 	if err != nil {
 		return err
 	}
-	if amount.Cmp(decimal.NewFromInt(0)) <= 0 {
+	if unitPrice.Cmp(decimal.NewFromInt(0)) <= 0 {
 		return fmt.Errorf("invalid price")
 	}
-	if h.promotion == nil {
-		h.goodValueUSDTAmount = amount.Mul(units)
-		return nil
+	h.goodValueUSDAmount = unitPrice.Mul(units)
+	for _, topMost := range h.topMostGoods {
+		price, err := decimal.NewFromString(topMost.Price)
+		if err != nil {
+			return err
+		}
+		if price.Cmp(decimal.NewFromInt(0)) <= 0 {
+			return fmt.Errorf("invalid price")
+		}
+		if unitPrice.Cmp(price) > 0 {
+			unitPrice = price
+			h.priceTopMostGood = topMost
+		}
 	}
-	amount, err = decimal.NewFromString(h.promotion.Price)
-	if err != nil {
-		return err
-	}
-	if amount.Cmp(decimal.NewFromInt(0)) <= 0 {
-		return fmt.Errorf("invalid price")
-	}
-	h.goodValueUSDTAmount = amount.Mul(units)
+	h.paymentUSDAmount = unitPrice.Mul(units)
 	return nil
 }
 
@@ -220,7 +195,7 @@ func (h *createHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
 
 func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose) {
 	goodValueCoinAmount := h.goodValueCoinAmount.String()
-	goodValueUSDTAmount := h.goodValueUSDTAmount.String()
+	goodValueUSDAmount := h.goodValueUSDAmount.String()
 	paymentCoinAmount := h.paymentCoinAmount.String()
 	discountCoinAmount := h.reductionCoinAmount.String()
 	transferCoinAmount := h.transferCoinAmount.String()
@@ -239,7 +214,7 @@ func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose) {
 		ParentOrderID:        h.ParentOrderID,
 		Units:                &h.Units,
 		GoodValue:            &goodValueCoinAmount,
-		GoodValueUSD:         &goodValueUSDTAmount,
+		GoodValueUSD:         &goodValueUSDAmount,
 		PaymentAmount:        &paymentCoinAmount,
 		DiscountAmount:       &discountCoinAmount,
 		DurationDays:         &goodDurationDays,
@@ -260,8 +235,8 @@ func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose) {
 		AppGoodStockLockID:   &h.stockLockID,
 		LedgerLockID:         h.balanceLockID,
 	}
-	if h.promotion != nil {
-		req.PromotionID = &h.promotion.ID
+	if h.priceTopMostGood != nil {
+		req.PromotionID = &h.priceTopMostGood.TopMostID
 	}
 	if h.paymentAccount != nil {
 		req.PaymentAccountID = &h.paymentAccount.AccountID
@@ -342,7 +317,7 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	if err := handler.checkAppGoodCoin(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.checkUnitsLimit(ctx); err != nil {
+	if err := handler.checkUnitsLimit(ctx, handler.appGood); err != nil {
 		return nil, err
 	}
 	if err := handler.checkParentOrder(ctx); err != nil {
@@ -354,7 +329,7 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	if err := handler.getAppGoodPromotion(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.calculateOrderUSDTPrice(); err != nil {
+	if err := handler.calculateOrderUSDPrice(); err != nil {
 		return nil, err
 	}
 	if err := handler.calculateDiscountCouponReduction(); err != nil {
@@ -376,7 +351,12 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	handler.resolvePaymentType()
 	handler.resolveStartMode()
 	handler.resolveStartEnd()
-	handler.prepareOrderAndLockIDs()
+	handler.prepareStockAndLedgerLockIDs()
+
+	id1 := uuid.NewString()
+	if h.ID == nil {
+		h.ID = &id1
+	}
 
 	if err := handler.acquirePaymentAddress(ctx); err != nil {
 		return nil, err

@@ -1,4 +1,3 @@
-//nolint:dupl
 package order
 
 import (
@@ -25,6 +24,7 @@ import (
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
 	currencymwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin/currency"
+	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
@@ -45,10 +45,11 @@ type baseCreateHandler struct {
 	paymentAccount      *payaccmwpb.Account
 	paymentStartAmount  decimal.Decimal
 	coupons             map[string]*allocatedmwpb.Coupon
-	goodValueUSDTAmount decimal.Decimal
+	goodValueUSDAmount  decimal.Decimal
 	goodValueCoinAmount decimal.Decimal
 	paymentCoinAmount   decimal.Decimal
-	reductionUSDTAmount decimal.Decimal
+	paymentUSDAmount    decimal.Decimal
+	reductionUSDAmount  decimal.Decimal
 	reductionCoinAmount decimal.Decimal
 	liveCurrencyAmount  decimal.Decimal
 	coinCurrencyAmount  decimal.Decimal
@@ -56,9 +57,6 @@ type baseCreateHandler struct {
 	balanceCoinAmount   decimal.Decimal
 	transferCoinAmount  decimal.Decimal
 	paymentType         types.PaymentType
-	orderStartMode      types.OrderStartMode
-	orderStartAt        uint32
-	orderEndAt          uint32
 	stockLockID         string
 	balanceLockID       *string
 }
@@ -198,8 +196,8 @@ func (h *baseCreateHandler) calculateDiscountCouponReduction() error {
 		if err != nil {
 			return err
 		}
-		h.reductionUSDTAmount = h.reductionUSDTAmount.Add(
-			h.goodValueUSDTAmount.Mul(discount).Div(decimal.NewFromInt(100)), //nolint
+		h.reductionUSDAmount = h.reductionUSDAmount.Add(
+			h.goodValueUSDAmount.Mul(discount).Div(decimal.NewFromInt(100)), //nolint
 		)
 	}
 	return nil
@@ -217,12 +215,11 @@ func (h *baseCreateHandler) calculateFixAmountCouponReduction() error {
 		if err != nil {
 			return err
 		}
-		h.reductionUSDTAmount = h.reductionUSDTAmount.Add(amount)
+		h.reductionUSDAmount = h.reductionUSDAmount.Add(amount)
 	}
 	return nil
 }
 
-//nolint:dupl
 func (h *baseCreateHandler) checkPaymentCoinCurrency(ctx context.Context) error {
 	currency, err := currencymwcli.GetCurrencyOnly(ctx, &currencymwpb.Conds{
 		CoinTypeID: &basetypes.StringVal{Op: cruder.EQ, Value: h.paymentCoin.CoinTypeID},
@@ -267,21 +264,18 @@ func (h *baseCreateHandler) checkPaymentCoinCurrency(ctx context.Context) error 
 }
 
 func (h *baseCreateHandler) checkPaymentCoinAmount() error {
-	amount := h.goodValueUSDTAmount.
-		Sub(h.reductionUSDTAmount).
+	amount := h.paymentUSDAmount.
+		Sub(h.reductionUSDAmount).
 		Div(h.coinCurrencyAmount)
 	if amount.Cmp(decimal.NewFromInt(0)) <= 0 {
 		return fmt.Errorf("invalid price")
 	}
 	h.paymentCoinAmount = amount
-	h.goodValueCoinAmount = h.goodValueUSDTAmount.Div(h.coinCurrencyAmount)
-	h.goodValueCoinAmount = h.goodValueCoinAmount
-	h.reductionCoinAmount = h.reductionUSDTAmount.Div(h.coinCurrencyAmount)
-	h.reductionCoinAmount = h.reductionCoinAmount
+	h.goodValueCoinAmount = h.goodValueUSDAmount.Div(h.coinCurrencyAmount)
+	h.reductionCoinAmount = h.reductionUSDAmount.Div(h.coinCurrencyAmount)
 	return nil
 }
 
-//nolint:dupl
 func (h *baseCreateHandler) checkTransferCoinAmount() error {
 	if h.BalanceAmount == nil {
 		h.transferCoinAmount = h.paymentCoinAmount
@@ -329,7 +323,6 @@ func (h *baseCreateHandler) resolvePaymentType() {
 	h.paymentType = types.PaymentType_PayWithTransferAndBalance
 }
 
-//nolint:dupl
 func (h *baseCreateHandler) peekExistAddress(ctx context.Context) (*payaccmwpb.Account, error) {
 	const batchAccounts = int32(5)
 	accounts, _, err := payaccmwcli.GetAccounts(ctx, &payaccmwpb.Conds{
@@ -499,14 +492,55 @@ func (h *baseCreateHandler) withLockPaymentAccount(dispose *dtmcli.SagaDispose) 
 	)
 }
 
-func (h *baseCreateHandler) prepareOrderAndLockIDs() {
-	id1 := uuid.NewString()
-	if h.ID == nil {
-		h.ID = &id1
-	}
+func (h *baseCreateHandler) prepareStockAndLedgerLockIDs() {
 	h.stockLockID = uuid.NewString()
 	if h.balanceCoinAmount.Cmp(decimal.NewFromInt(0)) > 0 {
 		id3 := uuid.NewString()
 		h.balanceLockID = &id3
 	}
+}
+
+func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoodmwpb.Good) error {
+	if *h.OrderType != types.OrderType_Normal {
+		return nil
+	}
+	if appGood.ID != *h.AppGoodID {
+		return fmt.Errorf("mismatch appgoodid")
+	}
+	units, err := decimal.NewFromString(h.Units)
+	if err != nil {
+		return err
+	}
+	if appGood.PurchaseLimit > 0 &&
+		units.Cmp(decimal.NewFromInt32(appGood.PurchaseLimit)) > 0 {
+		return fmt.Errorf("too many units")
+	}
+	if !appGood.EnablePurchase {
+		return fmt.Errorf("permission denied")
+	}
+	purchaseCountStr, err := ordermwcli.SumOrderUnits(ctx, &ordermwpb.Conds{
+		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		UserID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
+		AppGoodID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
+		OrderState: &basetypes.Uint32Val{Op: cruder.NEQ, Value: uint32(types.OrderState_OrderStateCanceled)},
+	})
+	if err != nil {
+		return err
+	}
+	purchaseCount, err := decimal.NewFromString(purchaseCountStr)
+	if err != nil {
+		return err
+	}
+
+	userPurchaseLimit, err := decimal.NewFromString(appGood.UserPurchaseLimit)
+	if err != nil {
+		return err
+	}
+
+	if userPurchaseLimit.Cmp(decimal.NewFromInt(0)) > 0 &&
+		purchaseCount.Add(units).Cmp(userPurchaseLimit) > 0 {
+		return fmt.Errorf("too many units")
+	}
+
+	return nil
 }
