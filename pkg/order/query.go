@@ -15,7 +15,7 @@ import (
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
-	appgoodsmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
+	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
@@ -30,8 +30,8 @@ type queryHandler struct {
 	infos           []*npool.Order
 	users           map[string]*usermwpb.User
 	parentOrders    map[string]*ordermwpb.Order
-	appGoods        map[string]*appgoodsmwpb.Good
-	parentAppGoods  map[string]*appgoodsmwpb.Good
+	appGoods        map[string]*appgoodmwpb.Good
+	parentAppGoods  map[string]*appgoodmwpb.Good
 	accountPayments map[string]*payaccmwpb.Account
 	coupons         map[string]*allocatedmwpb.Coupon
 	coins           map[string]*appcoinmwpb.Coin
@@ -130,7 +130,7 @@ func (h *queryHandler) getAppGoods(ctx context.Context) error {
 		goodIDs = append(goodIDs, val.GetGoodID())
 	}
 
-	appGoods, _, err := appgoodscli.GetGoods(ctx, &appgoodsmwpb.Conds{
+	appGoods, _, err := appgoodscli.GetGoods(ctx, &appgoodmwpb.Conds{
 		GoodIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: goodIDs},
 		AppID:   &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 	}, 0, int32(len(goodIDs)))
@@ -153,7 +153,7 @@ func (h *queryHandler) getParentAppGoods(ctx context.Context) error {
 		return nil
 	}
 
-	appGoods, _, err := appgoodscli.GetGoods(ctx, &appgoodsmwpb.Conds{
+	appGoods, _, err := appgoodscli.GetGoods(ctx, &appgoodmwpb.Conds{
 		GoodIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: goodIDs},
 		AppID:   &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 	}, 0, int32(len(goodIDs)))
@@ -162,7 +162,7 @@ func (h *queryHandler) getParentAppGoods(ctx context.Context) error {
 	}
 
 	for _, appGood := range appGoods {
-		h.parentAppGoods[appGood.AppID+appGood.GoodID] = appGood
+		h.parentAppGoods[appGood.ID] = appGood
 	}
 	return nil
 }
@@ -283,7 +283,8 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 		if ord.ParentOrderID != uuid.Nil.String() {
 			if porder, ok := h.parentOrders[ord.ParentOrderID]; ok {
 				info.ParentOrderGoodID = porder.GoodID
-				if pgood, ok := h.parentAppGoods[ord.AppID+porder.GoodID]; ok {
+				if pgood, ok := h.parentAppGoods[ord.AppGoodID]; ok {
+					info.ParentOrderAppGoodID = pgood.ID
 					info.ParentOrderGoodName = pgood.GoodName
 				}
 			}
@@ -313,8 +314,8 @@ func (h *Handler) GetOrder(ctx context.Context) (*npool.Order, error) {
 		infos:           []*npool.Order{},
 		users:           map[string]*usermwpb.User{},
 		parentOrders:    map[string]*ordermwpb.Order{},
-		parentAppGoods:  map[string]*appgoodsmwpb.Good{},
-		appGoods:        map[string]*appgoodsmwpb.Good{},
+		parentAppGoods:  map[string]*appgoodmwpb.Good{},
+		appGoods:        map[string]*appgoodmwpb.Good{},
 		accountPayments: map[string]*payaccmwpb.Account{},
 		coupons:         map[string]*allocatedmwpb.Coupon{},
 		coins:           map[string]*appcoinmwpb.Coin{},
@@ -374,8 +375,8 @@ func (h *Handler) GetOrders(ctx context.Context) ([]*npool.Order, uint32, error)
 		infos:           []*npool.Order{},
 		users:           map[string]*usermwpb.User{},
 		parentOrders:    map[string]*ordermwpb.Order{},
-		parentAppGoods:  map[string]*appgoodsmwpb.Good{},
-		appGoods:        map[string]*appgoodsmwpb.Good{},
+		parentAppGoods:  map[string]*appgoodmwpb.Good{},
+		appGoods:        map[string]*appgoodmwpb.Good{},
 		accountPayments: map[string]*payaccmwpb.Account{},
 		coupons:         map[string]*allocatedmwpb.Coupon{},
 		coins:           map[string]*appcoinmwpb.Coin{},
