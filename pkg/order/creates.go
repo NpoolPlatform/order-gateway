@@ -23,6 +23,7 @@ import (
 	topmostmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/topmost/good"
 	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
 	goodrequiredpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/required"
+	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
@@ -109,9 +110,6 @@ func (h *createsHandler) checkAppGoodCoins(ctx context.Context) error {
 	}, 0, int32(len(coinTypeIDs)))
 	if err != nil {
 		return err
-	}
-	if len(coins) < len(coinTypeIDs) {
-		return fmt.Errorf("invalid appcoins")
 	}
 	for _, coin := range coins {
 		if h.paymentCoin.ENV != coin.ENV {
@@ -237,10 +235,11 @@ func (h *createsHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
 		}
 		dispose.Add(
 			goodmwsvcname.ServiceDomain,
-			"good.middleware.app.good1.stock.v1.Middleware/LockStock",
-			"good.middleware.app.good1.stock.v1.Middleware/UnlockStock",
+			"good.middleware.app.good1.stock.v1.Middleware/Lock",
+			"good.middleware.app.good1.stock.v1.Middleware/Unlock",
 			&appgoodstockmwpb.LockRequest{
 				ID:           h.parentAppGood.AppGoodStockID,
+				AppID:        h.parentAppGood.AppID,
 				GoodID:       h.parentAppGood.GoodID,
 				AppGoodID:    *h.AppGoodID,
 				Units:        order.Units,
@@ -289,6 +288,9 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 			childPaymentType := types.PaymentType_PayWithParentOrder
 			req.PaymentType = &childPaymentType
 		}
+		appGood := h.appGoods[*req.AppGoodID]
+		req.GoodID = &appGood.GoodID
+		req.AppGoodID = &appGood.ID
 	}
 
 	dispose.Add(
@@ -372,6 +374,7 @@ func (h *createsHandler) constructOrderReqs() error {
 			}
 			h.AppGoodID = &order.AppGoodID
 			h.ParentOrderID = &id
+			h.Units = order.Units
 		}
 		h.IDs = append(h.IDs, id)
 	}
@@ -386,6 +389,7 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	handler := &createsHandler{
 		baseCreateHandler: &baseCreateHandler{
 			Handler: h,
+			coupons: map[string]*allocatedmwpb.Coupon{},
 		},
 		appGoods:          map[string]*appgoodmwpb.Good{},
 		goods:             map[string]*goodmwpb.Good{},

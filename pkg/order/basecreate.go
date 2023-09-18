@@ -460,6 +460,7 @@ func (h *baseCreateHandler) withUpdateBalance(dispose *dtmcli.SagaDispose) {
 			CoinTypeID: *h.PaymentCoinID,
 			Amount:     h.balanceCoinAmount.String(),
 			LockID:     *h.balanceLockID,
+			Rollback:   true,
 		},
 	)
 }
