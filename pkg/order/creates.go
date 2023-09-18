@@ -23,6 +23,7 @@ import (
 	topmostmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/topmost/good"
 	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
 	goodrequiredpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/required"
+	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
@@ -386,6 +387,7 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	handler := &createsHandler{
 		baseCreateHandler: &baseCreateHandler{
 			Handler: h,
+			coupons: map[string]*allocatedmwpb.Coupon{},
 		},
 		appGoods:          map[string]*appgoodmwpb.Good{},
 		goods:             map[string]*goodmwpb.Good{},
