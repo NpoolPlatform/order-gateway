@@ -208,9 +208,6 @@ func (h *createsHandler) resolveStartMode() {
 
 func (h *createsHandler) resolveStartEnd() {
 	for _, req := range h.orderReqs {
-		if *req.ID != *h.ParentOrderID {
-			continue
-		}
 		goodStartAt := h.parentAppGood.ServiceStartAt
 		if goodStartAt == 0 {
 			goodStartAt = h.parentAppGood.StartAt
@@ -223,8 +220,15 @@ func (h *createsHandler) resolveStartEnd() {
 		const secondsPerDay = timedef.SecondsPerDay
 		endAt := orderStartAt + goodDurationDays*secondsPerDay
 		req.StartAt = &orderStartAt
-		req.EndAt = &endAt
-		req.DurationDays = &goodDurationDays
+		if *req.ID == *h.ParentOrderID {
+			req.EndAt = &endAt
+			req.DurationDays = &goodDurationDays
+			continue
+		}
+		childDurationDays := uint32(decimal.RequireFromString(*req.Units).IntPart())
+		req.DurationDays = &childDurationDays
+		childEndAt := orderStartAt + childDurationDays*secondsPerDay
+		req.EndAt = &childEndAt
 	}
 }
 
@@ -287,6 +291,8 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 			req.ParentOrderID = h.ParentOrderID
 			childPaymentType := types.PaymentType_PayWithParentOrder
 			req.PaymentType = &childPaymentType
+			invalidID := uuid.Nil.String()
+			req.CoinTypeID = &invalidID
 		}
 		appGood := h.appGoods[*req.AppGoodID]
 		req.GoodID = &appGood.GoodID
