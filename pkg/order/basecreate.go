@@ -45,7 +45,6 @@ type baseCreateHandler struct {
 	paymentAccount      *payaccmwpb.Account
 	paymentStartAmount  decimal.Decimal
 	coupons             map[string]*allocatedmwpb.Coupon
-	goodValueUSDAmount  decimal.Decimal
 	paymentCoinAmount   decimal.Decimal
 	paymentUSDAmount    decimal.Decimal
 	reductionUSDAmount  decimal.Decimal
