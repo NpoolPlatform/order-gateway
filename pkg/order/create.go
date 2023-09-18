@@ -101,6 +101,19 @@ func (h *createHandler) checkParentOrderGoodRequired(ctx context.Context) error 
 	return nil
 }
 
+func (h *createHandler) checkMainGood(ctx context.Context) error {
+	exist, err := goodrequiredmwcli.ExistRequiredConds(ctx, &goodrequiredpb.Conds{
+		RequiredGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.appGood.GoodID},
+	})
+	if err != nil {
+		return err
+	}
+	if exist && h.ParentOrderID == nil {
+		return fmt.Errorf("invalid parentorderid")
+	}
+	return nil
+}
+
 func (h *createHandler) getAppGoodPromotion(ctx context.Context) error {
 	offset := int32(0)
 	limit := constant.DefaultRowLimit
@@ -324,6 +337,9 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 		return nil, err
 	}
 	if err := handler.checkParentOrderGoodRequired(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkMainGood(ctx); err != nil {
 		return nil, err
 	}
 	if err := handler.getAppGoodPromotion(ctx); err != nil {
