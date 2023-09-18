@@ -235,10 +235,11 @@ func (h *createsHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
 		}
 		dispose.Add(
 			goodmwsvcname.ServiceDomain,
-			"good.middleware.app.good1.stock.v1.Middleware/LockStock",
-			"good.middleware.app.good1.stock.v1.Middleware/UnlockStock",
+			"good.middleware.app.good1.stock.v1.Middleware/Lock",
+			"good.middleware.app.good1.stock.v1.Middleware/Unlock",
 			&appgoodstockmwpb.LockRequest{
 				ID:           h.parentAppGood.AppGoodStockID,
+				AppID:        h.parentAppGood.AppID,
 				GoodID:       h.parentAppGood.GoodID,
 				AppGoodID:    *h.AppGoodID,
 				Units:        order.Units,
@@ -287,6 +288,9 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 			childPaymentType := types.PaymentType_PayWithParentOrder
 			req.PaymentType = &childPaymentType
 		}
+		appGood := h.appGoods[*req.AppGoodID]
+		req.GoodID = &appGood.GoodID
+		req.AppGoodID = &appGood.ID
 	}
 
 	dispose.Add(
@@ -370,6 +374,7 @@ func (h *createsHandler) constructOrderReqs() error {
 			}
 			h.AppGoodID = &order.AppGoodID
 			h.ParentOrderID = &id
+			h.Units = order.Units
 		}
 		h.IDs = append(h.IDs, id)
 	}
