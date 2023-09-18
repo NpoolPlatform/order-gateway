@@ -42,6 +42,7 @@ type createHandler struct {
 	orderStartMode      types.OrderStartMode
 	orderStartAt        uint32
 	orderEndAt          uint32
+	goodValueUSDAmount  decimal.Decimal
 	goodValueCoinAmount decimal.Decimal
 }
 
