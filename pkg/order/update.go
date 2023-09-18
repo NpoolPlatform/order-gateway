@@ -282,6 +282,7 @@ func (h *updateHandler) withLockCommission(dispose *dtmcli.SagaDispose) {
 				CoinTypeID: statement.PaymentCoinTypeID,
 				Amount:     statement.Commission,
 				LockID:     h.commissionLockIDs[statement.ID],
+				Rollback:   true,
 			},
 		)
 	}
