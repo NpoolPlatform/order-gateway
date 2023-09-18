@@ -111,9 +111,6 @@ func (h *createsHandler) checkAppGoodCoins(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if len(coins) < len(coinTypeIDs) {
-		return fmt.Errorf("invalid appcoins")
-	}
 	for _, coin := range coins {
 		if h.paymentCoin.ENV != coin.ENV {
 			return fmt.Errorf("mismatch coin environment")
