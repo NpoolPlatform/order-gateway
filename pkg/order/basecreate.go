@@ -46,7 +46,6 @@ type baseCreateHandler struct {
 	paymentStartAmount  decimal.Decimal
 	coupons             map[string]*allocatedmwpb.Coupon
 	goodValueUSDAmount  decimal.Decimal
-	goodValueCoinAmount decimal.Decimal
 	paymentCoinAmount   decimal.Decimal
 	paymentUSDAmount    decimal.Decimal
 	reductionUSDAmount  decimal.Decimal
@@ -197,7 +196,7 @@ func (h *baseCreateHandler) calculateDiscountCouponReduction() error {
 			return err
 		}
 		h.reductionUSDAmount = h.reductionUSDAmount.Add(
-			h.goodValueUSDAmount.Mul(discount).Div(decimal.NewFromInt(100)), //nolint
+			h.paymentUSDAmount.Mul(discount).Div(decimal.NewFromInt(100)), //nolint
 		)
 	}
 	return nil
@@ -271,7 +270,6 @@ func (h *baseCreateHandler) checkPaymentCoinAmount() error {
 		return fmt.Errorf("invalid price")
 	}
 	h.paymentCoinAmount = amount
-	h.goodValueCoinAmount = h.goodValueUSDAmount.Div(h.coinCurrencyAmount)
 	h.reductionCoinAmount = h.reductionUSDAmount.Div(h.coinCurrencyAmount)
 	return nil
 }

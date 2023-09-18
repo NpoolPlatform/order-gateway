@@ -139,7 +139,7 @@ func (h *queryHandler) getAppGoods(ctx context.Context) error {
 	}
 
 	for _, appGood := range appGoods {
-		h.appGoods[appGood.AppID+appGood.GoodID] = appGood
+		h.appGoods[appGood.ID] = appGood
 	}
 	return nil
 }
@@ -236,7 +236,7 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 			info.EmailAddress = user.EmailAddress
 			info.PhoneNO = user.PhoneNO
 		}
-		appGood, ok := h.appGoods[ord.AppID+ord.GoodID]
+		appGood, ok := h.appGoods[ord.AppGoodID]
 		if !ok {
 			continue
 		}
@@ -247,15 +247,12 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 		info.GoodServicePeriodDays = uint32(appGood.DurationDays)
 		info.GoodUnitPrice = appGood.Price
 
-		coin, ok := h.coins[info.CoinTypeID]
-		if !ok {
-			continue
+		if coin, ok := h.coins[info.CoinTypeID]; ok {
+			info.CoinName = coin.Name
+			info.CoinLogo = coin.Logo
+			info.CoinUnit = coin.Unit
+			info.CoinPresale = coin.Presale
 		}
-
-		info.CoinName = coin.Name
-		info.CoinLogo = coin.Logo
-		info.CoinUnit = coin.Unit
-		info.CoinPresale = coin.Presale
 
 		if coin, ok := h.coins[ord.PaymentCoinTypeID]; ok {
 			info.PaymentCoinName = coin.Name

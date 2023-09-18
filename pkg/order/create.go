@@ -36,12 +36,13 @@ import (
 
 type createHandler struct {
 	*baseCreateHandler
-	appGood          *appgoodmwpb.Good
-	topMostGoods     []*topmostmwpb.TopMostGood
-	priceTopMostGood *topmostmwpb.TopMostGood
-	orderStartMode   types.OrderStartMode
-	orderStartAt     uint32
-	orderEndAt       uint32
+	appGood             *appgoodmwpb.Good
+	topMostGoods        []*topmostmwpb.TopMostGood
+	priceTopMostGood    *topmostmwpb.TopMostGood
+	orderStartMode      types.OrderStartMode
+	orderStartAt        uint32
+	orderEndAt          uint32
+	goodValueCoinAmount decimal.Decimal
 }
 
 func (h *createHandler) checkGood(ctx context.Context) error {
@@ -268,6 +269,10 @@ func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose) {
 	)
 }
 
+func (h *createHandler) calculateGoodValueCoinAmount() {
+	h.goodValueCoinAmount = h.goodValueUSDAmount.Div(h.coinCurrencyAmount)
+}
+
 //nolint:funlen,gocyclo
 func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error) {
 	// 1 Check input
@@ -363,6 +368,7 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	if err := handler.checkPaymentCoinAmount(); err != nil {
 		return nil, err
 	}
+	handler.calculateGoodValueCoinAmount()
 	if err := handler.checkTransferCoinAmount(); err != nil {
 		return nil, err
 	}
