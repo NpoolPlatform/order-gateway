@@ -183,6 +183,7 @@ func (h *createHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
 		"good.middleware.app.good1.stock.v1.Middleware/Unlock",
 		&appgoodstockmwpb.LockRequest{
 			ID:           h.appGood.AppGoodStockID,
+			AppID:        h.appGood.AppID,
 			GoodID:       h.appGood.GoodID,
 			AppGoodID:    *h.AppGoodID,
 			Units:        h.Units,
