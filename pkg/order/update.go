@@ -40,7 +40,7 @@ type updateHandler struct {
 	order                 *ordermwpb.Order
 	appGood               *appgoodmwpb.Good
 	achievementStatements []*statementmwpb.Statement
-	commissionLockIDs     map[string]*string
+	commissionLockIDs     map[string]string
 }
 
 func (h *updateHandler) checkCancelParam() error {
@@ -223,22 +223,21 @@ func (h *updateHandler) getCommission(ctx context.Context) error {
 			if commission.Cmp(decimal.NewFromInt(0)) == 0 {
 				continue
 			}
-			_, total, err := ledgerstatementcli.GetStatements(ctx, &ledgerstatementpb.Conds{
+			exist, err := ledgerstatementcli.ExistStatementConds(ctx, &ledgerstatementpb.Conds{
 				AppID:     &basetypes.StringVal{Op: cruder.EQ, Value: val.AppID},
 				UserID:    &basetypes.StringVal{Op: cruder.EQ, Value: val.UserID},
 				IOType:    &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(in)},
 				IOSubType: &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(ledgertypes.IOSubType_Commission)},
 				IOExtra:   &basetypes.StringVal{Op: cruder.LIKE, Value: h.order.ID},
-			}, 0, 1)
+			})
 			if err != nil {
 				return err
 			}
-			if total == 0 {
-				return fmt.Errorf("commission ledger detail is not exist")
+			if !exist {
+				return fmt.Errorf("invalid commission statement")
 			}
 			h.achievementStatements = append(h.achievementStatements, val)
-			id := uuid.NewString()
-			h.commissionLockIDs[val.ID] = &id
+			h.commissionLockIDs[val.ID] = uuid.NewString()
 		}
 	}
 
@@ -251,8 +250,9 @@ func (h *updateHandler) withCreateCommissionLockIDs(dispose *dtmcli.SagaDispose)
 	}
 	reqs := []*orderlockmwpb.OrderLockReq{}
 	for _, statement := range h.achievementStatements {
+		lockID := h.commissionLockIDs[statement.ID]
 		req := &orderlockmwpb.OrderLockReq{
-			ID:       h.commissionLockIDs[statement.ID],
+			ID:       &lockID,
 			AppID:    &statement.AppID,
 			UserID:   &statement.UserID,
 			OrderID:  h.ID,
@@ -272,19 +272,17 @@ func (h *updateHandler) withCreateCommissionLockIDs(dispose *dtmcli.SagaDispose)
 
 func (h *updateHandler) withLockCommission(dispose *dtmcli.SagaDispose) {
 	for _, statement := range h.achievementStatements {
-		req := &ledgermwpb.LedgerReq{
-			AppID:      &statement.AppID,
-			UserID:     &statement.UserID,
-			CoinTypeID: &statement.PaymentCoinTypeID,
-			Spendable:  &statement.Commission,
-			LockID:     h.commissionLockIDs[statement.ID],
-		}
 		dispose.Add(
 			ledgermwsvcname.ServiceDomain,
-			"ledger.middleware.ledger.v2.Middleware/SubBalance",
-			"ledger.middleware.ledger.v2.Middleware/AddBalance",
-			&ledgermwpb.AddBalanceRequest{
-				Info: req,
+			"ledger.middleware.ledger.v2.Middleware/LockBalance",
+			"ledger.middleware.ledger.v2.Middleware/UnlockBalance",
+			&ledgermwpb.LockBalanceRequest{
+				AppID:      statement.AppID,
+				UserID:     statement.UserID,
+				CoinTypeID: statement.PaymentCoinTypeID,
+				Amount:     statement.Commission,
+				LockID:     h.commissionLockIDs[statement.ID],
+				Rollback:   true,
 			},
 		)
 	}
@@ -309,7 +307,7 @@ func (h *updateHandler) withProcessCancel(dispose *dtmcli.SagaDispose) {
 func (h *Handler) UpdateOrder(ctx context.Context) (*npool.Order, error) {
 	handler := &updateHandler{
 		Handler:           h,
-		commissionLockIDs: map[string]*string{},
+		commissionLockIDs: map[string]string{},
 	}
 	if err := handler.checkUser(ctx); err != nil {
 		return nil, err
