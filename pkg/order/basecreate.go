@@ -539,7 +539,9 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 
 func (h *baseCreateHandler) dtmDo(ctx context.Context, dispose *dtmcli.SagaDispose) error {
 	start := time.Now()
-	err := dtmcli.WithSaga(ctx, dispose)
+	_ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	err := dtmcli.WithSaga(_ctx, dispose)
 	dtmElapsed := time.Since(start)
 	logger.Sugar().Infow(
 		"CreateOrder",
