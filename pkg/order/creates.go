@@ -492,6 +492,7 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	sagaDispose := dtmcli.NewSagaDispose(dtmimp.TransOptions{
 		WaitResult:     true,
 		RequestTimeout: timeoutSeconds,
+		TimeoutToFail:  timeoutSeconds,
 	})
 
 	handler.withUpdateStock(sagaDispose)
