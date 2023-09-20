@@ -381,6 +381,7 @@ func (h *createsHandler) constructOrderReqs() error {
 			h.AppGoodID = &order.AppGoodID
 			h.ParentOrderID = &id
 			h.Units = order.Units
+			h.ID = &id
 		}
 		h.IDs = append(h.IDs, id)
 	}
