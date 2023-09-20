@@ -411,7 +411,7 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	handler.withLockPaymentAccount(sagaDispose)
 	handler.withCreateOrder(sagaDispose)
 
-	if err := dtmcli.WithSaga(ctx, sagaDispose); err != nil {
+	if err := handler.dtmDo(ctx, sagaDispose); err != nil {
 		return nil, err
 	}
 
