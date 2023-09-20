@@ -472,20 +472,13 @@ func (h *baseCreateHandler) withLockPaymentAccount(dispose *dtmcli.SagaDispose) 
 	if h.paymentAccount == nil {
 		return
 	}
-
-	locked := true
-	lockedBy := basetypes.AccountLockedBy_Payment
-	req := &payaccmwpb.AccountReq{
-		ID:       &h.paymentAccount.ID,
-		Locked:   &locked,
-		LockedBy: &lockedBy,
-	}
 	dispose.Add(
 		accountmwsvcname.ServiceDomain,
-		"account.middleware.payment.v1.Middleware/UpdateAccount",
-		"",
-		&payaccmwpb.UpdateAccountRequest{
-			Info: req,
+		"account.middleware.payment.v1.Middleware/LockAccount",
+		"account.middleware.payment.v1.Middleware/UnlockAccount",
+		&payaccmwpb.LockAccountRequest{
+			ID:       h.paymentAccount.ID,
+			LockedBy: basetypes.AccountLockedBy_Payment,
 		},
 	)
 }
