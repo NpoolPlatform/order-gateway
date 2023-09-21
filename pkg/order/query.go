@@ -40,6 +40,9 @@ type queryHandler struct {
 func (h *queryHandler) getUsers(ctx context.Context) error {
 	uids := []string{}
 	for _, ord := range h.orders {
+		if _, err := uuid.Parse(ord.UserID); err != nil {
+			continue
+		}
 		uids = append(uids, ord.UserID)
 	}
 	users, _, err := usermwcli.GetUsers(ctx, &usermwpb.Conds{
@@ -124,7 +127,10 @@ func (h *queryHandler) getParentOrders(ctx context.Context) error {
 func (h *queryHandler) getAppGoods(ctx context.Context) error {
 	goodIDs := []string{}
 	for _, ord := range h.orders {
-		goodIDs = append(goodIDs, ord.GetAppGoodID())
+		if _, err := uuid.Parse(ord.AppGoodID); err != nil {
+			continue
+		}
+		goodIDs = append(goodIDs, ord.AppGoodID)
 	}
 
 	appGoods, _, err := appgoodmwcli.GetGoods(ctx, &appgoodmwpb.Conds{
@@ -144,7 +150,10 @@ func (h *queryHandler) getAppGoods(ctx context.Context) error {
 func (h *queryHandler) getParentAppGoods(ctx context.Context) error {
 	goodIDs := []string{}
 	for _, ord := range h.parentOrders {
-		goodIDs = append(goodIDs, ord.GetAppGoodID())
+		if _, err := uuid.Parse(ord.AppGoodID); err != nil {
+			continue
+		}
+		goodIDs = append(goodIDs, ord.AppGoodID)
 	}
 	if len(goodIDs) == 0 {
 		return nil
