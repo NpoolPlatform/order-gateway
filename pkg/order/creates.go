@@ -395,7 +395,9 @@ func (h *createsHandler) constructOrderReqs() error {
 func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err error) {
 	handler := &createsHandler{
 		baseCreateHandler: &baseCreateHandler{
-			Handler: h,
+			dtmHandler: &dtmHandler{
+				Handler: h,
+			},
 			coupons: map[string]*allocatedmwpb.Coupon{},
 		},
 		appGoods:          map[string]*appgoodmwpb.Good{},
