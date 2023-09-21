@@ -36,7 +36,7 @@ import (
 )
 
 type updateHandler struct {
-	*Handler
+	*dtmHandler
 	order                 *ordermwpb.Order
 	appGood               *appgoodmwpb.Good
 	achievementStatements []*statementmwpb.Statement
@@ -306,7 +306,9 @@ func (h *updateHandler) withProcessCancel(dispose *dtmcli.SagaDispose) {
 
 func (h *Handler) UpdateOrder(ctx context.Context) (*npool.Order, error) {
 	handler := &updateHandler{
-		Handler:           h,
+		dtmHandler: &dtmHandler{
+			Handler: h,
+		},
 		commissionLockIDs: map[string]string{},
 	}
 	if err := handler.checkUser(ctx); err != nil {
@@ -338,13 +340,14 @@ func (h *Handler) UpdateOrder(ctx context.Context) (*npool.Order, error) {
 	sagaDispose := dtmcli.NewSagaDispose(dtmimp.TransOptions{
 		WaitResult:     true,
 		RequestTimeout: timeoutSeconds,
+		TimeoutToFail:  timeoutSeconds,
 	})
 
 	handler.withCreateCommissionLockIDs(sagaDispose)
 	handler.withLockCommission(sagaDispose)
 	handler.withProcessCancel(sagaDispose)
 
-	if err := dtmcli.WithSaga(ctx, sagaDispose); err != nil {
+	if err := handler.dtmDo(ctx, sagaDispose); err != nil {
 		return nil, err
 	}
 

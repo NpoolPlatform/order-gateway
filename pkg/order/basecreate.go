@@ -13,7 +13,6 @@ import (
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
 	currencymwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin/currency"
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
-	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
 	ledgermwsvcname "github.com/NpoolPlatform/ledger-middleware/pkg/servicename"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
@@ -38,7 +37,7 @@ import (
 )
 
 type baseCreateHandler struct {
-	*Handler
+	*dtmHandler
 	app                 *appmwpb.App
 	user                *usermwpb.User
 	parentOrder         *ordermwpb.Order
@@ -535,20 +534,4 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 	}
 
 	return nil
-}
-
-func (h *baseCreateHandler) dtmDo(ctx context.Context, dispose *dtmcli.SagaDispose) error {
-	start := time.Now()
-	_ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	err := dtmcli.WithSaga(_ctx, dispose)
-	dtmElapsed := time.Since(start)
-	logger.Sugar().Infow(
-		"CreateOrder",
-		"OrderID", *h.ID,
-		"Start", start,
-		"DtmElapsed", dtmElapsed,
-		"Error", err,
-	)
-	return err
 }

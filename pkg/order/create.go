@@ -308,7 +308,9 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 
 	handler := &createHandler{
 		baseCreateHandler: &baseCreateHandler{
-			Handler: h,
+			dtmHandler: &dtmHandler{
+				Handler: h,
+			},
 			coupons: map[string]*allocatedmwpb.Coupon{},
 		},
 	}
