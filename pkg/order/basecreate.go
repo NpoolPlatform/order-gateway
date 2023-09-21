@@ -13,6 +13,7 @@ import (
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
 	currencymwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin/currency"
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
+	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
 	ledgermwsvcname "github.com/NpoolPlatform/ledger-middleware/pkg/servicename"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
@@ -38,25 +39,26 @@ import (
 
 type baseCreateHandler struct {
 	*dtmHandler
-	app                 *appmwpb.App
-	user                *usermwpb.User
-	parentOrder         *ordermwpb.Order
-	paymentCoin         *appcoinmwpb.Coin
-	paymentAccount      *payaccmwpb.Account
-	paymentStartAmount  decimal.Decimal
-	coupons             map[string]*allocatedmwpb.Coupon
-	paymentCoinAmount   decimal.Decimal
-	paymentUSDAmount    decimal.Decimal
-	reductionUSDAmount  decimal.Decimal
-	reductionCoinAmount decimal.Decimal
-	liveCurrencyAmount  decimal.Decimal
-	coinCurrencyAmount  decimal.Decimal
-	localCurrencyAmount decimal.Decimal
-	balanceCoinAmount   decimal.Decimal
-	transferCoinAmount  decimal.Decimal
-	paymentType         types.PaymentType
-	stockLockID         string
-	balanceLockID       *string
+	app                     *appmwpb.App
+	user                    *usermwpb.User
+	parentOrder             *ordermwpb.Order
+	paymentCoin             *appcoinmwpb.Coin
+	paymentAccount          *payaccmwpb.Account
+	paymentAccountLockStart time.Time
+	paymentStartAmount      decimal.Decimal
+	coupons                 map[string]*allocatedmwpb.Coupon
+	paymentCoinAmount       decimal.Decimal
+	paymentUSDAmount        decimal.Decimal
+	reductionUSDAmount      decimal.Decimal
+	reductionCoinAmount     decimal.Decimal
+	liveCurrencyAmount      decimal.Decimal
+	coinCurrencyAmount      decimal.Decimal
+	localCurrencyAmount     decimal.Decimal
+	balanceCoinAmount       decimal.Decimal
+	transferCoinAmount      decimal.Decimal
+	paymentType             types.PaymentType
+	stockLockID             string
+	balanceLockID           *string
 }
 
 func (h *baseCreateHandler) getUser(ctx context.Context) error {
@@ -394,12 +396,25 @@ func (h *baseCreateHandler) acquirePaymentAddress(ctx context.Context) error {
 		}
 	}
 	h.paymentAccount = account
+	h.paymentAccountLockStart = time.Now()
+	logger.Sugar().Infow(
+		"acquirePaymentAddress",
+		"OrderID", *h.ID,
+		"AccountID", account.AccountID,
+		"LockAt", h.paymentAccountLockStart,
+	)
 	return nil
 }
 
 func (h *baseCreateHandler) releasePaymentAddress() {
 	if h.paymentAccount != nil {
 		_ = accountlock.Unlock(h.paymentAccount.AccountID)
+		logger.Sugar().Infow(
+			"releasePaymentAddress",
+			"OrderID", *h.ID,
+			"AccountID", h.paymentAccount.AccountID,
+			"LockElapsed", time.Since(h.paymentAccountLockStart),
+		)
 	}
 }
 
