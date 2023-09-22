@@ -114,6 +114,7 @@ func (h *baseCreateHandler) getStableUSDCoin(ctx context.Context) error {
 		return fmt.Errorf("invalid appcoin")
 	}
 	h.paymentCoin = coin1
+	h.PaymentCoinID = &coin1.ID
 	return nil
 }
 
