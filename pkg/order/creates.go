@@ -112,6 +112,7 @@ func (h *createsHandler) checkAppGoodCoins(ctx context.Context) error {
 		return err
 	}
 	for _, coin := range coins {
+		h.goodCoinEnv = coin.ENV
 		if h.paymentCoin.ENV != coin.ENV {
 			return fmt.Errorf("mismatch coin environment")
 		}
@@ -413,9 +414,6 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	if err := handler.getUser(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.getPaymentCoin(ctx); err != nil {
-		return nil, err
-	}
 	if err := handler.getCoupons(ctx); err != nil {
 		return nil, err
 	}
@@ -435,6 +433,9 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		return nil, err
 	}
 	if err := handler.checkAppGoodCoins(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.getPaymentCoin(ctx); err != nil {
 		return nil, err
 	}
 	if err := handler.checkUnitsLimit(ctx, handler.parentAppGood); err != nil {

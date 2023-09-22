@@ -11,6 +11,7 @@ import (
 	appmwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/app"
 	usermwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
+	coinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin"
 	currencymwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin/currency"
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
@@ -24,6 +25,7 @@ import (
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
+	coinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin"
 	currencymwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin/currency"
 	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
@@ -59,6 +61,7 @@ type baseCreateHandler struct {
 	paymentType             types.PaymentType
 	stockLockID             string
 	balanceLockID           *string
+	goodCoinEnv             string
 }
 
 func (h *baseCreateHandler) getUser(ctx context.Context) error {
@@ -85,9 +88,38 @@ func (h *baseCreateHandler) getApp(ctx context.Context) error {
 	return nil
 }
 
+func (h *baseCreateHandler) getStableUSDCoin(ctx context.Context) error {
+	coinName := "usdttrc20"
+	if h.goodCoinEnv == "test" {
+		coinName = "tusdttrc20"
+	}
+	coin, err := coinmwcli.GetCoinOnly(ctx, &coinmwpb.Conds{
+		Name: &basetypes.StringVal{Op: cruder.EQ, Value: coinName},
+		ENV:  &basetypes.StringVal{Op: cruder.EQ, Value: h.goodCoinEnv},
+	})
+	if err != nil {
+		return err
+	}
+	if coin == nil {
+		return fmt.Errorf("invalid stablecoin")
+	}
+	coin1, err := appcoinmwcli.GetCoinOnly(ctx, &appcoinmwpb.Conds{
+		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		CoinTypeID: &basetypes.StringVal{Op: cruder.EQ, Value: coin.ID},
+	})
+	if err != nil {
+		return err
+	}
+	if coin1 == nil {
+		return fmt.Errorf("invalid appcoin")
+	}
+	h.paymentCoin = coin1
+	return nil
+}
+
 func (h *baseCreateHandler) getPaymentCoin(ctx context.Context) error {
 	if h.PaymentCoinID == nil {
-		return nil
+		return h.getStableUSDCoin(ctx)
 	}
 	coin, err := appcoinmwcli.GetCoinOnly(ctx, &appcoinmwpb.Conds{
 		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
