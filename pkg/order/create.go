@@ -70,6 +70,10 @@ func (h *createHandler) getAppGood(ctx context.Context) error {
 }
 
 func (h *createHandler) checkAppGoodCoin(ctx context.Context) error {
+	if h.paymentCoin == nil {
+		return nil
+	}
+
 	goodCoin, err := appcoinmwcli.GetCoinOnly(ctx, &appcoinmwpb.Conds{
 		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 		CoinTypeID: &basetypes.StringVal{Op: cruder.EQ, Value: h.appGood.CoinTypeID},
@@ -271,6 +275,9 @@ func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose) {
 }
 
 func (h *createHandler) calculateGoodValueCoinAmount() {
+	if h.paymentAccount == nil {
+		return
+	}
 	h.goodValueCoinAmount = h.goodValueUSDAmount.Div(h.coinCurrencyAmount)
 }
 

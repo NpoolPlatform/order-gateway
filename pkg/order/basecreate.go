@@ -270,6 +270,10 @@ func (h *baseCreateHandler) checkPaymentCoinCurrency(ctx context.Context) error 
 }
 
 func (h *baseCreateHandler) checkPaymentCoinAmount() error {
+	if h.paymentCoin == nil {
+		return nil
+	}
+
 	amount := h.paymentUSDAmount.
 		Sub(h.reductionUSDAmount).
 		Div(h.coinCurrencyAmount)
