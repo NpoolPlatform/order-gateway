@@ -275,7 +275,7 @@ func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose) {
 }
 
 func (h *createHandler) calculateGoodValueCoinAmount() {
-	if h.paymentAccount == nil {
+	if h.paymentCoin == nil {
 		return
 	}
 	h.goodValueCoinAmount = h.goodValueUSDAmount.Div(h.coinCurrencyAmount)
