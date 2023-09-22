@@ -213,6 +213,7 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 			ParentOrderID:           ord.ParentOrderID,
 			Units:                   ord.Units,
 			GoodValue:               ord.GoodValue,
+			GoodValueUSD:            ord.GoodValueUSD,
 			UserSetCanceled:         ord.UserSetCanceled,
 			AdminSetCanceled:        ord.AdminSetCanceled,
 			PaymentID:               ord.PaymentID,
