@@ -14,7 +14,7 @@ require (
 	github.com/NpoolPlatform/ledger-middleware v0.0.0-20230920021034-a5976f8fed42
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20230825073905-d23e4d838f99
 	github.com/NpoolPlatform/message v0.0.0-20230922083723-3e2d5882bcfa
-	github.com/NpoolPlatform/order-middleware v0.0.0-20230922031915-015a732df987
+	github.com/NpoolPlatform/order-middleware v0.0.0-20230922093746-ce494f0ea9a4
 	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20230921040847-49f8ef7f861f
 	github.com/dtm-labs/dtm v1.17.1
 	github.com/go-resty/resty/v2 v2.7.0
