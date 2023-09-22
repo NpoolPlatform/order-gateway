@@ -86,6 +86,9 @@ func (h *baseCreateHandler) getApp(ctx context.Context) error {
 }
 
 func (h *baseCreateHandler) getPaymentCoin(ctx context.Context) error {
+	if h.PaymentCoinID == nil {
+		return nil
+	}
 	coin, err := appcoinmwcli.GetCoinOnly(ctx, &appcoinmwpb.Conds{
 		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 		CoinTypeID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.PaymentCoinID},
@@ -221,6 +224,9 @@ func (h *baseCreateHandler) calculateFixAmountCouponReduction() error {
 }
 
 func (h *baseCreateHandler) checkPaymentCoinCurrency(ctx context.Context) error {
+	if h.paymentCoin == nil {
+		return nil
+	}
 	currency, err := currencymwcli.GetCurrencyOnly(ctx, &currencymwpb.Conds{
 		CoinTypeID: &basetypes.StringVal{Op: cruder.EQ, Value: h.paymentCoin.CoinTypeID},
 	})
@@ -383,6 +389,8 @@ func (h *baseCreateHandler) peekNewAddress(ctx context.Context) (*payaccmwpb.Acc
 func (h *baseCreateHandler) acquirePaymentAddress(ctx context.Context) error {
 	switch h.paymentType {
 	case types.PaymentType_PayWithBalanceOnly:
+		fallthrough //nolint
+	case types.PaymentType_PayWithOffline:
 		fallthrough //nolint
 	case types.PaymentType_PayWithNoPayment:
 		return nil
