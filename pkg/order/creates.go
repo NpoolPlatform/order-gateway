@@ -168,8 +168,11 @@ func (h *createsHandler) calculateOrderUSDPrice() error {
 			return fmt.Errorf("invalid price")
 		}
 
-		goodValue := unitPrice.Mul(units).Div(h.coinCurrencyAmount).String()
+		goodValue := decimal.NewFromInt(0).String()
 		goodValueUSD := unitPrice.Mul(units).String()
+		if h.coinCurrencyAmount.Cmp(decimal.NewFromInt(0)) > 0 {
+			goodValue = unitPrice.Mul(units).Div(h.coinCurrencyAmount).String()
+		}
 		req.GoodValueUSD = &goodValueUSD
 		req.GoodValue = &goodValue
 
