@@ -3,19 +3,19 @@ module github.com/NpoolPlatform/order-gateway
 go 1.17
 
 require (
-	github.com/NpoolPlatform/account-middleware v0.0.0-20230920091440-9356f68938c5
-	github.com/NpoolPlatform/appuser-middleware v0.0.0-20230917082029-230c1954e222
-	github.com/NpoolPlatform/basal-middleware v0.0.0-20230913134752-d45f93a3a60c
-	github.com/NpoolPlatform/chain-middleware v0.0.0-20230922010442-4ad180255430
-	github.com/NpoolPlatform/dtm-cluster v0.0.0-20230920140725-086a9c251068
+	github.com/NpoolPlatform/account-middleware v0.0.0-20230924051917-6beecc3def57
+	github.com/NpoolPlatform/appuser-middleware v0.0.0-20230924060533-3e21b24a2113
+	github.com/NpoolPlatform/basal-middleware v0.0.0-20230924051732-306a71d294ed
+	github.com/NpoolPlatform/chain-middleware v0.0.0-20230924052457-76b2482b116b
+	github.com/NpoolPlatform/dtm-cluster v0.0.0-20230924071211-a66e122ba08f
 	github.com/NpoolPlatform/go-service-framework v0.0.0-20230922114506-a65341cfbf48
-	github.com/NpoolPlatform/good-middleware v0.0.0-20230919031918-f7856e3c0b68
-	github.com/NpoolPlatform/inspire-middleware v0.0.0-20230913112606-d48a3cb95447
-	github.com/NpoolPlatform/ledger-middleware v0.0.0-20230920021034-a5976f8fed42
+	github.com/NpoolPlatform/good-middleware v0.0.0-20230924052908-6a3bb6ba7a4d
+	github.com/NpoolPlatform/inspire-middleware v0.0.0-20230924053035-4e2ef1b162bd
+	github.com/NpoolPlatform/ledger-middleware v0.0.0-20230924053152-8c9b73fba39f
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20230825073905-d23e4d838f99
-	github.com/NpoolPlatform/message v0.0.0-20230922131226-03371703b62a
-	github.com/NpoolPlatform/order-middleware v0.0.0-20230922122100-345a481ff27c
-	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20230921040847-49f8ef7f861f
+	github.com/NpoolPlatform/message v0.0.0-20230923053829-31c88d9a36c2
+	github.com/NpoolPlatform/order-middleware v0.0.0-20230924055637-0cfe6550171b
+	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20230924065515-f20b040a44db
 	github.com/dtm-labs/dtm v1.17.1
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/google/uuid v1.3.0
