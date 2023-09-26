@@ -187,7 +187,10 @@ func migrateOrder(ctx context.Context, tx *ent.Tx) error {
 		// good_valud_usd
 		goodValueUSD := appGood.Price.Mul(order.UnitsV1)
 		// good_value
-		goodValue := goodValueUSD.Div(payment.CoinUsdCurrency)
+		goodValue := goodValueUSD
+		if payment.CoinUsdCurrency.Cmp(decimal.NewFromInt(0)) > 0 {
+			goodValue = goodValueUSD.Div(payment.CoinUsdCurrency)
+		}
 		// payment_amount
 		paymentAmount := payment.Amount.Add(payment.PayWithBalanceAmount)
 
