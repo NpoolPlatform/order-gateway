@@ -202,6 +202,20 @@ func migrateOrder(ctx context.Context, tx *ent.Tx) error {
 			paymentType = types.PaymentType_PayWithNoPayment
 		}
 
+		if payment.CoinUsdCurrency.Cmp(decimal.NewFromInt(0)) == 0 &&
+			payment.LocalCoinUsdCurrency.Cmp(decimal.NewFromInt(0)) == 0 &&
+			payment.LiveCoinUsdCurrency.Cmp(decimal.NewFromInt(0)) == 0 {
+			if payment.CoinUsdCurrency.Cmp(decimal.NewFromInt(0)) == 0 {
+				payment.CoinUsdCurrency = decimal.NewFromInt(1)
+			}
+			if payment.LocalCoinUsdCurrency.Cmp(decimal.NewFromInt(0)) == 0 {
+				payment.LocalCoinUsdCurrency = decimal.NewFromInt(1)
+			}
+			if payment.LiveCoinUsdCurrency.Cmp(decimal.NewFromInt(0)) == 0 {
+				payment.LiveCoinUsdCurrency = decimal.NewFromInt(1)
+			}
+		}
+
 		_, err = tx.Order.Update().
 			Where(
 				entorder.ID(order.ID),
