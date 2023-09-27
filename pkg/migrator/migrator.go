@@ -63,7 +63,7 @@ func resolvePaymentState(oldState string) string {
 //nolint:funlen,gocyclo
 func migrateOrder(ctx context.Context, tx *ent.Tx) error {
 	var err error
-	r, err := tx.QueryContext(ctx, "select id,app_id,user_id,good_id,units_v1,start_at,end_at,type,state,last_benefit_at,deleted_at from orders where app_good_id=''")
+	r, err := tx.QueryContext(ctx, "select id,app_id,user_id,good_id,units_v1,start_at,end_at,type,state,last_benefit_at,deleted_at from orders")
 	if err != nil {
 		return err
 	}
@@ -104,13 +104,13 @@ func migrateOrder(ctx context.Context, tx *ent.Tx) error {
 		Price     decimal.Decimal
 		DeletedAt uint32
 	}
-	appgoods := map[uuid.UUID]*ag{}
+	appgoods := map[string]*ag{}
 	for r.Next() {
 		good := &ag{}
 		if err := r.Scan(&good.ID, &good.AppID, &good.GoodID, &good.Price, &good.DeletedAt); err != nil {
 			return err
 		}
-		appgoods[good.GoodID] = good
+		appgoods[fmt.Sprintf("%v:%v", good.AppID, good.GoodID)] = good
 	}
 
 	r, err = tx.QueryContext(ctx, "select id,coin_type_id,duration_days,deleted_at from good_manager.goods")
@@ -170,7 +170,7 @@ func migrateOrder(ctx context.Context, tx *ent.Tx) error {
 		payments[payment.OrderID] = payment
 	}
 	for _, order := range orders {
-		appGood, ok := appgoods[order.GoodID]
+		appGood, ok := appgoods[fmt.Sprintf("%v:%v", order.AppID, order.GoodID)]
 		if !ok {
 			continue
 		}
