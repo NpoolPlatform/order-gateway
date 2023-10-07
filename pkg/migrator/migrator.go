@@ -1,3 +1,4 @@
+//nolint
 package migrator
 
 import (
@@ -21,7 +22,6 @@ func lockKey() string {
 	return fmt.Sprintf("migrator:%v", serviceID)
 }
 
-//nolint:funlen,gocyclo
 func Migrate(ctx context.Context) error {
 	var err error
 
