@@ -3,19 +3,19 @@ module github.com/NpoolPlatform/order-gateway
 go 1.17
 
 require (
-	github.com/NpoolPlatform/account-middleware v0.0.0-20231008060358-167d4fefc927
-	github.com/NpoolPlatform/appuser-middleware v0.0.0-20231008071345-5f5d687710d1
-	github.com/NpoolPlatform/basal-middleware v0.0.0-20231008034340-a1d6a899ef37
-	github.com/NpoolPlatform/chain-middleware v0.0.0-20231008090947-e534ba41d758
-	github.com/NpoolPlatform/dtm-cluster v0.0.0-20231009012937-204c6b2fcd19
+	github.com/NpoolPlatform/account-middleware v0.0.0-20231011065927-9a824b9f1075
+	github.com/NpoolPlatform/appuser-middleware v0.0.0-20231011071633-e14f373f95cb
+	github.com/NpoolPlatform/basal-middleware v0.0.0-20231011062124-7ea6e9549a66
+	github.com/NpoolPlatform/chain-middleware v0.0.0-20231011074145-82189c94cb0c
+	github.com/NpoolPlatform/dtm-cluster v0.0.0-20231011071916-859e5dcbf626
 	github.com/NpoolPlatform/go-service-framework v0.0.0-20230930023319-e48074d9472e
-	github.com/NpoolPlatform/good-middleware v0.0.0-20231008035243-d786b745cc99
-	github.com/NpoolPlatform/inspire-middleware v0.0.0-20231008074041-2cd224d8b4e6
-	github.com/NpoolPlatform/ledger-middleware v0.0.0-20231008080204-ab1bd718c166
-	github.com/NpoolPlatform/libent-cruder v0.0.0-20231008034140-808c78a650ca
+	github.com/NpoolPlatform/good-middleware v0.0.0-20231011064249-08e0151ee767
+	github.com/NpoolPlatform/inspire-middleware v0.0.0-20231011071847-cbf62ecf31c9
+	github.com/NpoolPlatform/ledger-middleware v0.0.0-20231011072101-96b312d4e534
+	github.com/NpoolPlatform/libent-cruder v0.0.0-20231008051607-f64457cf6ab6
 	github.com/NpoolPlatform/message v0.0.0-20231008114012-493e7589dda5
-	github.com/NpoolPlatform/order-middleware v0.0.0-20231008070232-ffa976c5d6da
-	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20231009011346-53877d61f961
+	github.com/NpoolPlatform/order-middleware v0.0.0-20231011072313-c0f26bd2b58c
+	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20231011085250-d85cb0fa88d7
 	github.com/dtm-labs/dtm v1.17.1
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/google/uuid v1.3.0
