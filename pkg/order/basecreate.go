@@ -203,10 +203,10 @@ func (h *baseCreateHandler) validateCouponScope(ctx context.Context) error {
 		key := fmt.Sprintf("%v-%v", coupon.CouponID, coupon.CouponScope)
 		_, ok := scopeMap[key]
 		if ok && coupon.CouponScope == inspiretypes.CouponScope_Blacklist {
-			return fmt.Errorf("coupon not available")
+			return fmt.Errorf("coupon not available in current scope")
 		}
 		if !ok && coupon.CouponScope == inspiretypes.CouponScope_Whitelist {
-			return fmt.Errorf("coupon not available")
+			return fmt.Errorf("coupon not available in current scope")
 		}
 	}
 	return nil
