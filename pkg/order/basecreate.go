@@ -16,6 +16,7 @@ import (
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
+	scopemwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/scope"
 	ledgermwsvcname "github.com/NpoolPlatform/ledger-middleware/pkg/servicename"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
@@ -29,6 +30,7 @@ import (
 	currencymwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin/currency"
 	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
+	scopemwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/scope"
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
@@ -158,6 +160,39 @@ func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
 			return fmt.Errorf("invalid coupon")
 		}
 		h.coupons[coupon.ID] = coupon
+	}
+	return nil
+}
+
+func (h *baseCreateHandler) validateCouponScope(ctx context.Context) error {
+	scope := inspiretypes.CouponScope_AllGood
+	for _, coupon := range h.coupons {
+		switch coupon.CouponScope {
+		case inspiretypes.CouponScope_AllGood:
+			continue
+		case inspiretypes.CouponScope_Whitelist:
+			scope = inspiretypes.CouponScope_Whitelist
+		case inspiretypes.CouponScope_Blacklist:
+			scope = inspiretypes.CouponScope_Blacklist
+		default:
+			return fmt.Errorf("invalid coupon scope %v", coupon.CouponScope)
+		}
+
+		exist, err := scopemwcli.ExistScopeConds(ctx, &scopemwpb.Conds{
+			AppID:       &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+			AppGoodID:   &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
+			CouponID:    &basetypes.StringVal{Op: cruder.EQ, Value: coupon.CouponID},
+			CouponScope: &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(scope)},
+		})
+		if err != nil {
+			return err
+		}
+		if exist && scope == inspiretypes.CouponScope_Blacklist {
+			return fmt.Errorf("coupon not available")
+		}
+		if !exist && scope == inspiretypes.CouponScope_Whitelist {
+			return fmt.Errorf("coupon not available")
+		}
 	}
 	return nil
 }
