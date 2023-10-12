@@ -193,6 +193,7 @@ func (h *baseCreateHandler) validateCouponScope(ctx context.Context) error {
 			key := fmt.Sprintf("%v-%v", scope.CouponID, scope.CouponScope)
 			scopeMap[key] = scope
 		}
+		offset += limit
 	}
 
 	for _, coupon := range h.coupons {
