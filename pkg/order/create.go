@@ -330,6 +330,9 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	if err := handler.getCoupons(ctx); err != nil {
 		return nil, err
 	}
+	if err := handler.validateCouponScope(ctx); err != nil {
+		return nil, err
+	}
 	if err := handler.validateDiscountCoupon(); err != nil {
 		return nil, err
 	}
