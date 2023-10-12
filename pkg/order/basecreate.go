@@ -34,6 +34,7 @@ import (
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
+	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 	sphinxproxycli "github.com/NpoolPlatform/sphinx-proxy/pkg/client"
 
@@ -165,32 +166,46 @@ func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
 }
 
 func (h *baseCreateHandler) validateCouponScope(ctx context.Context) error {
-	scope := inspiretypes.CouponScope_AllGood
+	ids := []string{}
 	for _, coupon := range h.coupons {
-		switch coupon.CouponScope {
-		case inspiretypes.CouponScope_AllGood:
-			continue
-		case inspiretypes.CouponScope_Whitelist:
-			scope = inspiretypes.CouponScope_Whitelist
-		case inspiretypes.CouponScope_Blacklist:
-			scope = inspiretypes.CouponScope_Blacklist
-		default:
-			return fmt.Errorf("invalid coupon scope %v", coupon.CouponScope)
-		}
+		ids = append(ids, coupon.CouponID)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
 
-		exist, err := scopemwcli.ExistScopeConds(ctx, &scopemwpb.Conds{
-			AppID:       &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-			AppGoodID:   &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
-			CouponID:    &basetypes.StringVal{Op: cruder.EQ, Value: coupon.CouponID},
-			CouponScope: &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(scope)},
-		})
+	scopeMap := map[string]*scopemwpb.Scope{}
+	offset := int32(0)
+	limit := constant.DefaultRowLimit
+	for {
+		scopes, _, err := scopemwcli.GetScopes(ctx, &scopemwpb.Conds{
+			AppID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+			AppGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
+			CouponIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: ids},
+		}, offset, limit)
 		if err != nil {
 			return err
 		}
-		if exist && scope == inspiretypes.CouponScope_Blacklist {
+		if len(scopes) == 0 {
+			break
+		}
+		for _, scope := range scopes {
+			key := fmt.Sprintf("%v-%v", scope.CouponID, scope.CouponScope)
+			scopeMap[key] = scope
+		}
+	}
+
+	for _, coupon := range h.coupons {
+		if coupon.CouponScope == inspiretypes.CouponScope_AllGood {
+			continue
+		}
+
+		key := fmt.Sprintf("%v-%v", coupon.CouponID, coupon.CouponScope)
+		_, ok := scopeMap[key]
+		if ok && coupon.CouponScope == inspiretypes.CouponScope_Blacklist {
 			return fmt.Errorf("coupon not available")
 		}
-		if !exist && scope == inspiretypes.CouponScope_Whitelist {
+		if !ok && coupon.CouponScope == inspiretypes.CouponScope_Whitelist {
 			return fmt.Errorf("coupon not available")
 		}
 	}
