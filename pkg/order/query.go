@@ -114,7 +114,7 @@ func (h *queryHandler) getParentOrders(ctx context.Context) error {
 	orders, _, err := ordercli.GetOrders(ctx, &ordermwpb.Conds{
 		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 		IDs:   &basetypes.StringSliceVal{Op: cruder.IN, Value: ids},
-	}, h.Offset, h.Limit)
+	}, 0, int32(len(ids)))
 	if err != nil {
 		return err
 	}
