@@ -167,11 +167,7 @@ func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
 }
 
 func (h *baseCreateHandler) validateCouponScope(ctx context.Context) error {
-	ids := []string{}
-	for _, coupon := range h.coupons {
-		ids = append(ids, coupon.CouponID)
-	}
-	if len(ids) == 0 {
+	if len(h.CouponIDs) == 0 {
 		return nil
 	}
 
@@ -182,7 +178,7 @@ func (h *baseCreateHandler) validateCouponScope(ctx context.Context) error {
 		scopes, _, err := scopemwcli.GetScopes(ctx, &scopemwpb.Conds{
 			AppID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 			AppGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
-			CouponIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: ids},
+			CouponIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: h.CouponIDs},
 		}, offset, limit)
 		if err != nil {
 			return err
