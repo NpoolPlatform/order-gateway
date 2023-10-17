@@ -147,8 +147,8 @@ func (h *baseCreateHandler) getPaymentCoin(ctx context.Context) error {
 
 func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
 	coupons, _, err := allocatedmwcli.GetCoupons(ctx, &allocatedmwpb.Conds{
-		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		IDs:   &basetypes.StringSliceVal{Op: cruder.IN, Value: h.CouponIDs},
+		AppID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		CouponIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: h.CouponIDs},
 	}, int32(0), int32(len(h.CouponIDs)))
 	if err != nil {
 		return err
