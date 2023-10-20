@@ -105,7 +105,7 @@ func (h *baseCreateHandler) getStableUSDCoin(ctx context.Context) error {
 	}
 	coin1, err := appcoinmwcli.GetCoinOnly(ctx, &appcoinmwpb.Conds{
 		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		CoinTypeID: &basetypes.StringVal{Op: cruder.EQ, Value: coin.ID},
+		CoinTypeID: &basetypes.StringVal{Op: cruder.EQ, Value: coin.EntID},
 	})
 	if err != nil {
 		return err
@@ -114,7 +114,7 @@ func (h *baseCreateHandler) getStableUSDCoin(ctx context.Context) error {
 		return fmt.Errorf("invalid appcoin")
 	}
 	h.paymentCoin = coin1
-	h.PaymentCoinID = &coin.ID
+	h.PaymentCoinID = &coin.EntID
 	return nil
 }
 
