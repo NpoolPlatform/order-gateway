@@ -105,8 +105,8 @@ func (h *createsHandler) checkAppGoodCoins(ctx context.Context) error {
 		coinTypeIDs = append(coinTypeIDs, good.CoinTypeID)
 	}
 	coins, _, err := appcoinmwcli.GetCoins(ctx, &appcoinmwpb.Conds{
-		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		IDs:   &basetypes.StringSliceVal{Op: cruder.IN, Value: coinTypeIDs},
+		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		EntIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: coinTypeIDs},
 	}, 0, int32(len(coinTypeIDs)))
 	if err != nil {
 		return err
