@@ -10,10 +10,10 @@ require (
 	github.com/NpoolPlatform/dtm-cluster v0.0.0-20231011071916-859e5dcbf626
 	github.com/NpoolPlatform/go-service-framework v0.0.0-20230930023319-e48074d9472e
 	github.com/NpoolPlatform/good-middleware v0.0.0-20231011064249-08e0151ee767
-	github.com/NpoolPlatform/inspire-middleware v0.0.0-20231017061036-6bf54c918c46
+	github.com/NpoolPlatform/inspire-middleware v0.0.0-20231023034125-c34020127886
 	github.com/NpoolPlatform/ledger-middleware v0.0.0-20231011072101-96b312d4e534
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20231008051607-f64457cf6ab6
-	github.com/NpoolPlatform/message v0.0.0-20231017052837-0e532945d994
+	github.com/NpoolPlatform/message v0.0.0-20231023033725-2575d20ae4a0
 	github.com/NpoolPlatform/order-middleware v0.0.0-20231011072313-c0f26bd2b58c
 	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20231011085250-d85cb0fa88d7
 	github.com/dtm-labs/dtm v1.17.1
