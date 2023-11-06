@@ -407,7 +407,7 @@ func (h *baseCreateHandler) peekExistAddress(ctx context.Context) (*payaccmwpb.A
 		if err := accountlock.Lock(account.AccountID); err != nil {
 			continue
 		}
-		usable, err := h.recheckPaymentAccount(ctx, account.ID)
+		usable, err := h.recheckPaymentAccount(ctx, account.EntID)
 		if err != nil {
 			_ = accountlock.Unlock(account.AccountID)
 			return nil, err
