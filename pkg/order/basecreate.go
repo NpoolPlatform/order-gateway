@@ -185,6 +185,15 @@ func (h *baseCreateHandler) validateCouponScope(ctx context.Context) error {
 	if err := appgoodscopemwcli.VerifyCouponScopes(ctx, reqs); err != nil {
 		return err
 	}
+
+	valid, err := appgoodscopemwcli.VerifyCouponScopes(ctx, reqs)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return fmt.Errorf("scope not valid")
+	}
+
 	return nil
 }
 
