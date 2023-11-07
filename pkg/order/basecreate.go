@@ -16,7 +16,7 @@ import (
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
-	scopemwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/scope"
+	appgoodscopemwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/app/scope"
 	ledgermwsvcname "github.com/NpoolPlatform/ledger-middleware/pkg/servicename"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
@@ -30,11 +30,10 @@ import (
 	currencymwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin/currency"
 	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
-	scopemwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/scope"
+	appgoodscopemwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/app/scope"
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
-	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 	sphinxproxycli "github.com/NpoolPlatform/sphinx-proxy/pkg/client"
 
@@ -65,6 +64,7 @@ type baseCreateHandler struct {
 	stockLockID             string
 	balanceLockID           *string
 	goodCoinEnv             string
+	goodID                  *string
 }
 
 func (h *baseCreateHandler) getUser(ctx context.Context) error {
@@ -171,47 +171,28 @@ func (h *baseCreateHandler) validateCouponScope(ctx context.Context) error {
 		return nil
 	}
 
-	ids := []string{}
-	for _, coupon := range h.coupons {
-		ids = append(ids, coupon.CouponID)
-	}
-
-	scopeMap := map[string]*scopemwpb.Scope{}
-	offset := int32(0)
-	limit := constant.DefaultRowLimit
-	for {
-		scopes, _, err := scopemwcli.GetScopes(ctx, &scopemwpb.Conds{
-			AppID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-			AppGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
-			CouponIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: ids},
-		}, offset, limit)
-		if err != nil {
-			return err
-		}
-		if len(scopes) == 0 {
-			break
-		}
-		for _, scope := range scopes {
-			key := fmt.Sprintf("%v-%v", scope.CouponID, scope.CouponScope)
-			scopeMap[key] = scope
-		}
-		offset += limit
-	}
-
+	reqs := []*appgoodscopemwpb.ScopeReq{}
 	for _, coupon := range h.coupons {
 		if coupon.CouponScope == inspiretypes.CouponScope_AllGood {
 			continue
 		}
-
-		key := fmt.Sprintf("%v-%v", coupon.CouponID, coupon.CouponScope)
-		_, ok := scopeMap[key]
-		if ok && coupon.CouponScope == inspiretypes.CouponScope_Blacklist {
-			return fmt.Errorf("coupon not available in current scope")
-		}
-		if !ok && coupon.CouponScope == inspiretypes.CouponScope_Whitelist {
-			return fmt.Errorf("coupon not available in current scope")
-		}
+		reqs = append(reqs, &appgoodscopemwpb.ScopeReq{
+			AppID:       h.AppID,
+			AppGoodID:   h.AppGoodID,
+			GoodID:      h.goodID,
+			CouponID:    &coupon.CouponID,
+			CouponScope: &coupon.CouponScope,
+		})
 	}
+
+	valid, err := appgoodscopemwcli.VerifyCouponScopes(ctx, reqs)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return fmt.Errorf("scope not valid")
+	}
+
 	return nil
 }
 
