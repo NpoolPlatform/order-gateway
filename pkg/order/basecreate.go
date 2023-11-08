@@ -173,9 +173,6 @@ func (h *baseCreateHandler) validateCouponScope(ctx context.Context) error {
 
 	reqs := []*appgoodscopemwpb.ScopeReq{}
 	for _, coupon := range h.coupons {
-		if coupon.CouponScope == inspiretypes.CouponScope_AllGood {
-			continue
-		}
 		reqs = append(reqs, &appgoodscopemwpb.ScopeReq{
 			AppID:       h.AppID,
 			AppGoodID:   h.AppGoodID,
