@@ -190,10 +190,6 @@ func (h *baseCreateHandler) validateCouponScope(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if !valid {
-		return fmt.Errorf("scope not valid")
-	}
-
 	return nil
 }
 
