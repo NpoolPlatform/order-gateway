@@ -16,6 +16,7 @@ import (
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
+	appgoodscopemwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/app/scope"
 	ledgermwsvcname "github.com/NpoolPlatform/ledger-middleware/pkg/servicename"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
@@ -29,6 +30,7 @@ import (
 	currencymwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin/currency"
 	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
+	appgoodscopemwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/app/scope"
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
@@ -62,6 +64,7 @@ type baseCreateHandler struct {
 	stockLockID             string
 	balanceLockID           *string
 	goodCoinEnv             string
+	goodID                  *string
 }
 
 func (h *baseCreateHandler) getUser(ctx context.Context) error {
@@ -144,8 +147,9 @@ func (h *baseCreateHandler) getPaymentCoin(ctx context.Context) error {
 
 func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
 	coupons, _, err := allocatedmwcli.GetCoupons(ctx, &allocatedmwpb.Conds{
-		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		IDs:   &basetypes.StringSliceVal{Op: cruder.IN, Value: h.CouponIDs},
+		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		UserID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
+		IDs:    &basetypes.StringSliceVal{Op: cruder.IN, Value: h.CouponIDs},
 	}, int32(0), int32(len(h.CouponIDs)))
 	if err != nil {
 		return err
@@ -158,6 +162,28 @@ func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
 			return fmt.Errorf("invalid coupon")
 		}
 		h.coupons[coupon.ID] = coupon
+	}
+	return nil
+}
+
+func (h *baseCreateHandler) validateCouponScope(ctx context.Context) error {
+	if len(h.coupons) == 0 {
+		return nil
+	}
+
+	reqs := []*appgoodscopemwpb.ScopeReq{}
+	for _, coupon := range h.coupons {
+		reqs = append(reqs, &appgoodscopemwpb.ScopeReq{
+			AppID:       h.AppID,
+			AppGoodID:   h.AppGoodID,
+			GoodID:      h.goodID,
+			CouponID:    &coupon.CouponID,
+			CouponScope: &coupon.CouponScope,
+		})
+	}
+
+	if err := appgoodscopemwcli.VerifyCouponScopes(ctx, reqs); err != nil {
+		return err
 	}
 	return nil
 }

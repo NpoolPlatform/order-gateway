@@ -54,6 +54,7 @@ func (h *createHandler) checkGood(ctx context.Context) error {
 	if good == nil {
 		return fmt.Errorf("invalid good")
 	}
+	h.goodID = &good.ID
 	return nil
 }
 
@@ -327,19 +328,22 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	if err := handler.getUser(ctx); err != nil {
 		return nil, err
 	}
+	if err := handler.getAppGood(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkGood(ctx); err != nil {
+		return nil, err
+	}
 	if err := handler.getCoupons(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.validateCouponScope(ctx); err != nil {
 		return nil, err
 	}
 	if err := handler.validateDiscountCoupon(); err != nil {
 		return nil, err
 	}
 	if err := handler.checkMaxUnpaidOrders(ctx); err != nil {
-		return nil, err
-	}
-	if err := handler.getAppGood(ctx); err != nil {
-		return nil, err
-	}
-	if err := handler.checkGood(ctx); err != nil {
 		return nil, err
 	}
 	if err := handler.checkAppGoodCoin(ctx); err != nil {
