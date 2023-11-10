@@ -64,7 +64,6 @@ type baseCreateHandler struct {
 	stockLockID             string
 	balanceLockID           *string
 	goodCoinEnv             string
-	goodID                  *string
 }
 
 func (h *baseCreateHandler) getUser(ctx context.Context) error {
@@ -150,6 +149,7 @@ func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
 		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 		UserID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
 		IDs:    &basetypes.StringSliceVal{Op: cruder.IN, Value: h.CouponIDs},
+		Used:   &basetypes.BoolVal{Op: cruder.EQ, Value: false},
 	}, int32(0), int32(len(h.CouponIDs)))
 	if err != nil {
 		return err
@@ -166,17 +166,16 @@ func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
 	return nil
 }
 
-func (h *baseCreateHandler) validateCouponScope(ctx context.Context) error {
+func (h *baseCreateHandler) validateCouponScope(ctx context.Context, goodID, appGoodID string) error {
 	if len(h.coupons) == 0 {
 		return nil
 	}
-
 	reqs := []*appgoodscopemwpb.ScopeReq{}
 	for _, coupon := range h.coupons {
 		reqs = append(reqs, &appgoodscopemwpb.ScopeReq{
 			AppID:       h.AppID,
-			AppGoodID:   h.AppGoodID,
-			GoodID:      h.goodID,
+			AppGoodID:   &appGoodID,
+			GoodID:      &goodID,
 			CouponID:    &coupon.CouponID,
 			CouponScope: &coupon.CouponScope,
 		})
