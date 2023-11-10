@@ -7,11 +7,13 @@ import (
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
 	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
+
 	redis2 "github.com/NpoolPlatform/go-service-framework/pkg/redis"
 	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
 	topmostmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good/topmost/good"
 	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	goodrequiredmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/required"
+
 	goodmwsvcname "github.com/NpoolPlatform/good-middleware/pkg/servicename"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
@@ -21,13 +23,13 @@ import (
 	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
 	appgoodstockmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/stock"
 	topmostmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/topmost/good"
+	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
 	goodrequiredpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/required"
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
-
 	"github.com/dtm-labs/dtm/client/dtmcli/dtmimp"
 
 	"github.com/google/uuid"
@@ -37,6 +39,7 @@ import (
 type createHandler struct {
 	*baseCreateHandler
 	appGood             *appgoodmwpb.Good
+	good                *goodmwpb.Good
 	topMostGoods        []*topmostmwpb.TopMostGood
 	priceTopMostGood    *topmostmwpb.TopMostGood
 	orderStartMode      types.OrderStartMode
@@ -54,7 +57,7 @@ func (h *createHandler) checkGood(ctx context.Context) error {
 	if good == nil {
 		return fmt.Errorf("invalid good")
 	}
-	h.goodID = &good.ID
+	h.good = good
 	return nil
 }
 
@@ -337,7 +340,7 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	if err := handler.getCoupons(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.validateCouponScope(ctx); err != nil {
+	if err := handler.validateCouponScope(ctx, handler.good.ID, *h.AppGoodID); err != nil {
 		return nil, err
 	}
 	if err := handler.validateDiscountCoupon(); err != nil {
@@ -429,5 +432,6 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 		return nil, err
 	}
 
+	notifyCouponsUsed(handler.coupons, h.ID)
 	return h.GetOrder(ctx)
 }
