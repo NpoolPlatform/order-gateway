@@ -1,4 +1,5 @@
 resources:
+  - 00-configmap.yaml  
   - 01-order-gateway.viper.yaml
   - 02-order-gateway.yaml
   - 03-strip-prefix.yaml
