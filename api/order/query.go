@@ -82,7 +82,7 @@ func (s *Server) GetAppUserOrders(ctx context.Context, in *npool.GetAppUserOrder
 func (s *Server) GetOrder(ctx context.Context, in *npool.GetOrderRequest) (*npool.GetOrderResponse, error) {
 	handler, err := order1.NewHandler(
 		ctx,
-		order1.WithID(&in.ID, true),
+		order1.WithEntID(&in.EntID, true),
 		order1.WithAppID(&in.AppID, true),
 		order1.WithUserID(&in.UserID, true),
 	)

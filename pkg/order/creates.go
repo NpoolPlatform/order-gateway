@@ -224,7 +224,7 @@ func (h *createsHandler) resolveStartEnd() {
 		const secondsPerDay = timedef.SecondsPerDay
 		endAt := orderStartAt + goodDurationDays*secondsPerDay
 		req.StartAt = &orderStartAt
-		if *req.ID == *h.ParentOrderID {
+		if *req.EntID == *h.ParentOrderID {
 			req.EndAt = &endAt
 			req.DurationDays = &goodDurationDays
 			continue
@@ -273,7 +273,7 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 		req.CoinUSDCurrency = &coinUSDCurrency
 		req.LocalCoinUSDCurrency = &localCoinUSDCurrency
 		req.LiveCoinUSDCurrency = &liveCoinUSDCurrency
-		if *req.ID == *h.ParentOrderID {
+		if *req.EntID == *h.ParentOrderID {
 			if topMost, ok := h.priceTopMostGoods[*req.AppGoodID]; ok {
 				req.PromotionID = &topMost.TopMostID
 			}
@@ -369,7 +369,7 @@ func (h *createsHandler) constructOrderReqs() error {
 	for _, order := range h.Orders {
 		id := uuid.NewString()
 		h.orderReqs = append(h.orderReqs, &ordermwpb.OrderReq{
-			ID:                &id,
+			EntID:             &id,
 			AppID:             h.AppID,
 			UserID:            h.UserID,
 			AppGoodID:         &order.AppGoodID,
@@ -385,9 +385,9 @@ func (h *createsHandler) constructOrderReqs() error {
 			h.AppGoodID = &order.AppGoodID
 			h.ParentOrderID = &id
 			h.Units = order.Units
-			h.ID = &id
+			h.EntID = &id
 		}
-		h.IDs = append(h.IDs, id)
+		h.EntIDs = append(h.EntIDs, id)
 	}
 	if h.AppGoodID == nil {
 		return fmt.Errorf("invalid parentorder")

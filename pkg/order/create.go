@@ -228,7 +228,7 @@ func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose) {
 	goodDurationDays := uint32(h.appGood.DurationDays)
 
 	req := &ordermwpb.OrderReq{
-		ID:                   h.ID,
+		EntID:                h.EntID,
 		AppID:                h.AppID,
 		UserID:               h.UserID,
 		GoodID:               &h.appGood.GoodID,
@@ -393,8 +393,8 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	handler.prepareStockAndLedgerLockIDs()
 
 	id1 := uuid.NewString()
-	if h.ID == nil {
-		h.ID = &id1
+	if h.EntID == nil {
+		h.EntID = &id1
 	}
 
 	if err := handler.acquirePaymentAddress(ctx); err != nil {
@@ -405,7 +405,7 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 		return nil, err
 	}
 
-	key := fmt.Sprintf("%v:%v:%v:%v", basetypes.Prefix_PrefixCreateOrder, *h.AppID, *h.UserID, *handler.ID)
+	key := fmt.Sprintf("%v:%v:%v:%v", basetypes.Prefix_PrefixCreateOrder, *h.AppID, *h.UserID, *handler.EntID)
 	if err := redis2.TryLock(key, 0); err != nil {
 		return nil, err
 	}

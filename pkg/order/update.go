@@ -71,7 +71,7 @@ func (h *updateHandler) checkUser(ctx context.Context) error {
 }
 
 func (h *updateHandler) checkOrder(ctx context.Context) error {
-	order, err := ordermwcli.GetOrder(ctx, *h.ID)
+	order, err := ordermwcli.GetOrder(ctx, *h.EntID)
 	if err != nil {
 		return err
 	}
@@ -204,7 +204,7 @@ func (h *updateHandler) getCommission(ctx context.Context) error {
 	in := ledgertypes.IOType_Incoming
 	for {
 		infos, _, err := statementmwcli.GetStatements(ctx, &statementmwpb.Conds{
-			OrderID: &basetypes.StringVal{Op: cruder.EQ, Value: h.order.ID},
+			OrderID: &basetypes.StringVal{Op: cruder.EQ, Value: h.order.EntID},
 		}, offset, limit)
 		if err != nil {
 			return err
@@ -228,7 +228,7 @@ func (h *updateHandler) getCommission(ctx context.Context) error {
 				UserID:    &basetypes.StringVal{Op: cruder.EQ, Value: val.UserID},
 				IOType:    &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(in)},
 				IOSubType: &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(ledgertypes.IOSubType_Commission)},
-				IOExtra:   &basetypes.StringVal{Op: cruder.LIKE, Value: h.order.ID},
+				IOExtra:   &basetypes.StringVal{Op: cruder.LIKE, Value: h.order.EntID},
 			})
 			if err != nil {
 				return err
@@ -252,10 +252,10 @@ func (h *updateHandler) withCreateCommissionLockIDs(dispose *dtmcli.SagaDispose)
 	for _, statement := range h.achievementStatements {
 		lockID := h.commissionLockIDs[statement.ID]
 		req := &orderlockmwpb.OrderLockReq{
-			ID:       &lockID,
+			EntID:    &lockID,
 			AppID:    &statement.AppID,
 			UserID:   &statement.UserID,
-			OrderID:  h.ID,
+			OrderID:  h.EntID,
 			LockType: ordertypes.OrderLockType_LockCommission.Enum(),
 		}
 		reqs = append(reqs, req)

@@ -112,14 +112,14 @@ func (h *queryHandler) getParentOrders(ctx context.Context) error {
 		}
 	}
 	orders, _, err := ordercli.GetOrders(ctx, &ordermwpb.Conds{
-		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		IDs:   &basetypes.StringSliceVal{Op: cruder.IN, Value: ids},
+		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		EntIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: ids},
 	}, 0, int32(len(ids)))
 	if err != nil {
 		return err
 	}
 	for _, order := range orders {
-		h.parentOrders[order.ID] = order
+		h.parentOrders[order.EntID] = order
 	}
 	return nil
 }
@@ -301,7 +301,7 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 }
 
 func (h *Handler) GetOrder(ctx context.Context) (*npool.Order, error) {
-	order, err := ordercli.GetOrder(ctx, *h.ID)
+	order, err := ordercli.GetOrder(ctx, *h.EntID)
 	if err != nil {
 		return nil, err
 	}
@@ -362,8 +362,8 @@ func (h *Handler) GetOrders(ctx context.Context) ([]*npool.Order, uint32, error)
 	if h.UserID != nil {
 		conds.UserID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID}
 	}
-	if h.IDs != nil && len(h.IDs) != 0 {
-		conds.IDs = &basetypes.StringSliceVal{Op: cruder.IN, Value: h.IDs}
+	if h.EntIDs != nil && len(h.EntIDs) != 0 {
+		conds.EntIDs = &basetypes.StringSliceVal{Op: cruder.IN, Value: h.EntIDs}
 	}
 	ords, total, err := ordercli.GetOrders(ctx, conds, h.Offset, h.Limit)
 	if err != nil {
