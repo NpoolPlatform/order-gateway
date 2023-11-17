@@ -206,6 +206,7 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 	for _, ord := range h.orders {
 		info := &npool.Order{
 			ID:                      ord.ID,
+			EntID:                   ord.EntID,
 			AppID:                   ord.AppID,
 			UserID:                  ord.UserID,
 			GoodID:                  ord.GoodID,
