@@ -20,7 +20,7 @@ func (h *dtmHandler) dtmDo(ctx context.Context, dispose *dtmcli.SagaDispose) err
 	dtmElapsed := time.Since(start)
 	logger.Sugar().Infow(
 		"CreateOrder",
-		"OrderID", *h.ID,
+		"OrderID", *h.EntID,
 		"Start", start,
 		"DtmElapsed", dtmElapsed,
 		"Error", err,
