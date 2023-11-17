@@ -17,6 +17,7 @@ func (s *Server) UpdateOrder(ctx context.Context, in *npool.UpdateOrderRequest) 
 	handler, err := order1.NewHandler(
 		ctx,
 		order1.WithID(&in.ID, true),
+		order1.WithEntID(&in.EntID, true),
 		order1.WithAppID(&in.AppID, true),
 		order1.WithUserID(&in.UserID, true),
 		order1.WithUserSetCanceled(in.Canceled, true),
@@ -49,6 +50,7 @@ func (s *Server) UpdateUserOrder(ctx context.Context, in *npool.UpdateUserOrderR
 	handler, err := order1.NewHandler(
 		ctx,
 		order1.WithID(&in.ID, true),
+		order1.WithEntID(&in.EntID, true),
 		order1.WithAppID(&in.AppID, true),
 		order1.WithUserID(&in.TargetUserID, true),
 		order1.WithAdminSetCanceled(in.Canceled, true),
@@ -81,6 +83,7 @@ func (s *Server) UpdateAppUserOrder(ctx context.Context, in *npool.UpdateAppUser
 	handler, err := order1.NewHandler(
 		ctx,
 		order1.WithID(&in.ID, true),
+		order1.WithEntID(&in.EntID, true),
 		order1.WithAppID(&in.TargetAppID, true),
 		order1.WithUserID(&in.TargetUserID, true),
 		order1.WithAdminSetCanceled(in.Canceled, true),
