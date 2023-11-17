@@ -470,7 +470,7 @@ func (h *baseCreateHandler) acquirePaymentAddress(ctx context.Context) error {
 	h.paymentAccountLockStart = time.Now()
 	logger.Sugar().Infow(
 		"acquirePaymentAddress",
-		"OrderID", *h.ID,
+		"OrderID", *h.EntID,
 		"AccountID", account.AccountID,
 		"LockAt", h.paymentAccountLockStart,
 	)
@@ -482,7 +482,7 @@ func (h *baseCreateHandler) releasePaymentAddress() {
 		_ = accountlock.Unlock(h.paymentAccount.AccountID)
 		logger.Sugar().Infow(
 			"releasePaymentAddress",
-			"OrderID", *h.ID,
+			"OrderID", *h.EntID,
 			"AccountID", h.paymentAccount.AccountID,
 			"LockElapsed", time.Since(h.paymentAccountLockStart),
 		)
