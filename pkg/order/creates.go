@@ -417,6 +417,9 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	if err := handler.getUser(ctx); err != nil {
 		return nil, err
 	}
+	if err := handler.constructOrderReqs(); err != nil {
+		return nil, err
+	}
 	if err := handler.checkAppGoods(ctx); err != nil {
 		return nil, err
 	}
@@ -430,9 +433,6 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		return nil, err
 	}
 	if err := handler.validateDiscountCoupon(); err != nil {
-		return nil, err
-	}
-	if err := handler.constructOrderReqs(); err != nil {
 		return nil, err
 	}
 	if err := handler.checkMaxUnpaidOrders(ctx); err != nil {
