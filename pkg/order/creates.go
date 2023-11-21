@@ -417,12 +417,6 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	if err := handler.getUser(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.getCoupons(ctx); err != nil {
-		return nil, err
-	}
-	if err := handler.validateDiscountCoupon(); err != nil {
-		return nil, err
-	}
 	if err := handler.constructOrderReqs(); err != nil {
 		return nil, err
 	}
@@ -430,6 +424,15 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		return nil, err
 	}
 	if err := handler.checkGoods(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.getCoupons(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.validateCouponScope(ctx, handler.parentGood.ID, handler.parentAppGood.ID); err != nil {
+		return nil, err
+	}
+	if err := handler.validateDiscountCoupon(); err != nil {
 		return nil, err
 	}
 	if err := handler.checkMaxUnpaidOrders(ctx); err != nil {
@@ -516,5 +519,6 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		return nil, err
 	}
 
+	notifyCouponsUsed(handler.coupons, h.ParentOrderID)
 	return orders, nil
 }
