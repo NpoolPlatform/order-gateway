@@ -145,6 +145,9 @@ func (h *baseCreateHandler) getPaymentCoin(ctx context.Context) error {
 }
 
 func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
+	if len(h.CouponIDs) == 0 {
+		return nil
+	}
 	coupons, _, err := allocatedmwcli.GetCoupons(ctx, &allocatedmwpb.Conds{
 		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 		UserID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
@@ -167,7 +170,7 @@ func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
 }
 
 func (h *baseCreateHandler) validateCouponScope(ctx context.Context, goodID, appGoodID string) error {
-	if len(h.coupons) == 0 {
+	if len(h.CouponIDs) == 0 {
 		return nil
 	}
 	reqs := []*appgoodscopemwpb.ScopeReq{}
