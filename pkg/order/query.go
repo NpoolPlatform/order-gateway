@@ -91,15 +91,15 @@ func (h *queryHandler) getCoupons(ctx context.Context) error {
 	}
 
 	coupons, _, err := allocatedmwcli.GetCoupons(ctx, &allocatedmwpb.Conds{
-		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		IDs:   &basetypes.StringSliceVal{Op: cruder.IN, Value: ids},
+		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		EntIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: ids},
 	}, int32(0), int32(len(ids)))
 	if err != nil {
 		return err
 	}
 
 	for _, coup := range coupons {
-		h.coupons[coup.ID] = coup
+		h.coupons[coup.EntID] = coup
 	}
 	return nil
 }

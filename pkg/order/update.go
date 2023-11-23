@@ -240,7 +240,7 @@ func (h *updateHandler) getCommission(ctx context.Context) error {
 				return fmt.Errorf("invalid commission statement")
 			}
 			h.achievementStatements = append(h.achievementStatements, val)
-			h.commissionLockIDs[val.ID] = uuid.NewString()
+			h.commissionLockIDs[val.EntID] = uuid.NewString()
 		}
 	}
 
@@ -253,7 +253,7 @@ func (h *updateHandler) withCreateCommissionLockIDs(dispose *dtmcli.SagaDispose)
 	}
 	reqs := []*orderlockmwpb.OrderLockReq{}
 	for _, statement := range h.achievementStatements {
-		lockID := h.commissionLockIDs[statement.ID]
+		lockID := h.commissionLockIDs[statement.EntID]
 		req := &orderlockmwpb.OrderLockReq{
 			EntID:    &lockID,
 			AppID:    &statement.AppID,
@@ -284,7 +284,7 @@ func (h *updateHandler) withLockCommission(dispose *dtmcli.SagaDispose) {
 				UserID:     statement.UserID,
 				CoinTypeID: statement.PaymentCoinTypeID,
 				Amount:     statement.Commission,
-				LockID:     h.commissionLockIDs[statement.ID],
+				LockID:     h.commissionLockIDs[statement.EntID],
 				Rollback:   true,
 			},
 		)
