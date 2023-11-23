@@ -151,7 +151,7 @@ func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
 	coupons, _, err := allocatedmwcli.GetCoupons(ctx, &allocatedmwpb.Conds{
 		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 		UserID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
-		IDs:    &basetypes.StringSliceVal{Op: cruder.IN, Value: h.CouponIDs},
+		EntIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: h.CouponIDs},
 		Used:   &basetypes.BoolVal{Op: cruder.EQ, Value: false},
 	}, int32(0), int32(len(h.CouponIDs)))
 	if err != nil {
@@ -164,7 +164,7 @@ func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
 		if !coupon.Valid || coupon.Expired {
 			return fmt.Errorf("invalid coupon")
 		}
-		h.coupons[coupon.ID] = coupon
+		h.coupons[coupon.EntID] = coupon
 	}
 	return nil
 }
