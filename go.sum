@@ -72,8 +72,8 @@ github.com/NpoolPlatform/message v0.0.0-20231130082520-4b6d4de73964 h1:yKdkB6urt
 github.com/NpoolPlatform/message v0.0.0-20231130082520-4b6d4de73964/go.mod h1:PxJpF0vSSOke+NJskbRBRQ2fK2K3SRe8zaEja+GxSHk=
 github.com/NpoolPlatform/order-middleware v0.0.0-20231011072313-c0f26bd2b58c h1:stqCDzbX/ODx0eNdkuZmuCDW1MMeydsyzZeE9WaTXXA=
 github.com/NpoolPlatform/order-middleware v0.0.0-20231011072313-c0f26bd2b58c/go.mod h1:2QNwH7blxVhpdqHJXNtT1KhJQ/kFyaCYfRQBRz7DUxE=
-github.com/NpoolPlatform/sphinx-proxy v0.0.0-20231020115438-bd66d3d334af h1:FzsoK7YIfXlpWLqBH8XB5zdBIjlVEG542VC1YL//gpw=
-github.com/NpoolPlatform/sphinx-proxy v0.0.0-20231020115438-bd66d3d334af/go.mod h1:z8RP+jWb1ehnRsidAKv3CfSB5pxuf4QiVSJg3P1Inm8=
+github.com/NpoolPlatform/sphinx-proxy v0.0.0-20231130023745-fe7e3a58a9f0 h1:mkBX11J58nGzHU79x2ghmNVCx1H+CsZiDPRl+0d7Aj0=
+github.com/NpoolPlatform/sphinx-proxy v0.0.0-20231130023745-fe7e3a58a9f0/go.mod h1:+RHDgN4INLgB5GSW3PpkQZ83Gor47pUHsULJv5/Gj8g=
 github.com/OneOfOne/xxhash v1.2.2 h1:KMrpdQIwFcEqXDklaen+P1axHaj9BSKzvpUUfnHldSE=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/Shonminh/apollo-client v0.4.0 h1:AXGp4wOahrEKjheMXehgsG9B8dEfLQHttRLHeEefvus=
