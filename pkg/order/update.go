@@ -71,7 +71,10 @@ func (h *updateHandler) checkUser(ctx context.Context) error {
 }
 
 func (h *updateHandler) checkOrder(ctx context.Context) error {
-	order, err := ordermwcli.GetOrder(ctx, *h.EntID)
+	order, err := ordermwcli.GetOrderOnly(ctx, &ordermwpb.Conds{
+		ID:    &basetypes.Uint32Val{Op: cruder.EQ, Value: *h.ID},
+		EntID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.EntID},
+	})
 	if err != nil {
 		return err
 	}
