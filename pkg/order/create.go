@@ -432,6 +432,6 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 		return nil, err
 	}
 
-	notifyCouponsUsed(handler.coupons, h.ID)
+	notifyCouponsUsed(handler.coupons, h.EntID)
 	return h.GetOrder(ctx)
 }

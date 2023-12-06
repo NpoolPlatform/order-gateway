@@ -187,11 +187,6 @@ func (h *baseCreateHandler) validateCouponScope(ctx context.Context, goodID, app
 	if err := appgoodscopemwcli.VerifyCouponScopes(ctx, reqs); err != nil {
 		return err
 	}
-
-	valid, err := appgoodscopemwcli.VerifyCouponScopes(ctx, reqs)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
