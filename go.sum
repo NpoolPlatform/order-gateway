@@ -64,12 +64,12 @@ github.com/NpoolPlatform/good-middleware v0.0.0-20231011064249-08e0151ee767 h1:g
 github.com/NpoolPlatform/good-middleware v0.0.0-20231011064249-08e0151ee767/go.mod h1:vcwEXZrLcHSiaZW8qbAQgrIZChul3XvEtAWyncHqbZo=
 github.com/NpoolPlatform/inspire-middleware v0.0.0-20231213035028-f8c040385957 h1:ZVuF3XAB6VTsztCPWLz0gRVIm8mfRVOw05ku+t5YSOE=
 github.com/NpoolPlatform/inspire-middleware v0.0.0-20231213035028-f8c040385957/go.mod h1:KmlVWKcwcTN2ybbr83/vpVIiOzIaqm5eP+/tVudl6gY=
-github.com/NpoolPlatform/ledger-middleware v0.0.0-20231011072101-96b312d4e534 h1:FHeDpnlrfLm9mWII19IKthcqXHgiVcwrW0Go6T3hjwI=
-github.com/NpoolPlatform/ledger-middleware v0.0.0-20231011072101-96b312d4e534/go.mod h1:zYj3GArGhOgemhStYjfN8xv0apcQGTXdFM7QuHIfjno=
+github.com/NpoolPlatform/ledger-middleware v0.0.0-20231214100111-0c00d61d19e5 h1:Xvk6laAE3cqiVC2Mujqh8AdknaGN7Z+ybQA0Rrv7ufk=
+github.com/NpoolPlatform/ledger-middleware v0.0.0-20231214100111-0c00d61d19e5/go.mod h1:v3Yxq7GcrRdfLX/02qsjL/MrwHI1D7WUzUjmP+YMtpo=
 github.com/NpoolPlatform/libent-cruder v0.0.0-20231008051607-f64457cf6ab6 h1:zbM3Zq0qObWEiw+wYJihNFOsBfXey8mBgAhT7HzGB8Y=
 github.com/NpoolPlatform/libent-cruder v0.0.0-20231008051607-f64457cf6ab6/go.mod h1:EXCihQpRNNyWaPu1IphiZFLTyyUK/CJMZdW4My7y48Q=
-github.com/NpoolPlatform/message v0.0.0-20231213033239-6e9fd842e6c1 h1:+SI/c2bcoSeIiw1+fhSB11vjy0TzxNKAcyItxAqplQs=
-github.com/NpoolPlatform/message v0.0.0-20231213033239-6e9fd842e6c1/go.mod h1:PxJpF0vSSOke+NJskbRBRQ2fK2K3SRe8zaEja+GxSHk=
+github.com/NpoolPlatform/message v0.0.0-20231214092739-7b4574189887 h1:Bapcf/gp0gq664L6nH+GyqD5VwmLpQULhf79ZzHmLHo=
+github.com/NpoolPlatform/message v0.0.0-20231214092739-7b4574189887/go.mod h1:PxJpF0vSSOke+NJskbRBRQ2fK2K3SRe8zaEja+GxSHk=
 github.com/NpoolPlatform/order-middleware v0.0.0-20231207022847-d562f0898e06 h1:uJGd9iPnFBu80NU9zxGhAAlWxTo5ZsloP0oRwNTAtXg=
 github.com/NpoolPlatform/order-middleware v0.0.0-20231207022847-d562f0898e06/go.mod h1:lncl3mV4Bd8gjnRnYPlnf8d5mtPpUIaNT+3rYejUYwU=
 github.com/NpoolPlatform/sphinx-proxy v0.0.0-20231201062049-852b1487d4a9 h1:TljSgLyyHCAi/8cCOCf8WyOenmnbDJvqku627x4udyo=
