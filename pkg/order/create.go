@@ -206,7 +206,7 @@ func (h *createHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
 		"good.middleware.app.good1.stock.v1.Middleware/Lock",
 		"good.middleware.app.good1.stock.v1.Middleware/Unlock",
 		&appgoodstockmwpb.LockRequest{
-			ID:           h.appGood.AppGoodStockID,
+			EntID:        h.appGood.AppGoodStockID,
 			AppID:        h.appGood.AppID,
 			GoodID:       h.appGood.GoodID,
 			AppGoodID:    *h.AppGoodID,
@@ -340,7 +340,7 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	if err := handler.getCoupons(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.validateCouponScope(ctx, handler.good.ID, *h.AppGoodID); err != nil {
+	if err := handler.validateCouponScope(ctx, handler.good.EntID, *h.AppGoodID); err != nil {
 		return nil, err
 	}
 	if err := handler.validateDiscountCoupon(); err != nil {

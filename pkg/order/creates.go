@@ -53,8 +53,8 @@ func (h *createsHandler) checkAppGoods(ctx context.Context) error {
 		appGoodIDs = append(appGoodIDs, order.AppGoodID)
 	}
 	goods, _, err := appgoodmwcli.GetGoods(ctx, &appgoodmwpb.Conds{
-		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		IDs:   &basetypes.StringSliceVal{Op: cruder.IN, Value: appGoodIDs},
+		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		EntIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: appGoodIDs},
 	}, int32(0), int32(len(appGoodIDs)))
 	if err != nil {
 		return err
@@ -66,7 +66,7 @@ func (h *createsHandler) checkAppGoods(ctx context.Context) error {
 		if !good.EnablePurchase {
 			return fmt.Errorf("permission denied")
 		}
-		h.appGoods[good.ID] = good
+		h.appGoods[good.EntID] = good
 	}
 	h.parentAppGood = h.appGoods[*h.AppGoodID]
 	if h.parentAppGood == nil {
@@ -81,7 +81,7 @@ func (h *createsHandler) checkGoods(ctx context.Context) error {
 		goodIDs = append(goodIDs, appGood.GoodID)
 	}
 	goods, _, err := goodmwcli.GetGoods(ctx, &goodmwpb.Conds{
-		IDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: goodIDs},
+		EntIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: goodIDs},
 	}, int32(0), int32(len(goodIDs)))
 	if err != nil {
 		return err
@@ -90,7 +90,7 @@ func (h *createsHandler) checkGoods(ctx context.Context) error {
 		return fmt.Errorf("invalid goods")
 	}
 	for _, good := range goods {
-		h.goods[good.ID] = good
+		h.goods[good.EntID] = good
 	}
 	h.parentGood = h.goods[h.parentAppGood.GoodID]
 	if h.parentGood == nil {
@@ -246,7 +246,7 @@ func (h *createsHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
 			"good.middleware.app.good1.stock.v1.Middleware/Lock",
 			"good.middleware.app.good1.stock.v1.Middleware/Unlock",
 			&appgoodstockmwpb.LockRequest{
-				ID:           h.parentAppGood.AppGoodStockID,
+				EntID:        h.parentAppGood.AppGoodStockID,
 				AppID:        h.parentAppGood.AppID,
 				GoodID:       h.parentAppGood.GoodID,
 				AppGoodID:    *h.AppGoodID,
@@ -300,7 +300,7 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 		}
 		appGood := h.appGoods[*req.AppGoodID]
 		req.GoodID = &appGood.GoodID
-		req.AppGoodID = &appGood.ID
+		req.AppGoodID = &appGood.EntID
 	}
 
 	dispose.Add(
@@ -429,7 +429,7 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	if err := handler.getCoupons(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.validateCouponScope(ctx, handler.parentGood.ID, handler.parentAppGood.ID); err != nil {
+	if err := handler.validateCouponScope(ctx, handler.parentGood.EntID, handler.parentAppGood.EntID); err != nil {
 		return nil, err
 	}
 	if err := handler.validateDiscountCoupon(); err != nil {

@@ -583,7 +583,7 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 	if *h.OrderType != types.OrderType_Normal {
 		return nil
 	}
-	if appGood.ID != *h.AppGoodID {
+	if appGood.EntID != *h.AppGoodID {
 		return fmt.Errorf("mismatch appgoodid")
 	}
 	units, err := decimal.NewFromString(h.Units)

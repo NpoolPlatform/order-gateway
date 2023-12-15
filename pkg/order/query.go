@@ -134,15 +134,15 @@ func (h *queryHandler) getAppGoods(ctx context.Context) error {
 	}
 
 	appGoods, _, err := appgoodmwcli.GetGoods(ctx, &appgoodmwpb.Conds{
-		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		IDs:   &basetypes.StringSliceVal{Op: cruder.IN, Value: goodIDs},
+		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		EntIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: goodIDs},
 	}, 0, int32(len(goodIDs)))
 	if err != nil {
 		return err
 	}
 
 	for _, appGood := range appGoods {
-		h.appGoods[appGood.ID] = appGood
+		h.appGoods[appGood.EntID] = appGood
 	}
 	return nil
 }
@@ -160,15 +160,15 @@ func (h *queryHandler) getParentAppGoods(ctx context.Context) error {
 	}
 
 	appGoods, _, err := appgoodmwcli.GetGoods(ctx, &appgoodmwpb.Conds{
-		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		IDs:   &basetypes.StringSliceVal{Op: cruder.IN, Value: goodIDs},
+		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		EntIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: goodIDs},
 	}, 0, int32(len(goodIDs)))
 	if err != nil {
 		return err
 	}
 
 	for _, appGood := range appGoods {
-		h.parentAppGoods[appGood.ID] = appGood
+		h.parentAppGoods[appGood.EntID] = appGood
 	}
 	return nil
 }
@@ -289,7 +289,7 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 			if porder, ok := h.parentOrders[ord.ParentOrderID]; ok {
 				info.ParentOrderGoodID = porder.GoodID
 				if pgood, ok := h.parentAppGoods[ord.AppGoodID]; ok {
-					info.ParentOrderAppGoodID = pgood.ID
+					info.ParentOrderAppGoodID = pgood.EntID
 					info.ParentOrderGoodName = pgood.GoodName
 				}
 			}
