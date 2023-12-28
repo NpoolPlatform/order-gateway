@@ -40,6 +40,7 @@ import (
 type createHandler struct {
 	*baseCreateHandler
 	appGood             *appgoodmwpb.Good
+	parentAppGood       *appgoodmwpb.Good
 	good                *goodmwpb.Good
 	topMostGoods        []*topmostmwpb.TopMostGood
 	priceTopMostGood    *topmostmwpb.TopMostGood
@@ -109,6 +110,62 @@ func (h *createHandler) checkParentOrderGoodRequired(ctx context.Context) error 
 	}
 	if !exist {
 		return fmt.Errorf("invalid goodrequired")
+	}
+	return nil
+}
+
+func (h *createHandler) checkParentGood(ctx context.Context) error {
+	if h.ParentOrderID == nil {
+		return nil
+	}
+	good, err := appgoodmwcli.GetGood(ctx, h.parentOrder.AppGoodID)
+	if err != nil {
+		return err
+	}
+	h.parentAppGood = good
+	return nil
+}
+
+//nolint:gocyclo
+func (h *createHandler) resolveUnits() error {
+	if h.parentAppGood == nil {
+		return nil
+	}
+	if h.parentAppGood.PackageWithRequireds {
+		return fmt.Errorf("invalid parentappgood")
+	}
+	switch h.appGood.UnitType {
+	case goodtypes.GoodUnitType_GoodUnitByDuration:
+		switch h.appGood.DurationCalculateType {
+		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent:
+			return fmt.Errorf("invalid durationcalculatetype")
+		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateBySelf:
+			if h.Duration == nil {
+				return fmt.Errorf("invalid duration")
+			}
+		}
+	case goodtypes.GoodUnitType_GoodUnitByQuantity:
+		switch h.appGood.QuantityCalculateType {
+		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent:
+			h.Units = &h.parentOrder.Units
+		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateBySelf:
+			return fmt.Errorf("invalid durationcalculatetype")
+		}
+	case goodtypes.GoodUnitType_GoodUnitByDurationAndQuantity:
+		switch h.appGood.DurationCalculateType {
+		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent:
+			return fmt.Errorf("invalid durationcalculatetype")
+		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateBySelf:
+			if h.Duration == nil {
+				return fmt.Errorf("invalid duration")
+			}
+		}
+		switch h.appGood.QuantityCalculateType {
+		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent:
+			h.Units = &h.parentOrder.Units
+		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateBySelf:
+			return fmt.Errorf("invalid durationcalculatetype")
+		}
 	}
 	return nil
 }
@@ -560,6 +617,12 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 		return nil, err
 	}
 	if err := handler.checkParentOrderGoodRequired(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkParentGood(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.resolveUnits(); err != nil {
 		return nil, err
 	}
 	if err := handler.checkUnitsLimit(ctx, handler.appGood); err != nil {
