@@ -618,14 +618,22 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 		return fmt.Errorf("mismatch appgoodid")
 	}
 	if h.Units == nil {
-		return fmt.Errorf("invalid units")
+		return nil
 	}
 	units, err := decimal.NewFromString(*h.Units)
 	if err != nil {
 		return err
 	}
-	if appGood.PurchaseLimit > 0 &&
-		units.Cmp(decimal.NewFromInt32(appGood.PurchaseLimit)) > 0 {
+	max, err := decimal.NewFromString(appGood.MaxOrderAmount)
+	if err != nil {
+		return err
+	}
+	min, err := decimal.NewFromString(appGood.MinOrderAmount)
+	if err != nil {
+		return err
+	}
+	if (min.Cmp(decimal.NewFromInt(0)) > 0 && units.Cmp(min) < 0) ||
+		(max.Cmp(decimal.NewFromInt(0)) > 0 && units.Cmp(max) > 0) {
 		return fmt.Errorf("too many units")
 	}
 	if !appGood.EnablePurchase {
@@ -644,16 +652,13 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 	if err != nil {
 		return err
 	}
-
-	userPurchaseLimit, err := decimal.NewFromString(appGood.UserPurchaseLimit)
+	userPurchaseLimit, err := decimal.NewFromString(appGood.MaxUserAmount)
 	if err != nil {
 		return err
 	}
-
 	if userPurchaseLimit.Cmp(decimal.NewFromInt(0)) > 0 &&
 		purchaseCount.Add(units).Cmp(userPurchaseLimit) > 0 {
 		return fmt.Errorf("too many units")
 	}
-
 	return nil
 }
