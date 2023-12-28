@@ -318,7 +318,20 @@ func (h *createsHandler) goodPaymentUSDAmount(req *ordermwpb.OrderReq) (decimal.
 }
 
 func (h *createsHandler) calculateOrderUSDPrice() error {
+	parentPackagePrice, err := decimal.NewFromString(h.parentAppGood.PackagePrice)
+	if err != nil {
+		return err
+	}
+	packageWithRequireds := h.parentAppGood.PackageWithRequireds &&
+		parentPackagePrice.Cmp(decimal.NewFromInt(0)) > 0
+	valueZero := decimal.NewFromInt(0).String()
+
 	for _, req := range h.orderReqs {
+		if packageWithRequireds && *req.EntID != *h.ParentOrderID {
+			req.GoodValueUSD = &valueZero
+			req.GoodValue = &valueZero
+			continue
+		}
 		goodValueUSD, err := h.goodValue(req)
 		if err != nil {
 			return err
@@ -586,6 +599,18 @@ func (h *createsHandler) constructOrderReqs() error {
 	if h.AppGoodID == nil {
 		return fmt.Errorf("invalid parentorder")
 	}
+	for _, req := range h.orderReqs {
+		if *req.EntID == *h.EntID { // Parent order
+			continue
+		}
+		good := h.appGoods[*req.AppGoodID]
+		if good.QuantityCalculateType == goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent {
+			req.Units = h.Units
+		}
+		if good.DurationCalculateType == goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent {
+			req.Duration = h.Duration
+		}
+	}
 	return nil
 }
 
@@ -611,10 +636,10 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	if err := handler.getUser(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.constructOrderReqs(); err != nil {
+	if err := handler.checkAppGoods(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.checkAppGoods(ctx); err != nil {
+	if err := handler.constructOrderReqs(); err != nil {
 		return nil, err
 	}
 	if err := handler.checkGoods(ctx); err != nil {

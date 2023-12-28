@@ -579,6 +579,7 @@ func (h *baseCreateHandler) prepareStockAndLedgerLockIDs() {
 	}
 }
 
+//nolint:gocyclo
 func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoodmwpb.Good) error {
 	if h.parentOrder != nil {
 		return nil
