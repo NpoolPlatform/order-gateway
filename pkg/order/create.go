@@ -3,6 +3,7 @@ package order
 import (
 	"context"
 	"fmt"
+	"time"
 
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
@@ -320,25 +321,79 @@ func (h *createHandler) calculateOrderUSDPrice() error {
 }
 
 func (h *createHandler) resolveStartMode() {
-	if h.appGood.StartMode == goodtypes.GoodStartMode_GoodStartModeTBD {
+	switch h.appGood.StartMode {
+	case goodtypes.GoodStartMode_GoodStartModeTBD:
 		h.orderStartMode = types.OrderStartMode_OrderStartTBD
-		return
+	case goodtypes.GoodStartMode_GoodStartModeConfirmed:
+		h.orderStartMode = types.OrderStartMode_OrderStartNextDay
+	case goodtypes.GoodStartMode_GoodStartModeInstantly:
+		h.orderStartMode = types.OrderStartMode_OrderStartInstantly
+	case goodtypes.GoodStartMode_GoodStartModeNextDay:
+		h.orderStartMode = types.OrderStartMode_OrderStartNextDay
+	case goodtypes.GoodStartMode_GoodStartModePreset:
+		h.orderStartMode = types.OrderStartMode_OrderStartPreset
 	}
-	h.orderStartMode = types.OrderStartMode_OrderStartConfirmed
 }
 
-func (h *createHandler) resolveStartEnd() {
-	goodStartAt := h.appGood.ServiceStartAt
-	if h.appGood.ServiceStartAt == 0 {
-		goodStartAt = h.appGood.StartAt
+//nolint:gocyclo
+func (h *createHandler) resolveStartEnd() error {
+	durationUnitSeconds := timedef.SecondsPerHour
+	switch h.appGood.DurationType {
+	case goodtypes.GoodDurationType_GoodDurationByHour:
+	case goodtypes.GoodDurationType_GoodDurationByDay:
+		durationUnitSeconds = timedef.SecondsPerDay
+	case goodtypes.GoodDurationType_GoodDurationByMonth:
+		durationUnitSeconds = timedef.SecondsPerMonth
+	case goodtypes.GoodDurationType_GoodDurationByYear:
+		durationUnitSeconds = timedef.SecondsPerYear
 	}
-	goodDurationDays := uint32(h.appGood.DurationDays)
-	h.orderStartAt = uint32(h.tomorrowStart().Unix())
+
+	goodStartAt := h.appGood.ServiceStartAt
+	switch h.orderStartMode {
+	case types.OrderStartMode_OrderStartPreset:
+	case types.OrderStartMode_OrderStartInstantly:
+		fallthrough //nolint
+	case types.OrderStartMode_OrderStartNextDay:
+		fallthrough //nolint
+	case types.OrderStartMode_OrderStartTBD:
+		if goodStartAt == 0 {
+			goodStartAt = h.appGood.StartAt
+		}
+	}
+
+	switch h.appGood.UnitType {
+	case goodtypes.GoodUnitType_GoodUnitByDuration:
+		fallthrough //nolint
+	case goodtypes.GoodUnitType_GoodUnitByDurationAndQuantity:
+		if h.Duration == nil {
+			return fmt.Errorf("invalid duration")
+		}
+		if h.appGood.MinOrderDuration == h.appGood.MaxOrderDuration {
+			*h.Duration = h.appGood.MinOrderDuration
+		}
+		if *h.Duration < h.appGood.MinOrderDuration || *h.Duration > h.appGood.MaxOrderDuration {
+			return fmt.Errorf("invalid duration")
+		}
+	}
+
+	switch h.orderStartMode {
+	case types.OrderStartMode_OrderStartTBD:
+		fallthrough //nolint
+	case types.OrderStartMode_OrderStartPreset:
+		h.orderStartAt = goodStartAt
+	case types.OrderStartMode_OrderStartInstantly:
+		h.orderStartAt = uint32(time.Now().Unix())
+	case types.OrderStartMode_OrderStartNextDay:
+		h.orderStartAt = uint32(h.tomorrowStart().Unix())
+	}
+
 	if goodStartAt > h.orderStartAt {
 		h.orderStartAt = goodStartAt
 	}
-	const secondsPerDay = timedef.SecondsPerDay
-	h.orderEndAt = h.orderStartAt + goodDurationDays*secondsPerDay
+
+	durationSeconds := uint32(durationUnitSeconds) * *h.Duration
+	h.orderEndAt = h.orderStartAt + durationSeconds
+	return nil
 }
 
 func (h *createHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
@@ -372,7 +427,6 @@ func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose) {
 	coinUSDCurrency := h.coinCurrencyAmount.String()
 	localCoinUSDCurrency := h.localCurrencyAmount.String()
 	liveCoinUSDCurrency := h.liveCurrencyAmount.String()
-	goodDurationDays := uint32(h.appGood.DurationDays)
 
 	req := &ordermwpb.OrderReq{
 		EntID:                h.EntID,
@@ -386,7 +440,7 @@ func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose) {
 		GoodValueUSD:         &goodValueUSDAmount,
 		PaymentAmount:        &paymentCoinAmount,
 		DiscountAmount:       &discountCoinAmount,
-		DurationDays:         &goodDurationDays,
+		Duration:             h.Duration,
 		OrderType:            h.OrderType,
 		InvestmentType:       h.InvestmentType,
 		CouponIDs:            h.CouponIDs,
@@ -533,10 +587,12 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	if err := handler.checkTransferCoinAmount(); err != nil {
 		return nil, err
 	}
+	handler.resolveStartMode()
+	if err := handler.resolveStartEnd(); err != nil {
+		return nil, err
+	}
 
 	handler.resolvePaymentType()
-	handler.resolveStartMode()
-	handler.resolveStartEnd()
 	handler.prepareStockAndLedgerLockIDs()
 
 	id1 := uuid.NewString()

@@ -1,8 +1,10 @@
+//nolint:dupl
 package order
 
 import (
 	"context"
 	"fmt"
+	"time"
 
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
@@ -340,39 +342,87 @@ func (h *createsHandler) calculateOrderUSDPrice() error {
 func (h *createsHandler) resolveStartMode() {
 	for _, req := range h.orderReqs {
 		mode := types.OrderStartMode_OrderStartConfirmed
-		switch h.appGoods[*req.AppGoodID].StartMode {
+		switch h.parentAppGood.StartMode {
 		case goodtypes.GoodStartMode_GoodStartModeTBD:
 			mode = types.OrderStartMode_OrderStartTBD
 		case goodtypes.GoodStartMode_GoodStartModeConfirmed:
+			mode = types.OrderStartMode_OrderStartNextDay
+		case goodtypes.GoodStartMode_GoodStartModeInstantly:
+			mode = types.OrderStartMode_OrderStartInstantly
+		case goodtypes.GoodStartMode_GoodStartModeNextDay:
+			mode = types.OrderStartMode_OrderStartNextDay
+		case goodtypes.GoodStartMode_GoodStartModePreset:
+			mode = types.OrderStartMode_OrderStartPreset
 		}
 		req.StartMode = &mode
 	}
 }
 
-func (h *createsHandler) resolveStartEnd() {
+//nolint:gocyclo
+func (h *createsHandler) resolveStartEnd() error {
+	durationUnitSeconds := timedef.SecondsPerHour
 	for _, req := range h.orderReqs {
+		switch h.parentAppGood.DurationType {
+		case goodtypes.GoodDurationType_GoodDurationByHour:
+		case goodtypes.GoodDurationType_GoodDurationByDay:
+			durationUnitSeconds = timedef.SecondsPerDay
+		case goodtypes.GoodDurationType_GoodDurationByMonth:
+			durationUnitSeconds = timedef.SecondsPerMonth
+		case goodtypes.GoodDurationType_GoodDurationByYear:
+			durationUnitSeconds = timedef.SecondsPerYear
+		}
+
 		goodStartAt := h.parentAppGood.ServiceStartAt
-		if goodStartAt == 0 {
-			goodStartAt = h.parentAppGood.StartAt
+		switch *req.StartMode {
+		case types.OrderStartMode_OrderStartPreset:
+		case types.OrderStartMode_OrderStartInstantly:
+			fallthrough //nolint
+		case types.OrderStartMode_OrderStartNextDay:
+			fallthrough //nolint
+		case types.OrderStartMode_OrderStartTBD:
+			if goodStartAt == 0 {
+				goodStartAt = h.parentAppGood.StartAt
+			}
 		}
-		goodDurationDays := uint32(h.parentAppGood.DurationDays)
-		orderStartAt := uint32(h.tomorrowStart().Unix())
-		if goodStartAt > orderStartAt {
-			orderStartAt = goodStartAt
+
+		switch h.parentAppGood.UnitType {
+		case goodtypes.GoodUnitType_GoodUnitByDuration:
+			fallthrough //nolint
+		case goodtypes.GoodUnitType_GoodUnitByDurationAndQuantity:
+			if req.Duration == nil {
+				return fmt.Errorf("invalid duration")
+			}
+			if h.parentAppGood.MinOrderDuration == h.parentAppGood.MaxOrderDuration {
+				*req.Duration = h.parentAppGood.MinOrderDuration
+			}
+			if *req.Duration < h.parentAppGood.MinOrderDuration ||
+				*req.Duration > h.parentAppGood.MaxOrderDuration {
+				return fmt.Errorf("invalid duration")
+			}
 		}
-		const secondsPerDay = timedef.SecondsPerDay
-		endAt := orderStartAt + goodDurationDays*secondsPerDay
-		req.StartAt = &orderStartAt
-		if *req.EntID == *h.ParentOrderID {
-			req.EndAt = &endAt
-			req.DurationDays = &goodDurationDays
-			continue
+
+		switch *req.StartMode {
+		case types.OrderStartMode_OrderStartTBD:
+			fallthrough //nolint
+		case types.OrderStartMode_OrderStartPreset:
+			req.StartAt = &goodStartAt
+		case types.OrderStartMode_OrderStartInstantly:
+			now := uint32(time.Now().Unix())
+			req.StartAt = &now
+		case types.OrderStartMode_OrderStartNextDay:
+			startAt := uint32(h.tomorrowStart().Unix())
+			req.StartAt = &startAt
 		}
-		childDurationDays := uint32(decimal.RequireFromString(*req.Units).IntPart())
-		req.DurationDays = &childDurationDays
-		childEndAt := orderStartAt + childDurationDays*secondsPerDay
-		req.EndAt = &childEndAt
+
+		if goodStartAt > *req.StartAt {
+			req.StartAt = &goodStartAt
+		}
+
+		durationSeconds := uint32(durationUnitSeconds) * *req.Duration
+		endAt := *req.StartAt + durationSeconds
+		req.EndAt = &endAt
 	}
+	return nil
 }
 
 func (h *createsHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
@@ -623,7 +673,9 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	}
 	handler.resolvePaymentType()
 	handler.resolveStartMode()
-	handler.resolveStartEnd()
+	if err := handler.resolveStartEnd(); err != nil {
+		return nil, err
+	}
 
 	if err := handler.acquirePaymentAddress(ctx); err != nil {
 		return nil, err
