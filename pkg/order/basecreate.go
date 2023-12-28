@@ -580,6 +580,9 @@ func (h *baseCreateHandler) prepareStockAndLedgerLockIDs() {
 }
 
 func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoodmwpb.Good) error {
+	if h.parentOrder != nil {
+		return nil
+	}
 	if *h.OrderType != types.OrderType_Normal {
 		return nil
 	}
