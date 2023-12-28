@@ -213,6 +213,7 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 			AppGoodID:               ord.AppGoodID,
 			ParentOrderID:           ord.ParentOrderID,
 			Units:                   ord.Units,
+			Duration:                ord.Duration,
 			GoodValue:               ord.GoodValue,
 			GoodValueUSD:            ord.GoodValueUSD,
 			UserSetCanceled:         ord.UserSetCanceled,
@@ -251,9 +252,9 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 
 		info.CoinTypeID = appGood.CoinTypeID
 		info.GoodName = appGood.GoodName
-		info.GoodUnit = appGood.Unit
+		info.GoodUnit = appGood.QuantityUnit
 		info.GoodServicePeriodDays = uint32(appGood.DurationDays)
-		info.GoodUnitPrice = appGood.Price
+		info.GoodUnitPrice = appGood.UnitPrice
 
 		if coin, ok := h.coins[info.CoinTypeID]; ok {
 			info.CoinName = coin.Name
