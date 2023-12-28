@@ -556,13 +556,13 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	if err := handler.getPaymentCoin(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.checkUnitsLimit(ctx, handler.appGood); err != nil {
-		return nil, err
-	}
 	if err := handler.checkParentOrder(ctx); err != nil {
 		return nil, err
 	}
 	if err := handler.checkParentOrderGoodRequired(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkUnitsLimit(ctx, handler.appGood); err != nil {
 		return nil, err
 	}
 	if err := handler.checkMainGood(ctx); err != nil {
