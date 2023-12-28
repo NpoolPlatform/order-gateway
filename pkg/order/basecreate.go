@@ -617,7 +617,10 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 	if appGood.EntID != *h.AppGoodID {
 		return fmt.Errorf("mismatch appgoodid")
 	}
-	units, err := decimal.NewFromString(h.Units)
+	if h.Units == nil {
+		return fmt.Errorf("invalid units")
+	}
+	units, err := decimal.NewFromString(*h.Units)
 	if err != nil {
 		return err
 	}
