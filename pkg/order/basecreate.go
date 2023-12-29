@@ -255,7 +255,7 @@ func (h *baseCreateHandler) checkCouponConstraint() error {
 				return fmt.Errorf("threshold not available")
 			}
 			if h.paymentUSDAmount.Cmp(threshold) < 0 {
-				return fmt.Errorf("real payment need to greater than  %v", threshold)
+				return fmt.Errorf("payment amount needs to be greater than  %v", threshold)
 			}
 		}
 	}
