@@ -624,6 +624,7 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	if err := handler.checkParentGood(ctx); err != nil {
 		return nil, err
 	}
+	handler.resolveStartMode()
 	if err := handler.resolveStartEnd(); err != nil {
 		return nil, err
 	}
@@ -661,7 +662,6 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	if err := handler.checkTransferCoinAmount(); err != nil {
 		return nil, err
 	}
-	handler.resolveStartMode()
 
 	handler.resolvePaymentType()
 	handler.prepareStockAndLedgerLockIDs()
