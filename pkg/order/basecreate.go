@@ -193,22 +193,18 @@ func (h *baseCreateHandler) validateCouponScope(ctx context.Context, goodID, app
 func (h *baseCreateHandler) validateDiscountCoupon() error {
 	discountCoupons := 0
 	fixAmountCoupons := uint32(0)
-	specialOfferCoupons := uint32(0)
 	for _, coupon := range h.coupons {
 		switch coupon.CouponType {
 		case inspiretypes.CouponType_Discount:
 			discountCoupons++
 		case inspiretypes.CouponType_FixAmount:
 			fixAmountCoupons++
-		case inspiretypes.CouponType_SpecialOffer:
-			specialOfferCoupons++
 		}
 	}
 	if discountCoupons > 1 {
 		return fmt.Errorf("invalid discountcoupon")
 	}
-	if fixAmountCoupons > h.app.MaxTypedCouponsPerOrder ||
-		specialOfferCoupons > h.app.MaxTypedCouponsPerOrder {
+	if fixAmountCoupons > h.app.MaxTypedCouponsPerOrder {
 		return fmt.Errorf("invalid fixamountcoupon")
 	}
 	return nil
@@ -271,7 +267,6 @@ func (h *baseCreateHandler) calculateFixAmountCouponReduction() error {
 	for _, coupon := range h.coupons {
 		switch coupon.CouponType {
 		case inspiretypes.CouponType_FixAmount:
-		case inspiretypes.CouponType_SpecialOffer:
 		default:
 			continue
 		}
