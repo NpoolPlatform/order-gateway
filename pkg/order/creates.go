@@ -681,6 +681,9 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	if err := handler.checkPaymentCoinCurrency(ctx); err != nil {
 		return nil, err
 	}
+	if err := handler.resolveStartEnd(); err != nil {
+		return nil, err
+	}
 	if err := handler.calculateOrderUSDPrice(); err != nil {
 		return nil, err
 	}
@@ -698,9 +701,6 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	}
 	handler.resolvePaymentType()
 	handler.resolveStartMode()
-	if err := handler.resolveStartEnd(); err != nil {
-		return nil, err
-	}
 
 	if err := handler.acquirePaymentAddress(ctx); err != nil {
 		return nil, err
