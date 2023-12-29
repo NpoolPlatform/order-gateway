@@ -27,16 +27,17 @@ func Migrate(ctx context.Context) error {
 	if err := db.Init(); err != nil {
 		return err
 	}
+
+	err = redis2.TryLock(lockKey(), 0)
+	if err != nil {
+		return err
+	}
 	logger.Sugar().Infow("Migrate order", "Start", "...")
 	defer func() {
 		_ = redis2.Unlock(lockKey())
 		logger.Sugar().Infow("Migrate order", "Done", "...", "error", err)
 	}()
 
-	err = redis2.TryLock(lockKey(), 0)
-	if err != nil {
-		return err
-	}
 	return db.WithTx(ctx, func(_ctx context.Context, tx *ent.Tx) error {
 		logger.Sugar().Infow("Migrate", "Done", "success")
 		return nil
