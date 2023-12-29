@@ -134,6 +134,7 @@ func (h *createHandler) resolveUnits() error {
 	if h.parentAppGood.PackageWithRequireds {
 		return fmt.Errorf("invalid parentappgood")
 	}
+
 	switch h.appGood.UnitType {
 	case goodtypes.GoodUnitType_GoodUnitByDuration:
 		switch h.appGood.DurationCalculateType {
@@ -428,7 +429,8 @@ func (h *createHandler) resolveStartEnd() error {
 		if h.appGood.MinOrderDuration == h.appGood.MaxOrderDuration {
 			*h.Duration = h.appGood.MinOrderDuration
 		}
-		if *h.Duration < h.appGood.MinOrderDuration || *h.Duration > h.appGood.MaxOrderDuration {
+		if *h.Duration < h.appGood.MinOrderDuration ||
+			*h.Duration > h.appGood.MaxOrderDuration {
 			return fmt.Errorf("invalid duration")
 		}
 	}
