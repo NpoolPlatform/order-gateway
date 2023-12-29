@@ -402,11 +402,11 @@ func (h *createsHandler) resolveStartEnd() error {
 		case goodtypes.GoodUnitType_GoodUnitByDuration:
 			fallthrough //nolint
 		case goodtypes.GoodUnitType_GoodUnitByDurationAndQuantity:
+			if h.parentAppGood.MinOrderDuration == h.parentAppGood.MaxOrderDuration && req.Duration == nil {
+				req.Duration = &h.parentAppGood.MinOrderDuration
+			}
 			if req.Duration == nil {
 				return fmt.Errorf("invalid duration")
-			}
-			if h.parentAppGood.MinOrderDuration == h.parentAppGood.MaxOrderDuration {
-				*req.Duration = h.parentAppGood.MinOrderDuration
 			}
 			if *req.Duration < h.parentAppGood.MinOrderDuration ||
 				*req.Duration > h.parentAppGood.MaxOrderDuration {
