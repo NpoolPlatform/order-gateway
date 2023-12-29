@@ -247,6 +247,21 @@ func (h *baseCreateHandler) checkParentOrder(ctx context.Context) error {
 	return nil
 }
 
+func (h *baseCreateHandler) checkCouponConstraint() error {
+	for _, coupon := range h.coupons {
+		if coupon.CouponConstraint == inspiretypes.CouponConstraint_PaymentThreshold {
+			threshold, err := decimal.NewFromString(coupon.Threshold)
+			if err != nil {
+				return fmt.Errorf("threshold not available")
+			}
+			if h.paymentUSDAmount.Cmp(threshold) < 0 {
+				return fmt.Errorf("real payment need to greater than  %v", threshold)
+			}
+		}
+	}
+	return nil
+}
+
 func (h *baseCreateHandler) calculateDiscountCouponReduction() error {
 	for _, coupon := range h.coupons {
 		if coupon.CouponType != inspiretypes.CouponType_Discount {
