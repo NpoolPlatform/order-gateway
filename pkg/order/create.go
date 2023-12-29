@@ -423,11 +423,11 @@ func (h *createHandler) resolveStartEnd() error {
 	case goodtypes.GoodUnitType_GoodUnitByDuration:
 		fallthrough //nolint
 	case goodtypes.GoodUnitType_GoodUnitByDurationAndQuantity:
+		if h.appGood.MinOrderDuration == h.appGood.MaxOrderDuration && h.Duration == nil {
+			h.Duration = &h.appGood.MinOrderDuration
+		}
 		if h.Duration == nil {
 			return fmt.Errorf("invalid duration")
-		}
-		if h.appGood.MinOrderDuration == h.appGood.MaxOrderDuration {
-			*h.Duration = h.appGood.MinOrderDuration
 		}
 		if *h.Duration < h.appGood.MinOrderDuration ||
 			*h.Duration > h.appGood.MaxOrderDuration {
@@ -621,6 +621,9 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	if err := handler.checkParentGood(ctx); err != nil {
 		return nil, err
 	}
+	if err := handler.resolveStartEnd(); err != nil {
+		return nil, err
+	}
 	if err := handler.resolveUnits(); err != nil {
 		return nil, err
 	}
@@ -653,9 +656,6 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 		return nil, err
 	}
 	handler.resolveStartMode()
-	if err := handler.resolveStartEnd(); err != nil {
-		return nil, err
-	}
 
 	handler.resolvePaymentType()
 	handler.prepareStockAndLedgerLockIDs()
