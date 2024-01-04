@@ -435,19 +435,23 @@ func (h *createHandler) resolveStartEnd() error {
 		}
 	}
 
+	now := uint32(time.Now().Unix())
 	switch h.orderStartMode {
 	case types.OrderStartMode_OrderStartTBD:
 		fallthrough //nolint
 	case types.OrderStartMode_OrderStartPreset:
 		h.orderStartAt = goodStartAt
 	case types.OrderStartMode_OrderStartInstantly:
-		h.orderStartAt = uint32(time.Now().Unix())
+		h.orderStartAt = now + timedef.SecondsPerMinute*10
 	case types.OrderStartMode_OrderStartNextDay:
 		h.orderStartAt = uint32(h.tomorrowStart().Unix())
 	}
 
 	if goodStartAt > h.orderStartAt {
 		h.orderStartAt = goodStartAt
+	}
+	if h.orderStartAt < now {
+		return fmt.Errorf("invalid startat")
 	}
 
 	durationSeconds := uint32(durationUnitSeconds) * *h.Duration
