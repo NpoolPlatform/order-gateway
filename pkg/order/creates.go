@@ -70,10 +70,6 @@ func (h *createsHandler) checkAppGoods(ctx context.Context) error {
 		}
 		h.appGoods[good.EntID] = good
 	}
-	h.parentAppGood = h.appGoods[*h.AppGoodID]
-	if h.parentAppGood == nil {
-		return fmt.Errorf("invalid parentgood")
-	}
 	return nil
 }
 
@@ -598,6 +594,10 @@ func (h *createsHandler) constructOrderReqs() error {
 	}
 	if h.AppGoodID == nil {
 		return fmt.Errorf("invalid parentorder")
+	}
+	h.parentAppGood = h.appGoods[*h.AppGoodID]
+	if h.parentAppGood == nil {
+		return fmt.Errorf("invalid parentgood")
 	}
 	for _, req := range h.orderReqs {
 		if *req.EntID == *h.EntID { // Parent order
