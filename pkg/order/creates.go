@@ -37,9 +37,14 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+type _orderReq struct {
+	ordermwpb.OrderReq
+	AppGoodStockLockID *string
+}
+
 type createsHandler struct {
 	*baseCreateHandler
-	orderReqs         []*ordermwpb.OrderReq
+	orderReqs         []*_orderReq
 	appGoods          map[string]*appgoodmwpb.Good
 	goods             map[string]*goodmwpb.Good
 	parentAppGood     *appgoodmwpb.Good
@@ -151,7 +156,7 @@ func (h *createsHandler) getAppGoodPromotions(ctx context.Context) error {
 	return nil
 }
 
-func (h *createsHandler) topMostGoodPackagePrice(req *ordermwpb.OrderReq) (decimal.Decimal, error) {
+func (h *createsHandler) topMostGoodPackagePrice(req *_orderReq) (decimal.Decimal, error) {
 	price := decimal.NewFromInt(0)
 	topMosts := h.topMostGoods[*req.AppGoodID]
 	for _, topMost := range topMosts {
@@ -170,7 +175,7 @@ func (h *createsHandler) topMostGoodPackagePrice(req *ordermwpb.OrderReq) (decim
 	return price, nil
 }
 
-func (h *createsHandler) topMostGoodUnitPrice(req *ordermwpb.OrderReq) (decimal.Decimal, error) {
+func (h *createsHandler) topMostGoodUnitPrice(req *_orderReq) (decimal.Decimal, error) {
 	price := decimal.NewFromInt(0)
 	topMosts := h.topMostGoods[*req.AppGoodID]
 	for _, topMost := range topMosts {
@@ -189,7 +194,7 @@ func (h *createsHandler) topMostGoodUnitPrice(req *ordermwpb.OrderReq) (decimal.
 	return price, nil
 }
 
-func (h *createsHandler) goodPackagePrice(req *ordermwpb.OrderReq) (decimal.Decimal, error) {
+func (h *createsHandler) goodPackagePrice(req *_orderReq) (decimal.Decimal, error) {
 	good := h.appGoods[*req.AppGoodID]
 	if good.MinOrderDuration != good.MaxOrderDuration {
 		return decimal.Decimal{}, nil
@@ -210,7 +215,7 @@ func (h *createsHandler) goodPackagePrice(req *ordermwpb.OrderReq) (decimal.Deci
 	return packagePrice, nil
 }
 
-func (h *createsHandler) goodUnitPrice(req *ordermwpb.OrderReq) (decimal.Decimal, error) {
+func (h *createsHandler) goodUnitPrice(req *_orderReq) (decimal.Decimal, error) {
 	unitPrice, err := h.topMostGoodUnitPrice(req)
 	if err != nil {
 		return decimal.Decimal{}, err
@@ -231,7 +236,7 @@ func (h *createsHandler) goodUnitPrice(req *ordermwpb.OrderReq) (decimal.Decimal
 //  GoodUnitByDuration: packagePrice or unitPrice * duration
 //  GoodUnitByQuantity: packagePrice or unitPrice
 //  GoodUnitByDurationAndQuantity: packagePrice or unitPrice * duration
-func (h *createsHandler) goodPrice(req *ordermwpb.OrderReq) (decimal.Decimal, error) {
+func (h *createsHandler) goodPrice(req *_orderReq) (decimal.Decimal, error) {
 	packagePrice, err := h.goodPackagePrice(req)
 	if err != nil {
 		return decimal.Decimal{}, err
@@ -264,7 +269,7 @@ func (h *createsHandler) goodPrice(req *ordermwpb.OrderReq) (decimal.Decimal, er
 	}
 }
 
-func (h *createsHandler) goodValue(req *ordermwpb.OrderReq) (decimal.Decimal, error) {
+func (h *createsHandler) goodValue(req *_orderReq) (decimal.Decimal, error) {
 	good, ok := h.appGoods[*req.AppGoodID]
 	if !ok {
 		return decimal.NewFromInt(0), fmt.Errorf("invalid good")
@@ -304,7 +309,7 @@ func (h *createsHandler) goodValue(req *ordermwpb.OrderReq) (decimal.Decimal, er
 	return price.Mul(units), nil
 }
 
-func (h *createsHandler) goodPaymentUSDAmount(req *ordermwpb.OrderReq) (decimal.Decimal, error) {
+func (h *createsHandler) goodPaymentUSDAmount(req *_orderReq) (decimal.Decimal, error) {
 	good, ok := h.appGoods[*req.AppGoodID]
 	if !ok {
 		return decimal.NewFromInt(0), fmt.Errorf("invalid good")
@@ -452,11 +457,8 @@ func (h *createsHandler) resolveStartEnd() error {
 }
 
 func (h *createsHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
-	for _, order := range h.Orders {
-		if !order.Parent {
-			continue
-		}
-		if order.Units == nil {
+	for _, req := range h.orderReqs {
+		if req.AppGoodStockLockID == nil {
 			continue
 		}
 		dispose.Add(
@@ -468,9 +470,9 @@ func (h *createsHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
 				AppID:        h.parentAppGood.AppID,
 				GoodID:       h.parentAppGood.GoodID,
 				AppGoodID:    *h.AppGoodID,
-				Units:        *order.Units,
+				Units:        *req.Units,
 				AppSpotUnits: decimal.NewFromInt(0).String(),
-				LockID:       h.stockLockID,
+				LockID:       *req.AppGoodStockLockID,
 				Rollback:     true,
 			},
 		)
@@ -486,6 +488,8 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 	localCoinUSDCurrency := h.localCurrencyAmount.String()
 	liveCoinUSDCurrency := h.liveCurrencyAmount.String()
 
+	reqs := []*ordermwpb.OrderReq{}
+
 	for _, req := range h.orderReqs {
 		req.OrderType = h.OrderType
 		req.CoinUSDCurrency = &coinUSDCurrency
@@ -496,7 +500,6 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 				req.PromotionID = &topMost.TopMostID
 			}
 			req.CoinTypeID = &h.parentAppGood.CoinTypeID
-			req.AppGoodStockLockID = &h.stockLockID
 			req.PaymentAmount = &paymentCoinAmount
 			req.DiscountAmount = &discountCoinAmount
 			req.PaymentType = &h.paymentType
@@ -519,6 +522,8 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 		appGood := h.appGoods[*req.AppGoodID]
 		req.GoodID = &appGood.GoodID
 		req.AppGoodID = &appGood.EntID
+
+		reqs = append(reqs, &req.OrderReq)
 	}
 
 	dispose.Add(
@@ -526,7 +531,7 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 		"order.middleware.order1.v1.Middleware/CreateOrders",
 		"order.middleware.order1.v1.Middleware/DeleteOrders",
 		&ordermwpb.CreateOrdersRequest{
-			Infos: h.orderReqs,
+			Infos: reqs,
 		},
 	)
 }
@@ -585,18 +590,32 @@ func (h *createsHandler) validateRequiredOrders() error {
 
 func (h *createsHandler) constructOrderReqs() error {
 	for _, order := range h.Orders {
+		good, ok := h.appGoods[order.AppGoodID]
+		if !ok {
+			return fmt.Errorf("invalid appgood")
+		}
 		id := uuid.NewString()
-		h.orderReqs = append(h.orderReqs, &ordermwpb.OrderReq{
-			EntID:             &id,
-			AppID:             h.AppID,
-			UserID:            h.UserID,
-			AppGoodID:         &order.AppGoodID,
-			Units:             order.Units,
-			Duration:          order.Duration,
-			OrderType:         h.OrderType,
-			InvestmentType:    h.InvestmentType,
-			PaymentCoinTypeID: h.PaymentCoinID,
-		})
+		req := &_orderReq{
+			OrderReq: ordermwpb.OrderReq{
+				EntID:             &id,
+				AppID:             h.AppID,
+				UserID:            h.UserID,
+				AppGoodID:         &order.AppGoodID,
+				Units:             order.Units,
+				Duration:          order.Duration,
+				OrderType:         h.OrderType,
+				InvestmentType:    h.InvestmentType,
+				PaymentCoinTypeID: h.PaymentCoinID,
+			},
+		}
+		switch good.UnitType {
+		case goodtypes.GoodUnitType_GoodUnitByQuantity:
+			fallthrough //nolint
+		case goodtypes.GoodUnitType_GoodUnitByDurationAndQuantity:
+			id1 := uuid.NewString()
+			req.AppGoodStockLockID = &id1
+		}
+		h.orderReqs = append(h.orderReqs, req)
 		if order.Parent {
 			if h.AppGoodID != nil {
 				return fmt.Errorf("invalid parentorder")

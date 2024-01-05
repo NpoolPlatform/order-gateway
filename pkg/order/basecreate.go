@@ -61,9 +61,10 @@ type baseCreateHandler struct {
 	balanceCoinAmount       decimal.Decimal
 	transferCoinAmount      decimal.Decimal
 	paymentType             types.PaymentType
-	stockLockID             string
+	stockLockID             *string
 	balanceLockID           *string
 	goodCoinEnv             string
+	needCheckStock          bool
 }
 
 func (h *baseCreateHandler) getUser(ctx context.Context) error {
@@ -572,10 +573,13 @@ func (h *baseCreateHandler) withLockPaymentAccount(dispose *dtmcli.SagaDispose) 
 }
 
 func (h *baseCreateHandler) prepareStockAndLedgerLockIDs() {
-	h.stockLockID = uuid.NewString()
+	if h.needCheckStock {
+		id := uuid.NewString()
+		h.stockLockID = &id
+	}
 	if h.balanceCoinAmount.Cmp(decimal.NewFromInt(0)) > 0 {
-		id3 := uuid.NewString()
-		h.balanceLockID = &id3
+		id1 := uuid.NewString()
+		h.balanceLockID = &id1
 	}
 }
 
