@@ -174,13 +174,17 @@ func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
 
 func (h *baseCreateHandler) checkCouponWithdraw(ctx context.Context) error {
 	for _, coupon := range h.coupons {
-		if _, err := couponwithdrawmwcli.GetCouponWithdrawOnly(ctx, &couponwithdrawmwpb.Conds{
+		cw, err := couponwithdrawmwcli.GetCouponWithdrawOnly(ctx, &couponwithdrawmwpb.Conds{
 			AppID:       &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 			UserID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
 			AllocatedID: &basetypes.StringVal{Op: cruder.EQ, Value: coupon.EntID},
 			State:       &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(ledgertypes.WithdrawState_Reviewing)},
-		}); err != nil {
+		})
+		if err != nil {
 			return err
+		}
+		if cw != nil {
+			return fmt.Errorf("coupon is withdrawing")
 		}
 	}
 	return nil
