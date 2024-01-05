@@ -160,10 +160,12 @@ func (h *createHandler) resolveUnits() error {
 			if h.Duration == nil {
 				return fmt.Errorf("invalid duration")
 			}
+			h.needCheckStock = true
 		}
 		switch h.appGood.QuantityCalculateType {
 		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent:
 			h.Units = &h.parentOrder.Units
+			h.needCheckStock = true
 		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateBySelf:
 			return fmt.Errorf("invalid durationcalculatetype")
 		}
@@ -460,7 +462,7 @@ func (h *createHandler) resolveStartEnd() error {
 }
 
 func (h *createHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
-	if h.Units == nil {
+	if !h.needCheckStock {
 		return
 	}
 	dispose.Add(
@@ -474,7 +476,7 @@ func (h *createHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
 			AppGoodID:    *h.AppGoodID,
 			Units:        *h.Units,
 			AppSpotUnits: decimal.NewFromInt(0).String(),
-			LockID:       h.stockLockID,
+			LockID:       *h.stockLockID,
 			Rollback:     true,
 		},
 	)
@@ -518,7 +520,7 @@ func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose) {
 		StartAt:              &h.orderStartAt,
 		EndAt:                &h.orderEndAt,
 		StartMode:            &h.orderStartMode,
-		AppGoodStockLockID:   &h.stockLockID,
+		AppGoodStockLockID:   h.stockLockID,
 		LedgerLockID:         h.balanceLockID,
 	}
 	if h.priceTopMostGood != nil {
