@@ -17,12 +17,14 @@ import (
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
 	appgoodscopemwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/app/scope"
+	couponwithdrawmwcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/withdraw/coupon"
 	ledgermwsvcname "github.com/NpoolPlatform/ledger-middleware/pkg/servicename"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
 	appmwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/app"
 	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 	inspiretypes "github.com/NpoolPlatform/message/npool/basetypes/inspire/v1"
+	ledgertypes "github.com/NpoolPlatform/message/npool/basetypes/ledger/v1"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
@@ -32,6 +34,7 @@ import (
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	appgoodscopemwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/app/scope"
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
+	couponwithdrawmwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/withdraw/coupon"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
@@ -165,6 +168,20 @@ func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
 			return fmt.Errorf("invalid coupon")
 		}
 		h.coupons[coupon.EntID] = coupon
+	}
+	return nil
+}
+
+func (h *baseCreateHandler) checkCouponWithdraw(ctx context.Context) error {
+	for _, coupon := range h.coupons {
+		if _, err := couponwithdrawmwcli.GetCouponWithdrawOnly(ctx, &couponwithdrawmwpb.Conds{
+			AppID:       &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+			UserID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
+			AllocatedID: &basetypes.StringVal{Op: cruder.EQ, Value: coupon.EntID},
+			State:       &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(ledgertypes.WithdrawState_Reviewing)},
+		}); err != nil {
+			return err
+		}
 	}
 	return nil
 }

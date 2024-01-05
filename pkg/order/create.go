@@ -340,6 +340,9 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	if err := handler.getCoupons(ctx); err != nil {
 		return nil, err
 	}
+	if err := handler.checkCouponWithdraw(ctx); err != nil {
+		return nil, err
+	}
 	if err := handler.validateCouponScope(ctx, handler.good.EntID, *h.AppGoodID); err != nil {
 		return nil, err
 	}
