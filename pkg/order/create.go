@@ -129,6 +129,7 @@ func (h *createHandler) checkParentGood(ctx context.Context) error {
 //nolint:gocyclo
 func (h *createHandler) resolveUnits() error {
 	if h.parentAppGood == nil {
+		h.needCheckStock = true
 		return nil
 	}
 	if h.parentAppGood.PackageWithRequireds {
@@ -149,6 +150,7 @@ func (h *createHandler) resolveUnits() error {
 		switch h.appGood.QuantityCalculateType {
 		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent:
 			h.Units = &h.parentOrder.Units
+			h.needCheckStock = true
 		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateBySelf:
 			return fmt.Errorf("invalid durationcalculatetype")
 		}
