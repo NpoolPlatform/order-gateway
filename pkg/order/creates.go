@@ -269,9 +269,6 @@ func (h *createsHandler) goodValue(req *ordermwpb.OrderReq) (decimal.Decimal, er
 	if !ok {
 		return decimal.NewFromInt(0), fmt.Errorf("invalid good")
 	}
-	if good.SettlementType == goodtypes.GoodSettlementType_GoodSettledByProfit {
-		return decimal.NewFromInt(0), nil
-	}
 	price, err := decimal.NewFromString(good.PackagePrice)
 	if err != nil {
 		return decimal.Decimal{}, err
@@ -336,10 +333,16 @@ func (h *createsHandler) calculateOrderUSDPrice() error {
 	valueZero := decimal.NewFromInt(0).String()
 
 	for _, req := range h.orderReqs {
+		good, ok := h.appGoods[*req.AppGoodID]
+		if !ok {
+			return fmt.Errorf("invalid appgood")
+		}
 		if packageWithRequireds && *req.EntID != *h.ParentOrderID {
-			req.GoodValueUSD = &valueZero
-			req.GoodValue = &valueZero
-			continue
+			if good.SettlementType != goodtypes.GoodSettlementType_GoodSettledByProfit {
+				req.GoodValueUSD = &valueZero
+				req.GoodValue = &valueZero
+				continue
+			}
 		}
 		goodValueUSD, err := h.goodValue(req)
 		if err != nil {
