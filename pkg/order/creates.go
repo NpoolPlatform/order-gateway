@@ -465,6 +465,9 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	if err := handler.calculateOrderUSDPrice(); err != nil {
 		return nil, err
 	}
+	if err := handler.checkCouponConstraint(); err != nil {
+		return nil, err
+	}
 	if err := handler.calculateDiscountCouponReduction(); err != nil {
 		return nil, err
 	}

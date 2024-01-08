@@ -17,12 +17,14 @@ import (
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	allocatedmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
 	appgoodscopemwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/app/scope"
+	couponwithdrawmwcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/withdraw/coupon"
 	ledgermwsvcname "github.com/NpoolPlatform/ledger-middleware/pkg/servicename"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	payaccmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
 	appmwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/app"
 	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 	inspiretypes "github.com/NpoolPlatform/message/npool/basetypes/inspire/v1"
+	ledgertypes "github.com/NpoolPlatform/message/npool/basetypes/ledger/v1"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
@@ -32,6 +34,7 @@ import (
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	appgoodscopemwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/app/scope"
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
+	couponwithdrawmwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/withdraw/coupon"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
@@ -169,6 +172,24 @@ func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
 	return nil
 }
 
+func (h *baseCreateHandler) checkCouponWithdraw(ctx context.Context) error {
+	for _, coupon := range h.coupons {
+		cw, err := couponwithdrawmwcli.GetCouponWithdrawOnly(ctx, &couponwithdrawmwpb.Conds{
+			AppID:       &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+			UserID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
+			AllocatedID: &basetypes.StringVal{Op: cruder.EQ, Value: coupon.EntID},
+			State:       &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(ledgertypes.WithdrawState_Reviewing)},
+		})
+		if err != nil {
+			return err
+		}
+		if cw != nil {
+			return fmt.Errorf("coupon is withdrawing")
+		}
+	}
+	return nil
+}
+
 func (h *baseCreateHandler) validateCouponScope(ctx context.Context, goodID, appGoodID string) error {
 	if len(h.CouponIDs) == 0 {
 		return nil
@@ -193,22 +214,18 @@ func (h *baseCreateHandler) validateCouponScope(ctx context.Context, goodID, app
 func (h *baseCreateHandler) validateDiscountCoupon() error {
 	discountCoupons := 0
 	fixAmountCoupons := uint32(0)
-	specialOfferCoupons := uint32(0)
 	for _, coupon := range h.coupons {
 		switch coupon.CouponType {
 		case inspiretypes.CouponType_Discount:
 			discountCoupons++
 		case inspiretypes.CouponType_FixAmount:
 			fixAmountCoupons++
-		case inspiretypes.CouponType_SpecialOffer:
-			specialOfferCoupons++
 		}
 	}
 	if discountCoupons > 1 {
 		return fmt.Errorf("invalid discountcoupon")
 	}
-	if fixAmountCoupons > h.app.MaxTypedCouponsPerOrder ||
-		specialOfferCoupons > h.app.MaxTypedCouponsPerOrder {
+	if fixAmountCoupons > h.app.MaxTypedCouponsPerOrder {
 		return fmt.Errorf("invalid fixamountcoupon")
 	}
 	return nil
@@ -251,6 +268,21 @@ func (h *baseCreateHandler) checkParentOrder(ctx context.Context) error {
 	return nil
 }
 
+func (h *baseCreateHandler) checkCouponConstraint() error {
+	for _, coupon := range h.coupons {
+		if coupon.CouponConstraint == inspiretypes.CouponConstraint_PaymentThreshold {
+			threshold, err := decimal.NewFromString(coupon.Threshold)
+			if err != nil {
+				return fmt.Errorf("threshold not available")
+			}
+			if h.paymentUSDAmount.Cmp(threshold) < 0 {
+				return fmt.Errorf("payment amount needs to be greater than  %v", threshold)
+			}
+		}
+	}
+	return nil
+}
+
 func (h *baseCreateHandler) calculateDiscountCouponReduction() error {
 	for _, coupon := range h.coupons {
 		if coupon.CouponType != inspiretypes.CouponType_Discount {
@@ -271,7 +303,6 @@ func (h *baseCreateHandler) calculateFixAmountCouponReduction() error {
 	for _, coupon := range h.coupons {
 		switch coupon.CouponType {
 		case inspiretypes.CouponType_FixAmount:
-		case inspiretypes.CouponType_SpecialOffer:
 		default:
 			continue
 		}
