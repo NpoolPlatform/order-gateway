@@ -496,6 +496,10 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) error {
 		req.CoinUSDCurrency = &coinUSDCurrency
 		req.LocalCoinUSDCurrency = &localCoinUSDCurrency
 		req.LiveCoinUSDCurrency = &liveCoinUSDCurrency
+		appGood, ok := h.appGoods[*req.AppGoodID]
+		if !ok {
+			return fmt.Errorf("invalid appgood")
+		}
 		if *req.EntID == *h.ParentOrderID {
 			if topMost, ok := h.priceTopMostGoods[*req.AppGoodID]; ok {
 				req.PromotionID = &topMost.TopMostID
@@ -517,12 +521,7 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) error {
 			req.ParentOrderID = h.ParentOrderID
 			childPaymentType := types.PaymentType_PayWithParentOrder
 			req.PaymentType = &childPaymentType
-			invalidID := uuid.Nil.String()
-			req.CoinTypeID = &invalidID
-		}
-		appGood, ok := h.appGoods[*req.AppGoodID]
-		if !ok {
-			return fmt.Errorf("invalid appgood")
+			req.CoinTypeID = &appGood.CoinTypeID
 		}
 		req.GoodID = &appGood.GoodID
 		req.AppGoodID = &appGood.EntID
