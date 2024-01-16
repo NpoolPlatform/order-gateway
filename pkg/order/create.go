@@ -100,6 +100,20 @@ func (h *createHandler) checkAppGoodCoin(ctx context.Context) error {
 	return nil
 }
 
+func (h *createHandler) checkOrderGoodRequired(ctx context.Context) error {
+	exist, err := goodrequiredmwcli.ExistRequiredConds(ctx, &goodrequiredpb.Conds{
+		MainGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.appGood.GoodID},
+		Must:       &basetypes.BoolVal{Op: cruder.EQ, Value: true},
+	})
+	if err != nil {
+		return err
+	}
+	if !exist {
+		return fmt.Errorf("invalid goodrequired")
+	}
+	return nil
+}
+
 func (h *createHandler) checkParentOrderGoodRequired(ctx context.Context) error {
 	if h.ParentOrderID == nil {
 		return nil
@@ -634,6 +648,9 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 		return nil, err
 	}
 	if err := handler.checkParentOrder(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkOrderGoodRequired(ctx); err != nil {
 		return nil, err
 	}
 	if err := handler.checkParentOrderGoodRequired(ctx); err != nil {
