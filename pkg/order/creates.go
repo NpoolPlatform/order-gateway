@@ -211,6 +211,12 @@ func (h *createsHandler) goodPackagePrice(req *ordermwpb.OrderReq) (decimal.Deci
 		}
 	}
 
+	if packagePrice.Cmp(decimal.NewFromInt(0)) <= 0 {
+		if good.PackageWithRequireds {
+			return decimal.Decimal{}, fmt.Errorf("invalid packageprice")
+		}
+	}
+
 	return packagePrice, nil
 }
 
@@ -329,6 +335,9 @@ func (h *createsHandler) goodPaymentUSDAmount(req *ordermwpb.OrderReq) (decimal.
 
 func (h *createsHandler) calculateOrderUSDPrice() error {
 	for _, req := range h.orderReqs {
+		if h.parentAppGood.PackageWithRequireds && *req.EntID != *h.ParentOrderID {
+			continue
+		}
 		goodValueUSD, err := h.goodValue(req)
 		if err != nil {
 			return err
