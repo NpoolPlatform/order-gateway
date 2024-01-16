@@ -404,6 +404,11 @@ func (h *createsHandler) resolveStartEnd() error {
 			}
 		}
 
+		appGood, ok := h.appGoods[*req.AppGoodID]
+		if !ok {
+			return fmt.Errorf("invalid appgood")
+		}
+
 		switch h.parentAppGood.UnitType {
 		case goodtypes.GoodUnitType_GoodUnitByDuration:
 			fallthrough //nolint
@@ -414,8 +419,9 @@ func (h *createsHandler) resolveStartEnd() error {
 			if req.Duration == nil {
 				return fmt.Errorf("invalid duration")
 			}
-			if *req.Duration < h.parentAppGood.MinOrderDuration ||
-				*req.Duration > h.parentAppGood.MaxOrderDuration {
+			// TODO: process different duration unit of child and parent
+			if *req.Duration < appGood.MinOrderDuration ||
+				*req.Duration > appGood.MaxOrderDuration {
 				return fmt.Errorf("invalid duration")
 			}
 		}

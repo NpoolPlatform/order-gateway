@@ -141,6 +141,8 @@ func (h *createHandler) resolveUnits() error {
 
 	switch h.appGood.UnitType {
 	case goodtypes.GoodUnitType_GoodUnitByDuration:
+		oneUnits := "1"
+		h.Units = &oneUnits
 		switch h.appGood.DurationCalculateType {
 		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent:
 			return fmt.Errorf("invalid durationcalculatetype")
@@ -440,6 +442,7 @@ func (h *createHandler) resolveStartEnd() error {
 		if h.Duration == nil {
 			return fmt.Errorf("invalid duration")
 		}
+		// TODO: process different duration unit of child and parent
 		if *h.Duration < h.appGood.MinOrderDuration ||
 			*h.Duration > h.appGood.MaxOrderDuration {
 			return fmt.Errorf("invalid duration")
