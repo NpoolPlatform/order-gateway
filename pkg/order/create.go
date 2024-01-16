@@ -254,10 +254,6 @@ func (h *createHandler) topMostGoodUnitPrice() (decimal.Decimal, error) {
 }
 
 func (h *createHandler) goodPackagePrice() (decimal.Decimal, error) {
-	if h.appGood.MinOrderDuration != h.appGood.MaxOrderDuration {
-		return decimal.Decimal{}, nil
-	}
-
 	packagePrice, err := h.topMostGoodPackagePrice()
 	if err != nil {
 		return decimal.Decimal{}, err
@@ -269,6 +265,11 @@ func (h *createHandler) goodPackagePrice() (decimal.Decimal, error) {
 	packagePrice, err = decimal.NewFromString(h.appGood.PackagePrice)
 	if err != nil {
 		return decimal.Decimal{}, err
+	}
+	if packagePrice.Cmp(decimal.NewFromInt(0)) > 0 {
+		if h.appGood.MinOrderDuration != h.appGood.MaxOrderDuration {
+			return decimal.Decimal{}, fmt.Errorf("invalid packageprice duration")
+		}
 	}
 	return packagePrice, nil
 }

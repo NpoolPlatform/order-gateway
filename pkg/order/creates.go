@@ -191,9 +191,6 @@ func (h *createsHandler) topMostGoodUnitPrice(req *ordermwpb.OrderReq) (decimal.
 
 func (h *createsHandler) goodPackagePrice(req *ordermwpb.OrderReq) (decimal.Decimal, error) {
 	good := h.appGoods[*req.AppGoodID]
-	if good.MinOrderDuration != good.MaxOrderDuration {
-		return decimal.Decimal{}, nil
-	}
 
 	packagePrice, err := h.topMostGoodPackagePrice(req)
 	if err != nil {
@@ -207,6 +204,13 @@ func (h *createsHandler) goodPackagePrice(req *ordermwpb.OrderReq) (decimal.Deci
 	if err != nil {
 		return decimal.Decimal{}, err
 	}
+
+	if packagePrice.Cmp(decimal.NewFromInt(0)) > 0 {
+		if good.MinOrderDuration != good.MaxOrderDuration {
+			return decimal.Decimal{}, fmt.Errorf("invalid packageprice duration")
+		}
+	}
+
 	return packagePrice, nil
 }
 
