@@ -22,7 +22,7 @@ func (s *Server) CreateOrder(ctx context.Context, in *npool.CreateOrderRequest) 
 		order1.WithAppID(&in.AppID, true),
 		order1.WithUserID(&in.UserID, true),
 		order1.WithAppGoodID(&in.AppGoodID, true),
-		order1.WithUnits(in.Units, true),
+		order1.WithUnits(in.Units, false),
 		order1.WithDuration(in.Duration, true),
 		order1.WithPaymentCoinID(&in.PaymentCoinID, true),
 		order1.WithParentOrderID(in.ParentOrderID, false),

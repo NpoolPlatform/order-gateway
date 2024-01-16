@@ -152,7 +152,7 @@ func (h *createHandler) resolveUnits() error {
 			h.Units = &h.parentOrder.Units
 			h.needCheckStock = true
 		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateBySelf:
-			return fmt.Errorf("invalid durationcalculatetype")
+			return fmt.Errorf("invalid quantitycalculatetype")
 		}
 	case goodtypes.GoodUnitType_GoodUnitByDurationAndQuantity:
 		switch h.appGood.DurationCalculateType {
@@ -169,8 +169,11 @@ func (h *createHandler) resolveUnits() error {
 			h.Units = &h.parentOrder.Units
 			h.needCheckStock = true
 		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateBySelf:
-			return fmt.Errorf("invalid durationcalculatetype")
+			return fmt.Errorf("invalid quantitycalculatetype")
 		}
+	}
+	if h.Units == nil {
+		return fmt.Errorf("invalid units")
 	}
 	return nil
 }
