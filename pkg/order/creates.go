@@ -653,6 +653,10 @@ func (h *createsHandler) constructOrderReqs() error {
 			// TODO: process different duration unit of child and parent
 			req.Duration = h.Duration
 		}
+		if good.UnitType == goodtypes.GoodUnitType_GoodUnitByDuration {
+			oneUnits := "1"
+			req.Units = &oneUnits
+		}
 	}
 	return nil
 }
