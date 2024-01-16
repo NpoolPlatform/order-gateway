@@ -642,7 +642,7 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 	}
 	if (min.Cmp(decimal.NewFromInt(0)) > 0 && units.Cmp(min) < 0) ||
 		(max.Cmp(decimal.NewFromInt(0)) > 0 && units.Cmp(max) > 0) {
-		return fmt.Errorf("too many units")
+		return fmt.Errorf("too many | less units")
 	}
 	if !appGood.EnablePurchase {
 		return fmt.Errorf("permission denied")
