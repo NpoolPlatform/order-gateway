@@ -339,6 +339,26 @@ func WithOrderType(orderType *ordertypes.OrderType, must bool) func(context.Cont
 
 func WithOrders(orders []*npool.CreateOrdersRequest_OrderReq, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
+		for _, order := range orders {
+			if _, err := uuid.Parse(order.AppGoodID); err != nil {
+				return err
+			}
+			if order.Parent && order.Units == nil {
+				return fmt.Errorf("invalid parent units")
+			}
+			if order.Units != nil {
+				units, err := decimal.NewFromString(*order.Units)
+				if err != nil {
+					return err
+				}
+				if units.Cmp(decimal.NewFromInt(0)) <= 0 {
+					return fmt.Errorf("invalid units")
+				}
+			}
+			if order.Duration != nil && *order.Duration <= 0 {
+				return fmt.Errorf("invalid duration")
+			}
+		}
 		h.Orders = orders
 		return nil
 	}
