@@ -630,6 +630,10 @@ func (h *createsHandler) constructOrderReqs() error {
 			// TODO: process different duration unit of child and parent
 			req.Duration = h.Duration
 		}
+		if good.SettlementType == goodtypes.GoodSettlementType_GoodSettledByProfit {
+			// TODO: process different duration unit of child and parent
+			req.Duration = h.Duration
+		}
 	}
 	return nil
 }

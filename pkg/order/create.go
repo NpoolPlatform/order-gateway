@@ -71,6 +71,9 @@ func (h *createHandler) getAppGood(ctx context.Context) error {
 	if good == nil {
 		return fmt.Errorf("invalid good")
 	}
+	if good.SettlementType == goodtypes.GoodSettlementType_GoodSettledByProfit {
+		return fmt.Errorf("permission denied")
+	}
 	h.appGood = good
 	return nil
 }
