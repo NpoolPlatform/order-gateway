@@ -108,7 +108,7 @@ func (h *createHandler) checkOrderGoodRequired(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if !exist {
+	if exist {
 		return fmt.Errorf("invalid goodrequired")
 	}
 	return nil
@@ -283,7 +283,7 @@ func (h *createHandler) goodPackagePrice() (decimal.Decimal, error) {
 		return decimal.Decimal{}, err
 	}
 	if packagePrice.Cmp(decimal.NewFromInt(0)) > 0 {
-		if h.appGood.MinOrderDuration != h.appGood.MaxOrderDuration {
+		if h.appGood.MinOrderDuration != h.appGood.MaxOrderDuration && h.appGood.UnitType != goodtypes.GoodUnitType_GoodUnitByQuantity {
 			return decimal.Decimal{}, fmt.Errorf("invalid packageprice duration")
 		}
 	}
@@ -422,6 +422,11 @@ func (h *createHandler) resolveStartMode() {
 
 //nolint:gocyclo
 func (h *createHandler) resolveStartEnd() error {
+	switch h.appGood.UnitType {
+	case goodtypes.GoodUnitType_GoodUnitByQuantity:
+		return nil
+	}
+
 	durationUnitSeconds := timedef.SecondsPerHour
 	switch h.appGood.DurationType {
 	case goodtypes.GoodDurationType_GoodDurationByHour:
