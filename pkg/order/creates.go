@@ -377,7 +377,7 @@ func (h *createsHandler) resolveStartMode() {
 	}
 }
 
-//nolint:gocyclo
+//nolint:gocyclo,funlen
 func (h *createsHandler) resolveStartEnd() error {
 	durationUnitSeconds := timedef.SecondsPerHour
 	for _, req := range h.orderReqs {
