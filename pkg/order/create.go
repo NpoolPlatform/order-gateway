@@ -422,8 +422,7 @@ func (h *createHandler) resolveStartMode() {
 
 //nolint:gocyclo
 func (h *createHandler) resolveStartEnd() error {
-	switch h.appGood.UnitType {
-	case goodtypes.GoodUnitType_GoodUnitByQuantity:
+	if h.appGood.UnitType == goodtypes.GoodUnitType_GoodUnitByQuantity {
 		return nil
 	}
 
