@@ -145,11 +145,7 @@ func (h *createHandler) checkParentGood(ctx context.Context) error {
 
 //nolint:gocyclo
 func (h *createHandler) resolveUnits() error {
-	if h.parentAppGood == nil {
-		h.needCheckStock = true
-		return nil
-	}
-	if h.parentAppGood.PackageWithRequireds {
+	if h.parentAppGood != nil && h.parentAppGood.PackageWithRequireds {
 		return fmt.Errorf("invalid parentappgood")
 	}
 
@@ -168,6 +164,12 @@ func (h *createHandler) resolveUnits() error {
 	case goodtypes.GoodUnitType_GoodUnitByQuantity:
 		switch h.appGood.QuantityCalculateType {
 		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent:
+			if h.parentAppGood == nil {
+				return fmt.Errorf("invalid parentappgood")
+			}
+			if h.parentOrder == nil {
+				return fmt.Errorf("invalid parentorder")
+			}
 			h.Units = &h.parentOrder.Units
 			h.needCheckStock = true
 		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateBySelf:
@@ -185,6 +187,12 @@ func (h *createHandler) resolveUnits() error {
 		}
 		switch h.appGood.QuantityCalculateType {
 		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent:
+			if h.parentAppGood == nil {
+				return fmt.Errorf("invalid parentappgood")
+			}
+			if h.parentOrder == nil {
+				return fmt.Errorf("invalid parentorder")
+			}
 			h.Units = &h.parentOrder.Units
 			h.needCheckStock = true
 		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateBySelf:
