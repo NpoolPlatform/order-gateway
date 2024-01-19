@@ -335,16 +335,16 @@ func (h *createsHandler) goodPaymentUSDAmount(req *ordermwpb.OrderReq) (decimal.
 
 func (h *createsHandler) calculateOrderUSDPrice() error {
 	for _, req := range h.orderReqs {
-		if h.parentAppGood.PackageWithRequireds && *req.EntID != *h.ParentOrderID {
-			continue
-		}
 		goodValueUSD, err := h.goodValue(req)
 		if err != nil {
 			return err
 		}
-		paymentUSDAmount, err := h.goodPaymentUSDAmount(req)
-		if err != nil {
-			return err
+		paymentUSDAmount := decimal.NewFromInt(0)
+		if !h.parentAppGood.PackageWithRequireds || *req.EntID == *h.ParentOrderID {
+			paymentUSDAmount, err = h.goodPaymentUSDAmount(req)
+			if err != nil {
+				return err
+			}
 		}
 		goodValue := goodValueUSD.String()
 		if h.coinCurrencyAmount.Cmp(decimal.NewFromInt(0)) > 0 {
