@@ -64,9 +64,10 @@ type baseCreateHandler struct {
 	balanceCoinAmount       decimal.Decimal
 	transferCoinAmount      decimal.Decimal
 	paymentType             types.PaymentType
-	stockLockID             string
+	stockLockID             *string
 	balanceLockID           *string
 	goodCoinEnv             string
+	needCheckStock          bool
 }
 
 func (h *baseCreateHandler) getUser(ctx context.Context) error {
@@ -603,27 +604,45 @@ func (h *baseCreateHandler) withLockPaymentAccount(dispose *dtmcli.SagaDispose) 
 }
 
 func (h *baseCreateHandler) prepareStockAndLedgerLockIDs() {
-	h.stockLockID = uuid.NewString()
+	if h.needCheckStock {
+		id := uuid.NewString()
+		h.stockLockID = &id
+	}
 	if h.balanceCoinAmount.Cmp(decimal.NewFromInt(0)) > 0 {
-		id3 := uuid.NewString()
-		h.balanceLockID = &id3
+		id1 := uuid.NewString()
+		h.balanceLockID = &id1
 	}
 }
 
+//nolint:gocyclo
 func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoodmwpb.Good) error {
+	if h.parentOrder != nil {
+		return nil
+	}
 	if *h.OrderType != types.OrderType_Normal {
 		return nil
 	}
 	if appGood.EntID != *h.AppGoodID {
 		return fmt.Errorf("mismatch appgoodid")
 	}
-	units, err := decimal.NewFromString(h.Units)
+	if h.Units == nil {
+		return nil
+	}
+	units, err := decimal.NewFromString(*h.Units)
 	if err != nil {
 		return err
 	}
-	if appGood.PurchaseLimit > 0 &&
-		units.Cmp(decimal.NewFromInt32(appGood.PurchaseLimit)) > 0 {
-		return fmt.Errorf("too many units")
+	max, err := decimal.NewFromString(appGood.MaxOrderAmount)
+	if err != nil {
+		return err
+	}
+	min, err := decimal.NewFromString(appGood.MinOrderAmount)
+	if err != nil {
+		return err
+	}
+	if (min.Cmp(decimal.NewFromInt(0)) > 0 && units.Cmp(min) < 0) ||
+		(max.Cmp(decimal.NewFromInt(0)) > 0 && units.Cmp(max) > 0) {
+		return fmt.Errorf("too many | less units")
 	}
 	if !appGood.EnablePurchase {
 		return fmt.Errorf("permission denied")
@@ -641,16 +660,13 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 	if err != nil {
 		return err
 	}
-
-	userPurchaseLimit, err := decimal.NewFromString(appGood.UserPurchaseLimit)
+	userPurchaseLimit, err := decimal.NewFromString(appGood.MaxUserAmount)
 	if err != nil {
 		return err
 	}
-
 	if userPurchaseLimit.Cmp(decimal.NewFromInt(0)) > 0 &&
 		purchaseCount.Add(units).Cmp(userPurchaseLimit) > 0 {
 		return fmt.Errorf("too many units")
 	}
-
 	return nil
 }

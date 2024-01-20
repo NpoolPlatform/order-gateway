@@ -3,6 +3,8 @@ package order
 import (
 	"context"
 	"fmt"
+	"math"
+	"time"
 
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
@@ -39,6 +41,7 @@ import (
 type createHandler struct {
 	*baseCreateHandler
 	appGood             *appgoodmwpb.Good
+	parentAppGood       *appgoodmwpb.Good
 	good                *goodmwpb.Good
 	topMostGoods        []*topmostmwpb.TopMostGood
 	priceTopMostGood    *topmostmwpb.TopMostGood
@@ -69,6 +72,9 @@ func (h *createHandler) getAppGood(ctx context.Context) error {
 	if good == nil {
 		return fmt.Errorf("invalid good")
 	}
+	if good.SettlementType == goodtypes.GoodSettlementType_GoodSettledByProfit {
+		return fmt.Errorf("permission denied")
+	}
 	h.appGood = good
 	return nil
 }
@@ -95,6 +101,20 @@ func (h *createHandler) checkAppGoodCoin(ctx context.Context) error {
 	return nil
 }
 
+func (h *createHandler) checkOrderGoodRequired(ctx context.Context) error {
+	exist, err := goodrequiredmwcli.ExistRequiredConds(ctx, &goodrequiredpb.Conds{
+		MainGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.appGood.GoodID},
+		Must:       &basetypes.BoolVal{Op: cruder.EQ, Value: true},
+	})
+	if err != nil {
+		return err
+	}
+	if exist {
+		return fmt.Errorf("invalid goodrequired")
+	}
+	return nil
+}
+
 func (h *createHandler) checkParentOrderGoodRequired(ctx context.Context) error {
 	if h.ParentOrderID == nil {
 		return nil
@@ -108,6 +128,80 @@ func (h *createHandler) checkParentOrderGoodRequired(ctx context.Context) error 
 	}
 	if !exist {
 		return fmt.Errorf("invalid goodrequired")
+	}
+	return nil
+}
+
+func (h *createHandler) checkParentGood(ctx context.Context) error {
+	if h.ParentOrderID == nil {
+		return nil
+	}
+	good, err := appgoodmwcli.GetGood(ctx, h.parentOrder.AppGoodID)
+	if err != nil {
+		return err
+	}
+	h.parentAppGood = good
+	return nil
+}
+
+//nolint:gocyclo
+func (h *createHandler) resolveUnits() error {
+	if h.parentAppGood != nil && h.parentAppGood.PackageWithRequireds {
+		return fmt.Errorf("invalid parentappgood")
+	}
+
+	switch h.appGood.UnitType {
+	case goodtypes.GoodUnitType_GoodUnitByDuration:
+		oneUnits := "1"
+		h.Units = &oneUnits
+		switch h.appGood.DurationCalculateType {
+		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent:
+			return fmt.Errorf("invalid durationcalculatetype")
+		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateBySelf:
+			if h.Duration == nil {
+				return fmt.Errorf("invalid duration")
+			}
+		}
+	case goodtypes.GoodUnitType_GoodUnitByQuantity:
+		switch h.appGood.QuantityCalculateType {
+		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent:
+			if h.parentAppGood == nil {
+				return fmt.Errorf("invalid parentappgood")
+			}
+			if h.parentOrder == nil {
+				return fmt.Errorf("invalid parentorder")
+			}
+			h.Units = &h.parentOrder.Units
+			h.needCheckStock = true
+		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateBySelf:
+		}
+	case goodtypes.GoodUnitType_GoodUnitByDurationAndQuantity:
+		switch h.appGood.DurationCalculateType {
+		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent:
+			return fmt.Errorf("invalid durationcalculatetype")
+		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateBySelf:
+			if h.Duration == nil {
+				return fmt.Errorf("invalid duration")
+			}
+		}
+		switch h.appGood.QuantityCalculateType {
+		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent:
+			if h.parentAppGood == nil {
+				return fmt.Errorf("invalid parentappgood")
+			}
+			if h.parentOrder == nil {
+				return fmt.Errorf("invalid parentorder")
+			}
+			h.Units = &h.parentOrder.Units
+			h.needCheckStock = true
+		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateBySelf:
+		}
+	}
+	if h.parentAppGood == nil {
+		h.needCheckStock = true
+	}
+	if h.Units == nil {
+		return fmt.Errorf("invalid units")
 	}
 	return nil
 }
@@ -148,59 +242,273 @@ func (h *createHandler) getAppGoodPromotion(ctx context.Context) error {
 	return nil
 }
 
-func (h *createHandler) calculateOrderUSDPrice() error {
-	units, err := decimal.NewFromString(h.Units)
-	if err != nil {
-		return err
-	}
-	unitPrice, err := decimal.NewFromString(h.appGood.Price)
-	if err != nil {
-		return err
-	}
-	if unitPrice.Cmp(decimal.NewFromInt(0)) <= 0 {
-		return fmt.Errorf("invalid price")
-	}
-	h.goodValueUSDAmount = unitPrice.Mul(units)
+func (h *createHandler) topMostGoodPackagePrice() (decimal.Decimal, error) {
+	price := decimal.NewFromInt(0)
 	for _, topMost := range h.topMostGoods {
-		price, err := decimal.NewFromString(topMost.Price)
+		packagePrice, err := decimal.NewFromString(topMost.PackagePrice)
 		if err != nil {
-			return err
+			return decimal.Decimal{}, err
 		}
-		if price.Cmp(decimal.NewFromInt(0)) <= 0 {
-			return fmt.Errorf("invalid price")
+		if packagePrice.Cmp(decimal.NewFromInt(0)) <= 0 {
+			continue
 		}
-		if unitPrice.Cmp(price) > 0 {
-			unitPrice = price
+		if packagePrice.Cmp(price) < 0 {
+			price = packagePrice
 			h.priceTopMostGood = topMost
 		}
 	}
-	h.paymentUSDAmount = unitPrice.Mul(units)
+	return price, nil
+}
+
+func (h *createHandler) topMostGoodUnitPrice() (decimal.Decimal, error) {
+	price := decimal.NewFromInt(0)
+	for _, topMost := range h.topMostGoods {
+		unitPrice, err := decimal.NewFromString(topMost.UnitPrice)
+		if err != nil {
+			return decimal.Decimal{}, err
+		}
+		if unitPrice.Cmp(decimal.NewFromInt(0)) <= 0 {
+			continue
+		}
+		if unitPrice.Cmp(price) < 0 {
+			price = unitPrice
+			h.priceTopMostGood = topMost
+		}
+	}
+	return price, nil
+}
+
+func (h *createHandler) goodPackagePrice() (decimal.Decimal, error) {
+	packagePrice, err := h.topMostGoodPackagePrice()
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	if packagePrice.Cmp(decimal.NewFromInt(0)) > 0 {
+		return packagePrice, nil
+	}
+
+	packagePrice, err = decimal.NewFromString(h.appGood.PackagePrice)
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	if packagePrice.Cmp(decimal.NewFromInt(0)) > 0 {
+		if h.appGood.MinOrderDuration != h.appGood.MaxOrderDuration && h.appGood.UnitType != goodtypes.GoodUnitType_GoodUnitByQuantity {
+			return decimal.Decimal{}, fmt.Errorf("invalid packageprice duration")
+		}
+	}
+	return packagePrice, nil
+}
+
+func (h *createHandler) goodUnitPrice() (decimal.Decimal, error) {
+	unitPrice, err := h.topMostGoodUnitPrice()
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	if unitPrice.Cmp(decimal.NewFromInt(0)) > 0 {
+		return unitPrice, nil
+	}
+
+	unitPrice, err = decimal.NewFromString(h.appGood.UnitPrice)
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	return unitPrice, nil
+}
+
+// Here we get price which already calculate duration
+//  GoodUnitByDuration: packagePrice or unitPrice * duration
+//  GoodUnitByQuantity: packagePrice or unitPrice
+//  GoodUnitByDurationAndQuantity: packagePrice or unitPrice * duration
+func (h *createHandler) goodPrice() (decimal.Decimal, error) {
+	packagePrice, err := h.goodPackagePrice()
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	if packagePrice.Cmp(decimal.NewFromInt(0)) > 0 {
+		return packagePrice, nil
+	}
+
+	unitPrice, err := h.goodUnitPrice()
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	if unitPrice.Cmp(decimal.NewFromInt(0)) <= 0 {
+		return decimal.Decimal{}, fmt.Errorf("invalid unitprice")
+	}
+
+	switch h.appGood.UnitType {
+	case goodtypes.GoodUnitType_GoodUnitByDurationAndQuantity:
+		fallthrough //nolint
+	case goodtypes.GoodUnitType_GoodUnitByDuration:
+		if h.Duration == nil {
+			return decimal.Decimal{}, fmt.Errorf("invalid duration")
+		}
+		return unitPrice.Mul(decimal.NewFromInt(int64(*h.Duration))), nil
+	case goodtypes.GoodUnitType_GoodUnitByQuantity:
+		return unitPrice, nil
+	default:
+		return decimal.Decimal{}, fmt.Errorf("invalid unittype")
+	}
+}
+
+func (h *createHandler) goodValue() (decimal.Decimal, error) {
+	price, err := decimal.NewFromString(h.appGood.PackagePrice)
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	if price.Cmp(decimal.NewFromInt(0)) <= 0 {
+		price, err = decimal.NewFromString(h.appGood.UnitPrice)
+		switch h.appGood.UnitType {
+		case goodtypes.GoodUnitType_GoodUnitByDurationAndQuantity:
+			fallthrough //nolint
+		case goodtypes.GoodUnitType_GoodUnitByDuration:
+			if h.Duration == nil {
+				return decimal.Decimal{}, fmt.Errorf("invalid duration")
+			}
+			price = price.Mul(decimal.NewFromInt(int64(*h.Duration)))
+		}
+	}
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	if price.Cmp(decimal.NewFromInt(0)) <= 0 {
+		return decimal.Decimal{}, fmt.Errorf("invalid price")
+	}
+	units := decimal.NewFromInt(1)
+	if h.Units != nil {
+		units, err = decimal.NewFromString(*h.Units)
+		if err != nil {
+			return decimal.Decimal{}, err
+		}
+	}
+	return price.Mul(units), nil
+}
+
+func (h *createHandler) goodPaymentUSDAmount() (decimal.Decimal, error) {
+	price, err := h.goodPrice()
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	units := decimal.NewFromInt(1)
+	if h.Units != nil {
+		units, err = decimal.NewFromString(*h.Units)
+		if err != nil {
+			return decimal.Decimal{}, err
+		}
+	}
+	return price.Mul(units), nil
+}
+
+func (h *createHandler) calculateOrderUSDPrice() error {
+	value, err := h.goodValue()
+	if err != nil {
+		return err
+	}
+	h.goodValueUSDAmount = value
+
+	amount, err := h.goodPaymentUSDAmount()
+	if err != nil {
+		return err
+	}
+	h.paymentUSDAmount = amount
 	return nil
 }
 
 func (h *createHandler) resolveStartMode() {
-	if h.appGood.StartMode == goodtypes.GoodStartMode_GoodStartModeTBD {
+	switch h.appGood.StartMode {
+	case goodtypes.GoodStartMode_GoodStartModeTBD:
 		h.orderStartMode = types.OrderStartMode_OrderStartTBD
-		return
+	case goodtypes.GoodStartMode_GoodStartModeConfirmed:
+		h.orderStartMode = types.OrderStartMode_OrderStartNextDay
+	case goodtypes.GoodStartMode_GoodStartModeInstantly:
+		h.orderStartMode = types.OrderStartMode_OrderStartInstantly
+	case goodtypes.GoodStartMode_GoodStartModeNextDay:
+		h.orderStartMode = types.OrderStartMode_OrderStartNextDay
+	case goodtypes.GoodStartMode_GoodStartModePreset:
+		h.orderStartMode = types.OrderStartMode_OrderStartPreset
 	}
-	h.orderStartMode = types.OrderStartMode_OrderStartConfirmed
 }
 
-func (h *createHandler) resolveStartEnd() {
-	goodStartAt := h.appGood.ServiceStartAt
-	if h.appGood.ServiceStartAt == 0 {
-		goodStartAt = h.appGood.StartAt
+//nolint:gocyclo
+func (h *createHandler) resolveStartEnd() error {
+	if h.appGood.UnitType == goodtypes.GoodUnitType_GoodUnitByQuantity {
+		duration := uint32(timedef.SecondsPerYear * 100) // nolint
+		h.Duration = &duration
 	}
-	goodDurationDays := uint32(h.appGood.DurationDays)
-	h.orderStartAt = uint32(h.tomorrowStart().Unix())
+
+	durationUnitSeconds := timedef.SecondsPerHour
+	switch h.appGood.DurationType {
+	case goodtypes.GoodDurationType_GoodDurationByHour:
+	case goodtypes.GoodDurationType_GoodDurationByDay:
+		durationUnitSeconds = timedef.SecondsPerDay
+	case goodtypes.GoodDurationType_GoodDurationByMonth:
+		durationUnitSeconds = timedef.SecondsPerMonth
+	case goodtypes.GoodDurationType_GoodDurationByYear:
+		durationUnitSeconds = timedef.SecondsPerYear
+	}
+
+	goodStartAt := h.appGood.ServiceStartAt
+	switch h.orderStartMode {
+	case types.OrderStartMode_OrderStartPreset:
+	case types.OrderStartMode_OrderStartInstantly:
+		fallthrough //nolint
+	case types.OrderStartMode_OrderStartNextDay:
+		fallthrough //nolint
+	case types.OrderStartMode_OrderStartTBD:
+		if goodStartAt == 0 {
+			goodStartAt = h.appGood.StartAt
+		}
+	}
+
+	switch h.appGood.UnitType {
+	case goodtypes.GoodUnitType_GoodUnitByDuration:
+		fallthrough //nolint
+	case goodtypes.GoodUnitType_GoodUnitByDurationAndQuantity:
+		if h.appGood.MinOrderDuration == h.appGood.MaxOrderDuration && h.Duration == nil {
+			h.Duration = &h.appGood.MinOrderDuration
+		}
+		if h.Duration == nil {
+			return fmt.Errorf("invalid duration")
+		}
+		// TODO: process different duration unit of child and parent
+		if *h.Duration < h.appGood.MinOrderDuration ||
+			*h.Duration > h.appGood.MaxOrderDuration {
+			return fmt.Errorf("invalid duration")
+		}
+	}
+
+	now := uint32(time.Now().Unix())
+	switch h.orderStartMode {
+	case types.OrderStartMode_OrderStartTBD:
+		fallthrough //nolint
+	case types.OrderStartMode_OrderStartPreset:
+		h.orderStartAt = goodStartAt
+	case types.OrderStartMode_OrderStartInstantly:
+		h.orderStartAt = now + timedef.SecondsPerMinute*10
+	case types.OrderStartMode_OrderStartNextDay:
+		h.orderStartAt = uint32(h.tomorrowStart().Unix())
+	}
+
 	if goodStartAt > h.orderStartAt {
 		h.orderStartAt = goodStartAt
 	}
-	const secondsPerDay = timedef.SecondsPerDay
-	h.orderEndAt = h.orderStartAt + goodDurationDays*secondsPerDay
+	if h.orderStartAt < now {
+		return fmt.Errorf("invalid startat")
+	}
+
+	durationSeconds := uint32(durationUnitSeconds) * *h.Duration
+	orderEndAt := int64(h.orderStartAt) + int64(durationSeconds)
+	if int64(math.MaxUint32)-int64(orderEndAt) < 0 {
+		orderEndAt = math.MaxUint32
+	}
+	h.orderEndAt = uint32(orderEndAt)
+	return nil
 }
 
 func (h *createHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
+	if !h.needCheckStock {
+		return
+	}
 	dispose.Add(
 		goodmwsvcname.ServiceDomain,
 		"good.middleware.app.good1.stock.v1.Middleware/Lock",
@@ -210,9 +518,9 @@ func (h *createHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
 			AppID:        h.appGood.AppID,
 			GoodID:       h.appGood.GoodID,
 			AppGoodID:    *h.AppGoodID,
-			Units:        h.Units,
+			Units:        *h.Units,
 			AppSpotUnits: decimal.NewFromInt(0).String(),
-			LockID:       h.stockLockID,
+			LockID:       *h.stockLockID,
 			Rollback:     true,
 		},
 	)
@@ -228,7 +536,6 @@ func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose) {
 	coinUSDCurrency := h.coinCurrencyAmount.String()
 	localCoinUSDCurrency := h.localCurrencyAmount.String()
 	liveCoinUSDCurrency := h.liveCurrencyAmount.String()
-	goodDurationDays := uint32(h.appGood.DurationDays)
 
 	req := &ordermwpb.OrderReq{
 		EntID:                h.EntID,
@@ -237,12 +544,12 @@ func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose) {
 		GoodID:               &h.appGood.GoodID,
 		AppGoodID:            h.AppGoodID,
 		ParentOrderID:        h.ParentOrderID,
-		Units:                &h.Units,
+		Units:                h.Units,
 		GoodValue:            &goodValueCoinAmount,
 		GoodValueUSD:         &goodValueUSDAmount,
 		PaymentAmount:        &paymentCoinAmount,
 		DiscountAmount:       &discountCoinAmount,
-		DurationDays:         &goodDurationDays,
+		Duration:             h.Duration,
 		OrderType:            h.OrderType,
 		InvestmentType:       h.InvestmentType,
 		CouponIDs:            h.CouponIDs,
@@ -257,7 +564,7 @@ func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose) {
 		StartAt:              &h.orderStartAt,
 		EndAt:                &h.orderEndAt,
 		StartMode:            &h.orderStartMode,
-		AppGoodStockLockID:   &h.stockLockID,
+		AppGoodStockLockID:   h.stockLockID,
 		LedgerLockID:         h.balanceLockID,
 	}
 	if h.priceTopMostGood != nil {
@@ -358,13 +665,26 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	if err := handler.getPaymentCoin(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.checkUnitsLimit(ctx, handler.appGood); err != nil {
-		return nil, err
-	}
 	if err := handler.checkParentOrder(ctx); err != nil {
 		return nil, err
 	}
+	if err := handler.checkOrderGoodRequired(ctx); err != nil {
+		return nil, err
+	}
 	if err := handler.checkParentOrderGoodRequired(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.checkParentGood(ctx); err != nil {
+		return nil, err
+	}
+	handler.resolveStartMode()
+	if err := handler.resolveStartEnd(); err != nil {
+		return nil, err
+	}
+	if err := handler.resolveUnits(); err != nil {
+		return nil, err
+	}
+	if err := handler.checkUnitsLimit(ctx, handler.appGood); err != nil {
 		return nil, err
 	}
 	if err := handler.checkMainGood(ctx); err != nil {
@@ -397,8 +717,6 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	}
 
 	handler.resolvePaymentType()
-	handler.resolveStartMode()
-	handler.resolveStartEnd()
 	handler.prepareStockAndLedgerLockIDs()
 
 	id1 := uuid.NewString()

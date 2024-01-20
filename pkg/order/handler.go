@@ -1,3 +1,4 @@
+//nolint:dupl
 package order
 
 import (
@@ -24,7 +25,8 @@ type Handler struct {
 	AppID            *string
 	UserID           *string
 	AppGoodID        *string
-	Units            string
+	Units            *string
+	Duration         *uint32
 	PaymentCoinID    *string
 	ParentOrderID    *string
 	BalanceAmount    *string
@@ -179,9 +181,15 @@ func WithParentOrderID(id *string, must bool) func(context.Context, *Handler) er
 	}
 }
 
-func WithUnits(amount string, must bool) func(context.Context, *Handler) error {
+func WithUnits(amount *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
-		_amount, err := decimal.NewFromString(amount)
+		if amount == nil {
+			if must {
+				return fmt.Errorf("invalid amount")
+			}
+			return nil
+		}
+		_amount, err := decimal.NewFromString(*amount)
 		if err != nil {
 			return err
 		}
@@ -189,6 +197,13 @@ func WithUnits(amount string, must bool) func(context.Context, *Handler) error {
 			return fmt.Errorf("invalid units")
 		}
 		h.Units = amount
+		return nil
+	}
+}
+
+func WithDuration(n *uint32, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		h.Duration = n
 		return nil
 	}
 }
@@ -324,6 +339,26 @@ func WithOrderType(orderType *ordertypes.OrderType, must bool) func(context.Cont
 
 func WithOrders(orders []*npool.CreateOrdersRequest_OrderReq, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
+		for _, order := range orders {
+			if _, err := uuid.Parse(order.AppGoodID); err != nil {
+				return err
+			}
+			if order.Parent && order.Units == nil {
+				return fmt.Errorf("invalid parent units")
+			}
+			if order.Units != nil {
+				units, err := decimal.NewFromString(*order.Units)
+				if err != nil {
+					return err
+				}
+				if units.Cmp(decimal.NewFromInt(0)) <= 0 {
+					return fmt.Errorf("invalid units")
+				}
+			}
+			if order.Duration != nil && *order.Duration <= 0 {
+				return fmt.Errorf("invalid duration")
+			}
+		}
 		h.Orders = orders
 		return nil
 	}

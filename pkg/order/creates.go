@@ -1,8 +1,10 @@
+//nolint:dupl
 package order
 
 import (
 	"context"
 	"fmt"
+	"time"
 
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
@@ -67,10 +69,6 @@ func (h *createsHandler) checkAppGoods(ctx context.Context) error {
 			return fmt.Errorf("permission denied")
 		}
 		h.appGoods[good.EntID] = good
-	}
-	h.parentAppGood = h.appGoods[*h.AppGoodID]
-	if h.parentAppGood == nil {
-		return fmt.Errorf("invalid parentgood")
 	}
 	return nil
 }
@@ -153,113 +151,339 @@ func (h *createsHandler) getAppGoodPromotions(ctx context.Context) error {
 	return nil
 }
 
-func (h *createsHandler) calculateOrderUSDPrice() error {
-	for _, req := range h.orderReqs {
-		appGood := h.appGoods[*req.AppGoodID]
-		units, err := decimal.NewFromString(*req.Units)
+func (h *createsHandler) topMostGoodPackagePrice(req *ordermwpb.OrderReq) (decimal.Decimal, error) {
+	price := decimal.NewFromInt(0)
+	topMosts := h.topMostGoods[*req.AppGoodID]
+	for _, topMost := range topMosts {
+		packagePrice, err := decimal.NewFromString(topMost.PackagePrice)
 		if err != nil {
-			return err
+			return decimal.Decimal{}, err
 		}
-		unitPrice, err := decimal.NewFromString(appGood.Price)
+		if packagePrice.Cmp(decimal.NewFromInt(0)) <= 0 {
+			continue
+		}
+		if packagePrice.Cmp(price) < 0 {
+			price = packagePrice
+			h.priceTopMostGoods[*req.AppGoodID] = topMost
+		}
+	}
+	return price, nil
+}
+
+func (h *createsHandler) topMostGoodUnitPrice(req *ordermwpb.OrderReq) (decimal.Decimal, error) {
+	price := decimal.NewFromInt(0)
+	topMosts := h.topMostGoods[*req.AppGoodID]
+	for _, topMost := range topMosts {
+		unitPrice, err := decimal.NewFromString(topMost.UnitPrice)
 		if err != nil {
-			return err
+			return decimal.Decimal{}, err
 		}
 		if unitPrice.Cmp(decimal.NewFromInt(0)) <= 0 {
-			return fmt.Errorf("invalid price")
+			continue
 		}
-
-		goodValue := decimal.NewFromInt(0).String()
-		goodValueUSD := unitPrice.Mul(units).String()
-		if h.coinCurrencyAmount.Cmp(decimal.NewFromInt(0)) > 0 {
-			goodValue = unitPrice.Mul(units).Div(h.coinCurrencyAmount).String()
+		if unitPrice.Cmp(price) < 0 {
+			price = unitPrice
+			h.priceTopMostGoods[*req.AppGoodID] = topMost
 		}
-		req.GoodValueUSD = &goodValueUSD
-		req.GoodValue = &goodValue
+	}
+	return price, nil
+}
 
-		topMosts := h.topMostGoods[*req.AppGoodID]
-		for _, topMost := range topMosts {
-			price, err := decimal.NewFromString(topMost.Price)
-			if err != nil {
-				return err
-			}
-			if price.Cmp(decimal.NewFromInt(0)) < 0 {
-				return fmt.Errorf("invalid topmostprice")
-			}
-			if unitPrice.Cmp(price) > 0 {
-				unitPrice = price
-				h.priceTopMostGoods[*req.AppGoodID] = topMost
-			}
-		}
+func (h *createsHandler) goodPackagePrice(req *ordermwpb.OrderReq) (decimal.Decimal, error) {
+	good := h.appGoods[*req.AppGoodID]
 
-		paymentUSDAmount := unitPrice.Mul(units)
-		h.paymentUSDAmount = h.paymentUSDAmount.Add(paymentUSDAmount)
+	packagePrice, err := h.topMostGoodPackagePrice(req)
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	if packagePrice.Cmp(decimal.NewFromInt(0)) > 0 {
+		return packagePrice, nil
 	}
 
+	packagePrice, err = decimal.NewFromString(good.PackagePrice)
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+
+	if packagePrice.Cmp(decimal.NewFromInt(0)) > 0 {
+		if good.MinOrderDuration != good.MaxOrderDuration {
+			return decimal.Decimal{}, fmt.Errorf("invalid packageprice duration")
+		}
+	}
+
+	if packagePrice.Cmp(decimal.NewFromInt(0)) <= 0 {
+		if good.PackageWithRequireds {
+			return decimal.Decimal{}, fmt.Errorf("invalid packageprice")
+		}
+	}
+
+	return packagePrice, nil
+}
+
+func (h *createsHandler) goodUnitPrice(req *ordermwpb.OrderReq) (decimal.Decimal, error) {
+	unitPrice, err := h.topMostGoodUnitPrice(req)
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	if unitPrice.Cmp(decimal.NewFromInt(0)) > 0 {
+		return unitPrice, nil
+	}
+
+	good := h.appGoods[*req.AppGoodID]
+	unitPrice, err = decimal.NewFromString(good.UnitPrice)
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	return unitPrice, nil
+}
+
+// Here we get price which already calculate duration
+//  GoodUnitByDuration: packagePrice or unitPrice * duration
+//  GoodUnitByQuantity: packagePrice or unitPrice
+//  GoodUnitByDurationAndQuantity: packagePrice or unitPrice * duration
+func (h *createsHandler) goodPrice(req *ordermwpb.OrderReq) (decimal.Decimal, error) {
+	packagePrice, err := h.goodPackagePrice(req)
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	if packagePrice.Cmp(decimal.NewFromInt(0)) > 0 {
+		return packagePrice, nil
+	}
+
+	unitPrice, err := h.goodUnitPrice(req)
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	if unitPrice.Cmp(decimal.NewFromInt(0)) <= 0 {
+		return decimal.Decimal{}, fmt.Errorf("invalid unitprice")
+	}
+
+	good := h.appGoods[*req.AppGoodID]
+	switch good.UnitType {
+	case goodtypes.GoodUnitType_GoodUnitByDurationAndQuantity:
+		fallthrough //nolint
+	case goodtypes.GoodUnitType_GoodUnitByDuration:
+		if req.Duration == nil {
+			return decimal.Decimal{}, fmt.Errorf("invalid duration")
+		}
+		return unitPrice.Mul(decimal.NewFromInt(int64(*req.Duration))), nil
+	case goodtypes.GoodUnitType_GoodUnitByQuantity:
+		return unitPrice, nil
+	default:
+		return decimal.Decimal{}, fmt.Errorf("invalid unittype")
+	}
+}
+
+func (h *createsHandler) goodValue(req *ordermwpb.OrderReq) (decimal.Decimal, error) {
+	good, ok := h.appGoods[*req.AppGoodID]
+	if !ok {
+		return decimal.NewFromInt(0), fmt.Errorf("invalid good")
+	}
+	price, err := decimal.NewFromString(good.PackagePrice)
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	if price.Cmp(decimal.NewFromInt(0)) <= 0 {
+		price, err = decimal.NewFromString(good.UnitPrice)
+		switch good.UnitType {
+		case goodtypes.GoodUnitType_GoodUnitByDurationAndQuantity:
+			fallthrough //nolint
+		case goodtypes.GoodUnitType_GoodUnitByDuration:
+			if req.Duration == nil {
+				return decimal.Decimal{}, fmt.Errorf("invalid duration")
+			}
+			price = price.Mul(decimal.NewFromInt(int64(*req.Duration)))
+		}
+	}
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	if price.Cmp(decimal.NewFromInt(0)) <= 0 {
+		return decimal.Decimal{}, fmt.Errorf("invalid price")
+	}
+	units := decimal.NewFromInt(1)
+	if req.Units != nil {
+		units, err = decimal.NewFromString(*req.Units)
+		if err != nil {
+			return decimal.Decimal{}, err
+		}
+	}
+	return price.Mul(units), nil
+}
+
+func (h *createsHandler) goodPaymentUSDAmount(req *ordermwpb.OrderReq) (decimal.Decimal, error) {
+	good, ok := h.appGoods[*req.AppGoodID]
+	if !ok {
+		return decimal.NewFromInt(0), fmt.Errorf("invalid good")
+	}
+	if good.SettlementType == goodtypes.GoodSettlementType_GoodSettledByProfit {
+		return decimal.NewFromInt(0), nil
+	}
+	price, err := h.goodPrice(req)
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+	units := decimal.NewFromInt(1)
+	if req.Units != nil {
+		units, err = decimal.NewFromString(*req.Units)
+		if err != nil {
+			return decimal.Decimal{}, err
+		}
+	}
+	return price.Mul(units), nil
+}
+
+func (h *createsHandler) calculateOrderUSDPrice() error {
+	for _, req := range h.orderReqs {
+		goodValueUSD, err := h.goodValue(req)
+		if err != nil {
+			return err
+		}
+		paymentUSDAmount, err := h.goodPaymentUSDAmount(req)
+		if err != nil {
+			return err
+		}
+		if h.parentAppGood.PackageWithRequireds && *req.EntID != *h.ParentOrderID {
+			paymentUSDAmount = decimal.NewFromInt(0)
+			goodValueUSD = decimal.NewFromInt(0)
+		}
+		goodValue := goodValueUSD.String()
+		if h.coinCurrencyAmount.Cmp(decimal.NewFromInt(0)) > 0 {
+			goodValue = goodValueUSD.Div(h.coinCurrencyAmount).String()
+		}
+		_goodValueUSD := goodValueUSD.String()
+		req.GoodValueUSD = &_goodValueUSD
+		req.GoodValue = &goodValue
+		h.paymentUSDAmount = h.paymentUSDAmount.Add(paymentUSDAmount)
+	}
 	return nil
 }
 
 func (h *createsHandler) resolveStartMode() {
 	for _, req := range h.orderReqs {
 		mode := types.OrderStartMode_OrderStartConfirmed
-		switch h.appGoods[*req.AppGoodID].StartMode {
+		switch h.parentAppGood.StartMode {
 		case goodtypes.GoodStartMode_GoodStartModeTBD:
 			mode = types.OrderStartMode_OrderStartTBD
 		case goodtypes.GoodStartMode_GoodStartModeConfirmed:
+			mode = types.OrderStartMode_OrderStartNextDay
+		case goodtypes.GoodStartMode_GoodStartModeInstantly:
+			mode = types.OrderStartMode_OrderStartInstantly
+		case goodtypes.GoodStartMode_GoodStartModeNextDay:
+			mode = types.OrderStartMode_OrderStartNextDay
+		case goodtypes.GoodStartMode_GoodStartModePreset:
+			mode = types.OrderStartMode_OrderStartPreset
 		}
 		req.StartMode = &mode
 	}
 }
 
-func (h *createsHandler) resolveStartEnd() {
+//nolint:gocyclo,funlen
+func (h *createsHandler) resolveStartEnd() error {
+	durationUnitSeconds := timedef.SecondsPerHour
 	for _, req := range h.orderReqs {
+		switch h.parentAppGood.DurationType {
+		case goodtypes.GoodDurationType_GoodDurationByHour:
+		case goodtypes.GoodDurationType_GoodDurationByDay:
+			durationUnitSeconds = timedef.SecondsPerDay
+		case goodtypes.GoodDurationType_GoodDurationByMonth:
+			durationUnitSeconds = timedef.SecondsPerMonth
+		case goodtypes.GoodDurationType_GoodDurationByYear:
+			durationUnitSeconds = timedef.SecondsPerYear
+		}
+
 		goodStartAt := h.parentAppGood.ServiceStartAt
-		if goodStartAt == 0 {
-			goodStartAt = h.parentAppGood.StartAt
+		switch *req.StartMode {
+		case types.OrderStartMode_OrderStartPreset:
+		case types.OrderStartMode_OrderStartInstantly:
+			fallthrough //nolint
+		case types.OrderStartMode_OrderStartNextDay:
+			fallthrough //nolint
+		case types.OrderStartMode_OrderStartTBD:
+			if goodStartAt == 0 {
+				goodStartAt = h.parentAppGood.StartAt
+			}
 		}
-		goodDurationDays := uint32(h.parentAppGood.DurationDays)
-		orderStartAt := uint32(h.tomorrowStart().Unix())
-		if goodStartAt > orderStartAt {
-			orderStartAt = goodStartAt
+
+		appGood, ok := h.appGoods[*req.AppGoodID]
+		if !ok {
+			return fmt.Errorf("invalid appgood")
 		}
-		const secondsPerDay = timedef.SecondsPerDay
-		endAt := orderStartAt + goodDurationDays*secondsPerDay
-		req.StartAt = &orderStartAt
-		if *req.EntID == *h.ParentOrderID {
-			req.EndAt = &endAt
-			req.DurationDays = &goodDurationDays
-			continue
+
+		switch h.parentAppGood.UnitType {
+		case goodtypes.GoodUnitType_GoodUnitByDuration:
+			fallthrough //nolint
+		case goodtypes.GoodUnitType_GoodUnitByDurationAndQuantity:
+			if h.parentAppGood.MinOrderDuration == h.parentAppGood.MaxOrderDuration && req.Duration == nil {
+				req.Duration = &h.parentAppGood.MinOrderDuration
+			}
+			if req.Duration == nil {
+				return fmt.Errorf("invalid duration")
+			}
+			// TODO: process different duration unit of child and parent
+			if *req.Duration < appGood.MinOrderDuration ||
+				*req.Duration > appGood.MaxOrderDuration {
+				return fmt.Errorf("invalid duration")
+			}
 		}
-		childDurationDays := uint32(decimal.RequireFromString(*req.Units).IntPart())
-		req.DurationDays = &childDurationDays
-		childEndAt := orderStartAt + childDurationDays*secondsPerDay
-		req.EndAt = &childEndAt
+
+		now := uint32(time.Now().Unix())
+		switch *req.StartMode {
+		case types.OrderStartMode_OrderStartTBD:
+			fallthrough //nolint
+		case types.OrderStartMode_OrderStartPreset:
+			req.StartAt = &goodStartAt
+		case types.OrderStartMode_OrderStartInstantly:
+			startAt := now + timedef.SecondsPerMinute*10
+			req.StartAt = &startAt
+		case types.OrderStartMode_OrderStartNextDay:
+			startAt := uint32(h.tomorrowStart().Unix())
+			req.StartAt = &startAt
+		}
+
+		if goodStartAt > *req.StartAt {
+			req.StartAt = &goodStartAt
+		}
+		if *req.StartAt < now {
+			return fmt.Errorf("invalid startat")
+		}
+
+		durationSeconds := uint32(durationUnitSeconds) * *req.Duration
+		endAt := *req.StartAt + durationSeconds
+		req.EndAt = &endAt
 	}
+	return nil
 }
 
-func (h *createsHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
-	for _, order := range h.Orders {
-		if !order.Parent {
+func (h *createsHandler) withUpdateStock(dispose *dtmcli.SagaDispose) error {
+	for _, req := range h.orderReqs {
+		if req.AppGoodStockLockID == nil {
 			continue
+		}
+		good, ok := h.appGoods[*req.AppGoodID]
+		if !ok {
+			return fmt.Errorf("invalid appgood")
 		}
 		dispose.Add(
 			goodmwsvcname.ServiceDomain,
 			"good.middleware.app.good1.stock.v1.Middleware/Lock",
 			"good.middleware.app.good1.stock.v1.Middleware/Unlock",
 			&appgoodstockmwpb.LockRequest{
-				EntID:        h.parentAppGood.AppGoodStockID,
-				AppID:        h.parentAppGood.AppID,
-				GoodID:       h.parentAppGood.GoodID,
-				AppGoodID:    *h.AppGoodID,
-				Units:        order.Units,
+				EntID:        good.AppGoodStockID,
+				AppID:        good.AppID,
+				GoodID:       good.GoodID,
+				AppGoodID:    good.EntID,
+				Units:        *req.Units,
 				AppSpotUnits: decimal.NewFromInt(0).String(),
-				LockID:       h.stockLockID,
+				LockID:       *req.AppGoodStockLockID,
 				Rollback:     true,
 			},
 		)
 	}
+	return nil
 }
 
-func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
+func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) error {
 	paymentCoinAmount := h.paymentCoinAmount.String()
 	discountCoinAmount := h.reductionCoinAmount.String()
 	transferCoinAmount := h.transferCoinAmount.String()
@@ -273,12 +497,15 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 		req.CoinUSDCurrency = &coinUSDCurrency
 		req.LocalCoinUSDCurrency = &localCoinUSDCurrency
 		req.LiveCoinUSDCurrency = &liveCoinUSDCurrency
+		appGood, ok := h.appGoods[*req.AppGoodID]
+		if !ok {
+			return fmt.Errorf("invalid appgood")
+		}
 		if *req.EntID == *h.ParentOrderID {
 			if topMost, ok := h.priceTopMostGoods[*req.AppGoodID]; ok {
 				req.PromotionID = &topMost.TopMostID
 			}
 			req.CoinTypeID = &h.parentAppGood.CoinTypeID
-			req.AppGoodStockLockID = &h.stockLockID
 			req.PaymentAmount = &paymentCoinAmount
 			req.DiscountAmount = &discountCoinAmount
 			req.PaymentType = &h.paymentType
@@ -295,10 +522,8 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 			req.ParentOrderID = h.ParentOrderID
 			childPaymentType := types.PaymentType_PayWithParentOrder
 			req.PaymentType = &childPaymentType
-			invalidID := uuid.Nil.String()
-			req.CoinTypeID = &invalidID
+			req.CoinTypeID = &appGood.CoinTypeID
 		}
-		appGood := h.appGoods[*req.AppGoodID]
 		req.GoodID = &appGood.GoodID
 		req.AppGoodID = &appGood.EntID
 	}
@@ -311,6 +536,8 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) {
 			Infos: h.orderReqs,
 		},
 	)
+
+	return nil
 }
 
 func (h *createsHandler) getRequiredGoods(ctx context.Context) error {
@@ -367,17 +594,30 @@ func (h *createsHandler) validateRequiredOrders() error {
 
 func (h *createsHandler) constructOrderReqs() error {
 	for _, order := range h.Orders {
+		good, ok := h.appGoods[order.AppGoodID]
+		if !ok {
+			return fmt.Errorf("invalid appgood")
+		}
 		id := uuid.NewString()
-		h.orderReqs = append(h.orderReqs, &ordermwpb.OrderReq{
+		req := &ordermwpb.OrderReq{
 			EntID:             &id,
 			AppID:             h.AppID,
 			UserID:            h.UserID,
 			AppGoodID:         &order.AppGoodID,
-			Units:             &order.Units,
+			Units:             order.Units,
+			Duration:          order.Duration,
 			OrderType:         h.OrderType,
 			InvestmentType:    h.InvestmentType,
 			PaymentCoinTypeID: h.PaymentCoinID,
-		})
+		}
+		switch good.UnitType {
+		case goodtypes.GoodUnitType_GoodUnitByQuantity:
+			fallthrough //nolint
+		case goodtypes.GoodUnitType_GoodUnitByDurationAndQuantity:
+			id1 := uuid.NewString()
+			req.AppGoodStockLockID = &id1
+		}
+		h.orderReqs = append(h.orderReqs, req)
 		if order.Parent {
 			if h.AppGoodID != nil {
 				return fmt.Errorf("invalid parentorder")
@@ -385,12 +625,38 @@ func (h *createsHandler) constructOrderReqs() error {
 			h.AppGoodID = &order.AppGoodID
 			h.ParentOrderID = &id
 			h.Units = order.Units
+			h.Duration = order.Duration
 			h.EntID = &id
 		}
 		h.EntIDs = append(h.EntIDs, id)
 	}
 	if h.AppGoodID == nil {
 		return fmt.Errorf("invalid parentorder")
+	}
+	h.parentAppGood = h.appGoods[*h.AppGoodID]
+	if h.parentAppGood == nil {
+		return fmt.Errorf("invalid parentgood")
+	}
+	for _, req := range h.orderReqs {
+		if *req.EntID == *h.EntID { // Parent order
+			continue
+		}
+		good := h.appGoods[*req.AppGoodID]
+		if good.QuantityCalculateType == goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent {
+			req.Units = h.Units
+		}
+		if good.DurationCalculateType == goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent {
+			// TODO: process different duration unit of child and parent
+			req.Duration = h.Duration
+		}
+		if good.SettlementType == goodtypes.GoodSettlementType_GoodSettledByProfit {
+			// TODO: process different duration unit of child and parent
+			req.Duration = h.Duration
+		}
+		if good.UnitType == goodtypes.GoodUnitType_GoodUnitByDuration {
+			oneUnits := "1"
+			req.Units = &oneUnits
+		}
 	}
 	return nil
 }
@@ -417,10 +683,10 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	if err := handler.getUser(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.constructOrderReqs(); err != nil {
+	if err := handler.checkAppGoods(ctx); err != nil {
 		return nil, err
 	}
-	if err := handler.checkAppGoods(ctx); err != nil {
+	if err := handler.constructOrderReqs(); err != nil {
 		return nil, err
 	}
 	if err := handler.checkGoods(ctx); err != nil {
@@ -462,6 +728,10 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	if err := handler.checkPaymentCoinCurrency(ctx); err != nil {
 		return nil, err
 	}
+	handler.resolveStartMode()
+	if err := handler.resolveStartEnd(); err != nil {
+		return nil, err
+	}
 	if err := handler.calculateOrderUSDPrice(); err != nil {
 		return nil, err
 	}
@@ -481,8 +751,6 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		return nil, err
 	}
 	handler.resolvePaymentType()
-	handler.resolveStartMode()
-	handler.resolveStartEnd()
 
 	if err := handler.acquirePaymentAddress(ctx); err != nil {
 		return nil, err
@@ -501,17 +769,21 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		_ = redis2.Unlock(key)
 	}()
 
-	const timeoutSeconds = 10
+	const timeoutSeconds = 30
 	sagaDispose := dtmcli.NewSagaDispose(dtmimp.TransOptions{
 		WaitResult:     true,
 		RequestTimeout: timeoutSeconds,
 		TimeoutToFail:  timeoutSeconds,
 	})
 
-	handler.withUpdateStock(sagaDispose)
+	if err := handler.withUpdateStock(sagaDispose); err != nil {
+		return nil, err
+	}
 	handler.withUpdateBalance(sagaDispose)
 	handler.withLockPaymentAccount(sagaDispose)
-	handler.withCreateOrders(sagaDispose)
+	if err := handler.withCreateOrders(sagaDispose); err != nil {
+		return nil, err
+	}
 
 	if err := handler.dtmDo(ctx, sagaDispose); err != nil {
 		return nil, err
