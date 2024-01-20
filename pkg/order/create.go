@@ -429,7 +429,7 @@ func (h *createHandler) resolveStartMode() {
 	}
 }
 
-//nolint:gocyclo
+//nolint:gocyclo,funlen
 func (h *createHandler) resolveStartEnd() error {
 	if h.appGood.UnitType == goodtypes.GoodUnitType_GoodUnitByQuantity {
 		duration := uint32(timedef.SecondsPerYear * 100) // nolint
@@ -498,7 +498,7 @@ func (h *createHandler) resolveStartEnd() error {
 
 	durationSeconds := uint32(durationUnitSeconds) * *h.Duration
 	orderEndAt := int64(h.orderStartAt) + int64(durationSeconds)
-	if int64(math.MaxUint32)-int64(orderEndAt) < 0 {
+	if int64(math.MaxUint32)-orderEndAt < 0 {
 		orderEndAt = math.MaxUint32
 	}
 	h.orderEndAt = uint32(orderEndAt)
