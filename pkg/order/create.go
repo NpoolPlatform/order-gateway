@@ -3,6 +3,7 @@ package order
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
@@ -173,7 +174,6 @@ func (h *createHandler) resolveUnits() error {
 			h.Units = &h.parentOrder.Units
 			h.needCheckStock = true
 		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateBySelf:
-			return fmt.Errorf("invalid quantitycalculatetype")
 		}
 	case goodtypes.GoodUnitType_GoodUnitByDurationAndQuantity:
 		switch h.appGood.DurationCalculateType {
@@ -183,7 +183,6 @@ func (h *createHandler) resolveUnits() error {
 			if h.Duration == nil {
 				return fmt.Errorf("invalid duration")
 			}
-			h.needCheckStock = true
 		}
 		switch h.appGood.QuantityCalculateType {
 		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateByParent:
@@ -196,8 +195,10 @@ func (h *createHandler) resolveUnits() error {
 			h.Units = &h.parentOrder.Units
 			h.needCheckStock = true
 		case goodtypes.GoodUnitCalculateType_GoodUnitCalculateBySelf:
-			return fmt.Errorf("invalid quantitycalculatetype")
 		}
+	}
+	if h.parentAppGood == nil {
+		h.needCheckStock = true
 	}
 	if h.Units == nil {
 		return fmt.Errorf("invalid units")
@@ -431,7 +432,8 @@ func (h *createHandler) resolveStartMode() {
 //nolint:gocyclo
 func (h *createHandler) resolveStartEnd() error {
 	if h.appGood.UnitType == goodtypes.GoodUnitType_GoodUnitByQuantity {
-		return nil
+		duration := uint32(timedef.SecondsPerYear * 100) // nolint
+		h.Duration = &duration
 	}
 
 	durationUnitSeconds := timedef.SecondsPerHour
@@ -495,7 +497,11 @@ func (h *createHandler) resolveStartEnd() error {
 	}
 
 	durationSeconds := uint32(durationUnitSeconds) * *h.Duration
-	h.orderEndAt = h.orderStartAt + durationSeconds
+	orderEndAt := int64(h.orderStartAt) + int64(durationSeconds)
+	if int64(math.MaxUint32)-int64(orderEndAt) < 0 {
+		orderEndAt = math.MaxUint32
+	}
+	h.orderEndAt = uint32(orderEndAt)
 	return nil
 }
 
