@@ -75,6 +75,11 @@ func (h *createHandler) getAppGood(ctx context.Context) error {
 	if good.SettlementType == goodtypes.GoodSettlementType_GoodSettledByProfit {
 		return fmt.Errorf("permission denied")
 	}
+	if h.Simulate != nil && *h.Simulate {
+		if !good.EnableSimulate {
+			return fmt.Errorf("good not support simulate")
+		}
+	}
 	h.appGood = good
 	return nil
 }
@@ -96,6 +101,11 @@ func (h *createHandler) checkAppGoodCoin(ctx context.Context) error {
 	}
 	if h.paymentCoin.ENV != goodCoin.ENV {
 		return fmt.Errorf("good coin mismatch payment coin")
+	}
+	if h.Simulate != nil && *h.Simulate {
+		if !goodCoin.EnableSimulate {
+			return fmt.Errorf("good coin not support simulate")
+		}
 	}
 
 	return nil
@@ -506,6 +516,9 @@ func (h *createHandler) resolveStartEnd() error {
 }
 
 func (h *createHandler) withUpdateStock(dispose *dtmcli.SagaDispose) {
+	if h.Simulate != nil && *h.Simulate {
+		return
+	}
 	if !h.needCheckStock {
 		return
 	}

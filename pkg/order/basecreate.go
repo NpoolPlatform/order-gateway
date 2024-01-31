@@ -125,6 +125,9 @@ func (h *baseCreateHandler) getStableUSDCoin(ctx context.Context) error {
 }
 
 func (h *baseCreateHandler) getPaymentCoin(ctx context.Context) error {
+	if h.Simulate != nil && *h.Simulate {
+		return nil
+	}
 	if h.PaymentCoinID == nil {
 		return h.getStableUSDCoin(ctx)
 	}
@@ -149,6 +152,9 @@ func (h *baseCreateHandler) getPaymentCoin(ctx context.Context) error {
 }
 
 func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
+	if h.Simulate != nil && *h.Simulate {
+		return nil
+	}
 	if len(h.CouponIDs) == 0 {
 		return nil
 	}
@@ -174,6 +180,9 @@ func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
 }
 
 func (h *baseCreateHandler) checkCouponWithdraw(ctx context.Context) error {
+	if h.Simulate != nil && *h.Simulate {
+		return nil
+	}
 	for _, coupon := range h.coupons {
 		cw, err := couponwithdrawmwcli.GetCouponWithdrawOnly(ctx, &couponwithdrawmwpb.Conds{
 			AppID:       &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
@@ -192,6 +201,9 @@ func (h *baseCreateHandler) checkCouponWithdraw(ctx context.Context) error {
 }
 
 func (h *baseCreateHandler) validateCouponScope(ctx context.Context, goodID, appGoodID string) error {
+	if h.Simulate != nil && *h.Simulate {
+		return nil
+	}
 	if len(h.CouponIDs) == 0 {
 		return nil
 	}
@@ -213,6 +225,9 @@ func (h *baseCreateHandler) validateCouponScope(ctx context.Context, goodID, app
 }
 
 func (h *baseCreateHandler) validateDiscountCoupon() error {
+	if h.Simulate != nil && *h.Simulate {
+		return nil
+	}
 	discountCoupons := 0
 	fixAmountCoupons := uint32(0)
 	for _, coupon := range h.coupons {
@@ -233,6 +248,9 @@ func (h *baseCreateHandler) validateDiscountCoupon() error {
 }
 
 func (h *baseCreateHandler) checkMaxUnpaidOrders(ctx context.Context) error {
+	if h.Simulate != nil && *h.Simulate {
+		return nil
+	}
 	const maxUnpaidOrders = uint32(5)
 	orderCount, err := ordermwcli.CountOrders(ctx, &ordermwpb.Conds{
 		AppID:        &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},

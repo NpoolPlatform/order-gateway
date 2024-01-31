@@ -177,3 +177,76 @@ func (s *Server) CreateOrders(ctx context.Context, in *npool.CreateOrdersRequest
 		Infos: infos,
 	}, nil
 }
+
+func (s *Server) CreateSimulateOrder(ctx context.Context, in *npool.CreateSimulateOrderRequest) (*npool.CreateSimulateOrderResponse, error) {
+	orderType := ordertypes.OrderType_Normal
+	simulate := true
+	handler, err := order1.NewHandler(
+		ctx,
+		order1.WithAppID(&in.AppID, true),
+		order1.WithUserID(&in.UserID, true),
+		order1.WithAppGoodID(&in.AppGoodID, true),
+		order1.WithUnits(in.Units, false),
+		order1.WithDuration(in.Duration, true),
+		order1.WithParentOrderID(in.ParentOrderID, false),
+		order1.WithOrderType(&orderType, true),
+		order1.WithSimulate(&simulate, true),
+	)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"CreateSimulateOrder",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.CreateSimulateOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	info, err := handler.CreateOrder(ctx)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"CreateSimulateOrder",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.CreateSimulateOrderResponse{}, status.Error(codes.Internal, err.Error())
+	}
+
+	return &npool.CreateSimulateOrderResponse{
+		Info: info,
+	}, nil
+}
+
+func (s *Server) CreateSimulateOrders(ctx context.Context, in *npool.CreateSimulateOrdersRequest) (*npool.CreateSimulateOrdersResponse, error) {
+	orderType := ordertypes.OrderType_Normal
+	simulate := true
+	handler, err := order1.NewHandler(
+		ctx,
+		order1.WithAppID(&in.AppID, true),
+		order1.WithUserID(&in.UserID, true),
+		order1.WithOrderType(&orderType, true),
+		order1.WithOrders(in.Orders, true),
+		order1.WithSimulate(&simulate, true),
+	)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"CreateSimulateOrders",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.CreateSimulateOrdersResponse{}, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	infos, err := handler.CreateOrders(ctx)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"CreateSimulateOrders",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.CreateSimulateOrdersResponse{}, status.Error(codes.Internal, err.Error())
+	}
+
+	return &npool.CreateSimulateOrdersResponse{
+		Infos: infos,
+	}, nil
+}
