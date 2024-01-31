@@ -190,6 +190,7 @@ func (s *Server) CreateSimulateOrder(ctx context.Context, in *npool.CreateSimula
 		order1.WithDuration(in.Duration, true),
 		order1.WithParentOrderID(in.ParentOrderID, false),
 		order1.WithOrderType(&orderType, true),
+		order1.WithInvestmentType(&in.InvestmentType, true),
 		order1.WithSimulate(&simulate, true),
 	)
 	if err != nil {
@@ -225,6 +226,7 @@ func (s *Server) CreateSimulateOrders(ctx context.Context, in *npool.CreateSimul
 		order1.WithUserID(&in.UserID, true),
 		order1.WithOrderType(&orderType, true),
 		order1.WithOrders(in.Orders, true),
+		order1.WithInvestmentType(&in.InvestmentType, true),
 		order1.WithSimulate(&simulate, true),
 	)
 	if err != nil {
