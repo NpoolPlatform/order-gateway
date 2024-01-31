@@ -579,6 +579,7 @@ func (h *createHandler) withCreateOrder(dispose *dtmcli.SagaDispose) {
 		StartMode:            &h.orderStartMode,
 		AppGoodStockLockID:   h.stockLockID,
 		LedgerLockID:         h.balanceLockID,
+		Simulate:             h.Simulate,
 	}
 	if h.priceTopMostGood != nil {
 		req.PromotionID = &h.priceTopMostGood.TopMostID
