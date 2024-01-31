@@ -622,6 +622,9 @@ func (h *baseCreateHandler) withLockPaymentAccount(dispose *dtmcli.SagaDispose) 
 }
 
 func (h *baseCreateHandler) prepareStockAndLedgerLockIDs() {
+	if h.Simulate != nil && *h.Simulate {
+		return
+	}
 	if h.needCheckStock {
 		id := uuid.NewString()
 		h.stockLockID = &id
