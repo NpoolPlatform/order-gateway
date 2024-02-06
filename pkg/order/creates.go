@@ -68,6 +68,11 @@ func (h *createsHandler) checkAppGoods(ctx context.Context) error {
 		if !good.EnablePurchase {
 			return fmt.Errorf("permission denied")
 		}
+		if h.Simulate != nil && *h.Simulate {
+			if !good.EnableSimulate {
+				return fmt.Errorf("good not support simulate")
+			}
+		}
 		h.appGoods[good.EntID] = good
 	}
 	return nil
@@ -113,6 +118,11 @@ func (h *createsHandler) checkAppGoodCoins(ctx context.Context) error {
 		h.goodCoinEnv = coin.ENV
 		if h.paymentCoin.ENV != coin.ENV {
 			return fmt.Errorf("mismatch coin environment")
+		}
+		if h.Simulate != nil && *h.Simulate {
+			if !coin.EnableSimulate {
+				return fmt.Errorf("good coin not support simulate")
+			}
 		}
 	}
 	return nil
@@ -526,6 +536,7 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) error {
 		}
 		req.GoodID = &appGood.GoodID
 		req.AppGoodID = &appGood.EntID
+		req.Simulate = h.Simulate
 	}
 
 	dispose.Add(
@@ -692,6 +703,9 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	if err := handler.checkGoods(ctx); err != nil {
 		return nil, err
 	}
+	if err := handler.getSimulateConfig(ctx); err != nil {
+		return nil, err
+	}
 	if err := handler.getCoupons(ctx); err != nil {
 		return nil, err
 	}
@@ -699,6 +713,9 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		return nil, err
 	}
 	if err := handler.validateDiscountCoupon(); err != nil {
+		return nil, err
+	}
+	if err := handler.checkSimulateRepeated(ctx); err != nil {
 		return nil, err
 	}
 	if err := handler.checkMaxUnpaidOrders(ctx); err != nil {

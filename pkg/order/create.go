@@ -32,6 +32,7 @@ import (
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
+
 	"github.com/dtm-labs/dtm/client/dtmcli/dtmimp"
 
 	"github.com/google/uuid"
@@ -658,6 +659,9 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 	if err := handler.checkGood(ctx); err != nil {
 		return nil, err
 	}
+	if err := handler.getSimulateConfig(ctx); err != nil {
+		return nil, err
+	}
 	if err := handler.getCoupons(ctx); err != nil {
 		return nil, err
 	}
@@ -668,6 +672,9 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 		return nil, err
 	}
 	if err := handler.validateDiscountCoupon(); err != nil {
+		return nil, err
+	}
+	if err := handler.checkSimulateRepeated(ctx); err != nil {
 		return nil, err
 	}
 	if err := handler.checkMaxUnpaidOrders(ctx); err != nil {

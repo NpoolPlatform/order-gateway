@@ -36,8 +36,10 @@ import (
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
 	couponwithdrawmwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/withdraw/coupon"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
+	configmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/simulate/config"
 	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
+	configmwcli "github.com/NpoolPlatform/order-middleware/pkg/client/simulate/config"
 	sphinxproxycli "github.com/NpoolPlatform/sphinx-proxy/pkg/client"
 
 	"github.com/google/uuid"
@@ -51,6 +53,7 @@ type baseCreateHandler struct {
 	parentOrder             *ordermwpb.Order
 	paymentCoin             *appcoinmwpb.Coin
 	paymentAccount          *payaccmwpb.Account
+	simulateConfig          *configmwpb.SimulateConfig
 	paymentAccountLockStart time.Time
 	paymentStartAmount      decimal.Decimal
 	coupons                 map[string]*allocatedmwpb.Coupon
@@ -635,6 +638,31 @@ func (h *baseCreateHandler) prepareStockAndLedgerLockIDs() {
 	}
 }
 
+func (h *baseCreateHandler) checkSimulateRepeated(ctx context.Context) error {
+	if h.Simulate == nil {
+		return nil
+	}
+	if !*h.Simulate {
+		return nil
+	}
+	simulate := true
+	states := []uint32{uint32(types.OrderState_OrderStateCanceled), uint32(types.OrderState_OrderStateExpired)}
+	exist, err := ordermwcli.ExistOrderConds(ctx, &ordermwpb.Conds{
+		AppID:       &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		UserID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
+		AppGoodID:   &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
+		Simulate:    &basetypes.BoolVal{Op: cruder.EQ, Value: simulate},
+		OrderStates: &basetypes.Uint32SliceVal{Op: cruder.NIN, Value: states},
+	})
+	if err != nil {
+		return err
+	}
+	if exist {
+		return fmt.Errorf("repeated simulate order")
+	}
+	return nil
+}
+
 //nolint:gocyclo
 func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoodmwpb.Good) error {
 	if h.parentOrder != nil {
@@ -648,6 +676,11 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 	}
 	if h.Units == nil {
 		return nil
+	}
+	if h.Simulate != nil && *h.Simulate {
+		if h.Units != &h.simulateConfig.Units {
+			return fmt.Errorf("invalid simulate units")
+		}
 	}
 	units, err := decimal.NewFromString(*h.Units)
 	if err != nil {
@@ -689,5 +722,28 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 		purchaseCount.Add(units).Cmp(userPurchaseLimit) > 0 {
 		return fmt.Errorf("too many units")
 	}
+	return nil
+}
+
+func (h *baseCreateHandler) getSimulateConfig(ctx context.Context) error {
+	if h.Simulate == nil {
+		return nil
+	}
+	if !*h.Simulate {
+		return nil
+	}
+	enabled := true
+	simulateConfig, err := configmwcli.GetSimulateConfigOnly(ctx, &configmwpb.Conds{
+		AppID:   &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		Enabled: &basetypes.BoolVal{Op: cruder.EQ, Value: enabled},
+	})
+	if err != nil {
+		return err
+	}
+	if simulateConfig == nil {
+		return fmt.Errorf("not support simulate order")
+	}
+	h.simulateConfig = simulateConfig
+
 	return nil
 }

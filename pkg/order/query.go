@@ -239,6 +239,7 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 			InvestmentType:          ord.InvestmentType,
 			LastBenefitAt:           ord.LastBenefitAt,
 			PaidAt:                  ord.PaidAt,
+			Simulate:                ord.Simulate,
 		}
 
 		if user, ok := h.users[ord.UserID]; ok {

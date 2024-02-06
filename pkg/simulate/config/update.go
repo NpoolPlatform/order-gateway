@@ -72,11 +72,5 @@ func (h *Handler) UpdateSimulateConfig(ctx context.Context) (*configmwpb.Simulat
 		return nil, err
 	}
 
-	if h.Enabled != nil && *h.Enabled {
-		if err := h.SetSimulateConfigRedis(ctx); err != nil {
-			return nil, err
-		}
-	}
-
 	return info, nil
 }
