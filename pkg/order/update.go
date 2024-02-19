@@ -87,6 +87,9 @@ func (h *updateHandler) checkOrder(ctx context.Context) error {
 	if order.PaymentType == ordertypes.PaymentType_PayWithParentOrder {
 		return fmt.Errorf("permission denied")
 	}
+	if order.CreateMethod == ordertypes.OrderCreateMethod_OrderCreatedByRenew {
+		return fmt.Errorf("permission denied")
+	}
 	h.order = order
 	return nil
 }
