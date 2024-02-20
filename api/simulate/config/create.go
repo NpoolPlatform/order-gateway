@@ -1,4 +1,3 @@
-//nolint:dupl
 package config
 
 import (
@@ -18,8 +17,10 @@ func (s *Server) CreateSimulateConfig(ctx context.Context, in *npool.CreateSimul
 		ctx,
 		config1.WithAppID(&in.AppID, true),
 		config1.WithUnits(&in.Units, true),
+		config1.WithDuration(&in.Duration, true),
 		config1.WithSendCouponMode(&in.SendCouponMode, true),
 		config1.WithSendCouponProbability(&in.SendCouponProbability, true),
+		config1.WithEnabled(&in.Enabled, false),
 	)
 	if err != nil {
 		logger.Sugar().Errorw(

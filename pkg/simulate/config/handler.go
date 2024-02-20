@@ -18,6 +18,7 @@ type Handler struct {
 	EntID                 *string
 	AppID                 *string
 	Units                 *string
+	Duration              *uint32
 	SendCouponMode        *ordertypes.SendCouponMode
 	SendCouponProbability *string
 	Enabled               *bool
@@ -107,6 +108,19 @@ func WithUnits(amount *string, must bool) func(context.Context, *Handler) error 
 			return fmt.Errorf("invalid units")
 		}
 		h.Units = amount
+		return nil
+	}
+}
+
+func WithDuration(duration *uint32, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if duration == nil {
+			if must {
+				return fmt.Errorf("invalid duration")
+			}
+			return nil
+		}
+		h.Duration = duration
 		return nil
 	}
 }
