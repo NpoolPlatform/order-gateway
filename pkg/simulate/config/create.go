@@ -26,7 +26,7 @@ func (h *createHandler) checkEnabled(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if !exist {
+	if exist {
 		return fmt.Errorf("invalid config")
 	}
 
