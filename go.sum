@@ -54,10 +54,8 @@ github.com/NpoolPlatform/appuser-middleware v0.0.0-20240119021359-948c8504d662 h
 github.com/NpoolPlatform/appuser-middleware v0.0.0-20240119021359-948c8504d662/go.mod h1:NiRL9uaGlrIqtQWQmKW2Zt33AkTTImg/AFSJNJf0BNE=
 github.com/NpoolPlatform/basal-middleware v0.0.0-20231015112137-254853c60eec h1:YftnEsNtCsUz3iAKsI2bwt7+AuA7Ygx3GfYV6h38s9U=
 github.com/NpoolPlatform/basal-middleware v0.0.0-20231015112137-254853c60eec/go.mod h1:WlyWMkHKHeW9PuST/CvRAw9pkhfrr/XS8VDISBaKdGA=
-github.com/NpoolPlatform/chain-middleware v0.0.0-20240219093124-d4f55c758abf h1:rITxzRnJ99s20IpCW6q9xiqiNcOs4sZuv/jlV02SOy8=
-github.com/NpoolPlatform/chain-middleware v0.0.0-20240219093124-d4f55c758abf/go.mod h1:Li1WC6VmGmRijiXCObX1BZAszHNvmJ5pUsoLq6dwN2M=
-github.com/NpoolPlatform/chain-middleware v0.0.0-20240221035425-6a18ed14b910 h1:sfkchot5G0EDxuPGmqSQXGo43k9vdraCl0jjPfBDKPo=
-github.com/NpoolPlatform/chain-middleware v0.0.0-20240221035425-6a18ed14b910/go.mod h1:XFUMuVjHKLslVnnj16eMlVGcoGZknpE4vZz1j79qIqU=
+github.com/NpoolPlatform/chain-middleware v0.0.0-20231020114413-49166aeb1ec8 h1:gifQeflRXIlVACEu2UzQ1iIMML8qYfkguMdDot1Mb54=
+github.com/NpoolPlatform/chain-middleware v0.0.0-20231020114413-49166aeb1ec8/go.mod h1:WdxtPO8aHFOAciBq0oi1lspIiIr4c83cqyQOEVjFe6o=
 github.com/NpoolPlatform/dtm-cluster v0.0.0-20231011071916-859e5dcbf626 h1:qPhxD5Z8D3Z83mUqf0KedOmfND0IrATmYTmpF9vfdsQ=
 github.com/NpoolPlatform/dtm-cluster v0.0.0-20231011071916-859e5dcbf626/go.mod h1:jMTc5jotk+u13Ztzz7ITdEGgEy8V4lsxI0FdcPuVmbo=
 github.com/NpoolPlatform/go-service-framework v0.0.0-20231228071122-53a5febeea97 h1:Y2y/tG1g2ZgrZu9uCGE+iIqnn4vJwSbdhQgbsaI7Xgo=
