@@ -71,16 +71,17 @@ func (h *createsHandler) checkAppGoods(ctx context.Context) error {
 			return fmt.Errorf("permission denied")
 		}
 		if h.Simulate != nil && *h.Simulate {
-			exist, err := appsimulategoodmwcli.ExistSimulateConds(ctx, &appsimulategoodmwpb.Conds{
+			simulategood, err := appsimulategoodmwcli.GetSimulateOnly(ctx, &appsimulategoodmwpb.Conds{
 				AppID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-				AppGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
+				AppGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: good.EntID},
 			})
 			if err != nil {
 				return err
 			}
-			if !exist {
+			if simulategood == nil {
 				return fmt.Errorf("good not support simulate")
 			}
+			h.appSimulateGoods[good.EntID] = simulategood
 		}
 		h.appGoods[good.EntID] = good
 	}

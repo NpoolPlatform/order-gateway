@@ -21,6 +21,8 @@ type Handler struct {
 	Duration              *uint32
 	SendCouponMode        *ordertypes.SendCouponMode
 	SendCouponProbability *string
+	EnabledProfitTx       *bool
+	ProfitTxProbability   *string
 	Enabled               *bool
 	Reqs                  []*configmw.SimulateConfigReq
 	Offset                int32
@@ -163,6 +165,40 @@ func WithSendCouponMode(value *ordertypes.SendCouponMode, must bool) func(contex
 			return fmt.Errorf("invalid sendcouponmode")
 		}
 		h.SendCouponMode = value
+		return nil
+	}
+}
+
+//nolint:dupl
+func WithProfitTxProbability(amount *string, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if amount == nil {
+			if must {
+				return fmt.Errorf("invalid profittxprobability")
+			}
+			return nil
+		}
+		_amount, err := decimal.NewFromString(*amount)
+		if err != nil {
+			return err
+		}
+		if _amount.Cmp(decimal.NewFromInt32(0)) <= 0 {
+			return fmt.Errorf("invalid profittxprobability")
+		}
+		h.ProfitTxProbability = amount
+		return nil
+	}
+}
+
+func WithEnabledProfitTx(enabled *bool, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if enabled == nil {
+			if must {
+				return fmt.Errorf("invalid enabledprofittx")
+			}
+			return nil
+		}
+		h.EnabledProfitTx = enabled
 		return nil
 	}
 }

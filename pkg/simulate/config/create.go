@@ -44,8 +44,8 @@ func (h *Handler) CreateSimulateConfig(ctx context.Context) (*configmwpb.Simulat
 
 	info, err := configmwcli.CreateSimulateConfig(ctx, &configmwpb.SimulateConfigReq{
 		AppID:                 h.AppID,
-		Units:                 h.Units,
-		Duration:              h.Duration,
+		EnabledProfitTx:       h.EnabledProfitTx,
+		ProfitTxProbability:   h.ProfitTxProbability,
 		SendCouponMode:        h.SendCouponMode,
 		SendCouponProbability: h.SendCouponProbability,
 		Enabled:               h.Enabled,

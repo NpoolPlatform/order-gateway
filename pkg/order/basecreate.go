@@ -31,6 +31,7 @@ import (
 	coinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin"
 	currencymwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin/currency"
 	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
+	appsimulategoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/simulate"
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	appgoodscopemwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/app/scope"
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
@@ -57,6 +58,7 @@ type baseCreateHandler struct {
 	paymentAccountLockStart time.Time
 	paymentStartAmount      decimal.Decimal
 	coupons                 map[string]*allocatedmwpb.Coupon
+	appSimulateGoods        map[string]*appsimulategoodmwpb.Simulate
 	paymentCoinAmount       decimal.Decimal
 	paymentUSDAmount        decimal.Decimal
 	reductionUSDAmount      decimal.Decimal
@@ -678,8 +680,15 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 		return nil
 	}
 	if h.Simulate != nil && *h.Simulate {
-		if h.Units != &h.simulateConfig.Units {
+		simulategood, ok := h.appSimulateGoods[appGood.EntID]
+		if !ok {
+			return fmt.Errorf("invalid simulate good")
+		}
+		if h.Units != &simulategood.FixedOrderUnits {
 			return fmt.Errorf("invalid simulate units")
+		}
+		if h.Duration != nil && h.Duration != &simulategood.FixedOrderDuration {
+			return fmt.Errorf("invalid simulate duration")
 		}
 	}
 	units, err := decimal.NewFromString(*h.Units)

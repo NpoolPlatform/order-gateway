@@ -63,8 +63,8 @@ func (h *Handler) UpdateSimulateConfig(ctx context.Context) (*configmwpb.Simulat
 
 	info, err := configmwcli.UpdateSimulateConfig(ctx, &configmwpb.SimulateConfigReq{
 		ID:                    h.ID,
-		Units:                 h.Units,
-		Duration:              h.Duration,
+		ProfitTxProbability:   h.ProfitTxProbability,
+		EnabledProfitTx:       h.EnabledProfitTx,
 		SendCouponMode:        h.SendCouponMode,
 		SendCouponProbability: h.SendCouponProbability,
 		Enabled:               h.Enabled,
