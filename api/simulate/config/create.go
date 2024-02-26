@@ -18,8 +18,8 @@ func (s *Server) CreateSimulateConfig(ctx context.Context, in *npool.CreateSimul
 		config1.WithAppID(&in.AppID, true),
 		config1.WithSendCouponMode(&in.SendCouponMode, true),
 		config1.WithSendCouponProbability(&in.SendCouponProbability, true),
-		config1.WithEnabledProfitTx(&in.EnabledProfitTx, true),
-		config1.WithProfitTxProbability(&in.ProfitTxProbability, true),
+		config1.WithEnabledCashableProfit(&in.EnabledCashableProfit, true),
+		config1.WithCashableProfitProbability(&in.CashableProfitProbability, true),
 		config1.WithEnabled(&in.Enabled, false),
 	)
 	if err != nil {
@@ -50,8 +50,8 @@ func (s *Server) CreateAppSimulateConfig(ctx context.Context, in *npool.CreateAp
 	handler, err := config1.NewHandler(
 		ctx,
 		config1.WithAppID(&in.TargetAppID, true),
-		config1.WithEnabledProfitTx(&in.EnabledProfitTx, true),
-		config1.WithProfitTxProbability(&in.ProfitTxProbability, true),
+		config1.WithEnabledCashableProfit(&in.EnabledCashableProfit, true),
+		config1.WithCashableProfitProbability(&in.CashableProfitProbability, true),
 		config1.WithSendCouponMode(&in.SendCouponMode, true),
 		config1.WithSendCouponProbability(&in.SendCouponProbability, true),
 	)

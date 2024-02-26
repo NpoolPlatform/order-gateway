@@ -62,12 +62,12 @@ func (h *Handler) UpdateSimulateConfig(ctx context.Context) (*configmwpb.Simulat
 	}
 
 	info, err := configmwcli.UpdateSimulateConfig(ctx, &configmwpb.SimulateConfigReq{
-		ID:                    h.ID,
-		ProfitTxProbability:   h.ProfitTxProbability,
-		EnabledProfitTx:       h.EnabledProfitTx,
-		SendCouponMode:        h.SendCouponMode,
-		SendCouponProbability: h.SendCouponProbability,
-		Enabled:               h.Enabled,
+		ID:                        h.ID,
+		EnabledCashableProfit:     h.EnabledCashableProfit,
+		CashableProfitProbability: h.CashableProfitProbability,
+		SendCouponMode:            h.SendCouponMode,
+		SendCouponProbability:     h.SendCouponProbability,
+		Enabled:                   h.Enabled,
 	})
 	if err != nil {
 		return nil, err
