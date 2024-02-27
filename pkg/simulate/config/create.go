@@ -15,19 +15,15 @@ type createHandler struct {
 	*Handler
 }
 
-func (h *createHandler) checkEnabled(ctx context.Context) error {
-	if !*h.Enabled {
-		return nil
-	}
+func (h *createHandler) checkRepeated(ctx context.Context) error {
 	exist, err := configmwcli.ExistSimulateConfigConds(ctx, &configmwpb.Conds{
-		AppID:   &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		Enabled: &basetypes.BoolVal{Op: cruder.EQ, Value: *h.Enabled},
+		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 	})
 	if err != nil {
 		return err
 	}
 	if exist {
-		return fmt.Errorf("invalid config")
+		return fmt.Errorf("repeated config")
 	}
 
 	return nil
@@ -38,7 +34,7 @@ func (h *Handler) CreateSimulateConfig(ctx context.Context) (*configmwpb.Simulat
 		Handler: h,
 	}
 
-	if err := handler.checkEnabled(ctx); err != nil {
+	if err := handler.checkRepeated(ctx); err != nil {
 		return nil, err
 	}
 
