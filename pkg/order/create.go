@@ -649,7 +649,8 @@ func (h *Handler) CreateOrder(ctx context.Context) (info *npool.Order, err error
 			dtmHandler: &dtmHandler{
 				Handler: h,
 			},
-			coupons: map[string]*allocatedmwpb.Coupon{},
+			coupons:          map[string]*allocatedmwpb.Coupon{},
+			appSimulateGoods: map[string]*appsimulategoodmwpb.Simulate{},
 		},
 	}
 	if err := handler.getApp(ctx); err != nil {

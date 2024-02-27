@@ -684,7 +684,8 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 			dtmHandler: &dtmHandler{
 				Handler: h,
 			},
-			coupons: map[string]*allocatedmwpb.Coupon{},
+			coupons:          map[string]*allocatedmwpb.Coupon{},
+			appSimulateGoods: map[string]*appsimulategoodmwpb.Simulate{},
 		},
 		appGoods:          map[string]*appgoodmwpb.Good{},
 		goods:             map[string]*goodmwpb.Good{},
