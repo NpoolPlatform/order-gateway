@@ -30,34 +30,13 @@ func (h *updateHandler) checkExist(ctx context.Context) error {
 	return nil
 }
 
-func (h *updateHandler) checkEnabled(ctx context.Context) error {
-	if h.Enabled == nil || !*h.Enabled {
-		return nil
-	}
-	exist, err := configmwcli.ExistSimulateConfigConds(ctx, &configmwpb.Conds{
-		AppID:   &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		Enabled: &basetypes.BoolVal{Op: cruder.EQ, Value: *h.Enabled},
-	})
-	if err != nil {
-		return err
-	}
-	if !exist {
-		return fmt.Errorf("invalid config")
-	}
-
-	return nil
-}
-
+//nolint:dupl
 func (h *Handler) UpdateSimulateConfig(ctx context.Context) (*configmwpb.SimulateConfig, error) {
 	handler := &updateHandler{
 		Handler: h,
 	}
 
 	if err := handler.checkExist(ctx); err != nil {
-		return nil, err
-	}
-
-	if err := handler.checkEnabled(ctx); err != nil {
 		return nil, err
 	}
 

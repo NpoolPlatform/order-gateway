@@ -29,6 +29,7 @@ func (h *createHandler) checkRepeated(ctx context.Context) error {
 	return nil
 }
 
+//nolint:dupl
 func (h *Handler) CreateSimulateConfig(ctx context.Context) (*configmwpb.SimulateConfig, error) {
 	handler := &createHandler{
 		Handler: h,
