@@ -93,7 +93,6 @@ func WithAppID(id *string, must bool) func(context.Context, *Handler) error {
 	}
 }
 
-//nolint:dupl
 func WithUnits(amount *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if amount == nil {
@@ -140,8 +139,11 @@ func WithSendCouponProbability(amount *string, must bool) func(context.Context, 
 		if err != nil {
 			return err
 		}
-		if _amount.Cmp(decimal.NewFromInt32(0)) <= 0 {
-			return fmt.Errorf("invalid sendcouponprobability")
+		if _amount.Cmp(decimal.NewFromInt(0)) < 0 {
+			return fmt.Errorf("sendcouponprobability is less than 0")
+		}
+		if _amount.Cmp(decimal.NewFromInt(1)) > 0 {
+			return fmt.Errorf("sendcouponprobability is more than 1")
 		}
 		h.SendCouponProbability = amount
 		return nil
@@ -182,8 +184,11 @@ func WithCashableProfitProbability(amount *string, must bool) func(context.Conte
 		if err != nil {
 			return err
 		}
-		if _amount.Cmp(decimal.NewFromInt32(0)) <= 0 {
-			return fmt.Errorf("invalid cashableprofitprobability")
+		if _amount.Cmp(decimal.NewFromInt(0)) < 0 {
+			return fmt.Errorf("cashableprofitprobability is less than 0")
+		}
+		if _amount.Cmp(decimal.NewFromInt(1)) > 0 {
+			return fmt.Errorf("cashableprofitprobability is more than 1")
 		}
 		h.CashableProfitProbability = amount
 		return nil
