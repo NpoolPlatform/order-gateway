@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"fmt"
 
 	configmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/simulate/config"
 	configmwcli "github.com/NpoolPlatform/order-middleware/pkg/client/simulate/config"
@@ -22,9 +23,16 @@ func (h *Handler) GetSimulateConfigs(ctx context.Context) ([]*configmwpb.Simulat
 }
 
 func (h *Handler) GetSimulateConfig(ctx context.Context) (*configmwpb.SimulateConfig, error) {
-	info, err := configmwcli.GetSimulateConfig(ctx, *h.EntID)
+	info, err := configmwcli.GetSimulateConfigOnly(ctx, &configmwpb.Conds{
+		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		EntID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.EntID},
+	})
 	if err != nil {
 		return nil, err
 	}
+	if info == nil {
+		return nil, fmt.Errorf("invalid config")
+	}
+
 	return info, nil
 }

@@ -13,6 +13,36 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+func (s *Server) GetSimulateConfig(ctx context.Context, in *npool.GetSimulateConfigRequest) (*npool.GetSimulateConfigResponse, error) {
+	handler, err := config1.NewHandler(
+		ctx,
+		config1.WithAppID(&in.AppID, true),
+		config1.WithEntID(&in.EntID, true),
+	)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"GetSimulateConfig",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.GetSimulateConfigResponse{}, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	info, err := handler.GetSimulateConfig(ctx)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"GetSimulateConfig",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.GetSimulateConfigResponse{}, status.Error(codes.Internal, err.Error())
+	}
+
+	return &npool.GetSimulateConfigResponse{
+		Info: info,
+	}, nil
+}
+
 func (s *Server) GetSimulateConfigs(ctx context.Context, in *npool.GetSimulateConfigsRequest) (*npool.GetSimulateConfigsResponse, error) {
 	handler, err := config1.NewHandler(
 		ctx,
