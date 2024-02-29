@@ -679,22 +679,27 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 	if h.Units == nil {
 		return nil
 	}
+	units, err := decimal.NewFromString(*h.Units)
+	if err != nil {
+		return err
+	}
 	if h.Simulate != nil && *h.Simulate {
 		simulategood, ok := h.appSimulateGoods[appGood.EntID]
 		if !ok {
 			return fmt.Errorf("invalid simulate good")
 		}
-		if h.Units != &simulategood.FixedOrderUnits {
+		fixedOrderUnits, err := decimal.NewFromString(simulategood.FixedOrderUnits)
+		if err != nil {
+			return err
+		}
+		if units.Cmp(fixedOrderUnits) != 0 {
 			return fmt.Errorf("invalid simulate units")
 		}
 		if h.Duration != nil && h.Duration != &simulategood.FixedOrderDuration {
 			return fmt.Errorf("invalid simulate duration")
 		}
 	}
-	units, err := decimal.NewFromString(*h.Units)
-	if err != nil {
-		return err
-	}
+
 	max, err := decimal.NewFromString(appGood.MaxOrderAmount)
 	if err != nil {
 		return err
