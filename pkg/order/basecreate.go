@@ -695,7 +695,7 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 		if units.Cmp(fixedOrderUnits) != 0 {
 			return fmt.Errorf("invalid simulate units")
 		}
-		if h.Duration != nil && h.Duration != &simulategood.FixedOrderDuration {
+		if h.Duration != nil && *h.Duration != simulategood.FixedOrderDuration {
 			return fmt.Errorf("invalid simulate duration")
 		}
 	}
