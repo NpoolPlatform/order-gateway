@@ -145,6 +145,10 @@ spec:
             backend:
               serviceName: order-gateway
               servicePort: 50430
+          - path: /api/order/v1/get/app/simulate/config
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
     - host: api.procyon.vip
       http: *http_rules
     - host: api.xpool.top
