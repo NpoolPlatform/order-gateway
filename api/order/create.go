@@ -223,7 +223,7 @@ func (s *Server) CreateSimulateOrders(ctx context.Context, in *npool.CreateSimul
 		order1.WithAppID(&in.AppID, true),
 		order1.WithUserID(&in.UserID, true),
 		order1.WithOrderType(&orderType, true),
-		order1.WithOrders(in.Orders, true),
+		order1.WithSimulateOrders(in.Orders, true),
 		order1.WithInvestmentType(&in.InvestmentType, true),
 		order1.WithSimulate(&simulate, true),
 	)
