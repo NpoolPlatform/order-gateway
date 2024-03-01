@@ -648,13 +648,12 @@ func (h *baseCreateHandler) checkSimulateRepeated(ctx context.Context) error {
 		return nil
 	}
 	simulate := true
-	states := []uint32{uint32(types.OrderState_OrderStateCanceled), uint32(types.OrderState_OrderStateExpired)}
 	exist, err := ordermwcli.ExistOrderConds(ctx, &ordermwpb.Conds{
-		AppID:       &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		UserID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
-		AppGoodID:   &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
-		Simulate:    &basetypes.BoolVal{Op: cruder.EQ, Value: simulate},
-		OrderStates: &basetypes.Uint32SliceVal{Op: cruder.NIN, Value: states},
+		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		UserID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
+		AppGoodID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
+		Simulate:   &basetypes.BoolVal{Op: cruder.EQ, Value: simulate},
+		OrderState: &basetypes.Uint32Val{Op: cruder.NEQ, Value: uint32(types.OrderState_OrderStateCanceled)},
 	})
 	if err != nil {
 		return err
