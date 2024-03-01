@@ -683,22 +683,6 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 	if err != nil {
 		return err
 	}
-	if h.Simulate != nil && *h.Simulate {
-		simulategood, ok := h.appSimulateGoods[appGood.EntID]
-		if !ok {
-			return fmt.Errorf("invalid simulate good")
-		}
-		fixedOrderUnits, err := decimal.NewFromString(simulategood.FixedOrderUnits)
-		if err != nil {
-			return err
-		}
-		if units.Cmp(fixedOrderUnits) != 0 {
-			return fmt.Errorf("invalid simulate units")
-		}
-		if h.Duration != nil && *h.Duration != simulategood.FixedOrderDuration {
-			return fmt.Errorf("invalid simulate duration")
-		}
-	}
 
 	max, err := decimal.NewFromString(appGood.MaxOrderAmount)
 	if err != nil {
@@ -714,6 +698,9 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 	}
 	if !appGood.EnablePurchase {
 		return fmt.Errorf("permission denied")
+	}
+	if h.Simulate != nil && *h.Simulate {
+		return nil
 	}
 	purchaseCountStr, err := ordermwcli.SumOrderUnits(ctx, &ordermwpb.Conds{
 		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},

@@ -186,8 +186,6 @@ func (s *Server) CreateSimulateOrder(ctx context.Context, in *npool.CreateSimula
 		order1.WithAppID(&in.AppID, true),
 		order1.WithUserID(&in.UserID, true),
 		order1.WithAppGoodID(&in.AppGoodID, true),
-		order1.WithUnits(in.Units, false),
-		order1.WithDuration(in.Duration, true),
 		order1.WithParentOrderID(in.ParentOrderID, false),
 		order1.WithOrderType(&orderType, true),
 		order1.WithInvestmentType(&in.InvestmentType, true),

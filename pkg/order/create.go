@@ -79,17 +79,19 @@ func (h *createHandler) getAppGood(ctx context.Context) error {
 		return fmt.Errorf("permission denied")
 	}
 	if h.Simulate != nil && *h.Simulate {
-		simualtegood, err := appsimulategoodmwcli.GetSimulateOnly(ctx, &appsimulategoodmwpb.Conds{
+		simulategood, err := appsimulategoodmwcli.GetSimulateOnly(ctx, &appsimulategoodmwpb.Conds{
 			AppID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 			AppGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
 		})
 		if err != nil {
 			return err
 		}
-		if simualtegood == nil {
+		if simulategood == nil {
 			return fmt.Errorf("good not support simulate")
 		}
-		h.appSimulateGoods[*h.AppGoodID] = simualtegood
+		h.appSimulateGoods[*h.AppGoodID] = simulategood
+		h.Units = &simulategood.FixedOrderUnits
+		h.Duration = &simulategood.FixedOrderDuration
 	}
 	h.appGood = good
 	return nil
