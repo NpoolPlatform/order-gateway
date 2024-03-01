@@ -29,7 +29,6 @@ func (h *createHandler) checkRepeated(ctx context.Context) error {
 	return nil
 }
 
-//nolint:dupl
 func (h *Handler) CreateSimulateConfig(ctx context.Context) (*configmwpb.SimulateConfig, error) {
 	handler := &createHandler{
 		Handler: h,
@@ -41,7 +40,6 @@ func (h *Handler) CreateSimulateConfig(ctx context.Context) (*configmwpb.Simulat
 
 	info, err := configmwcli.CreateSimulateConfig(ctx, &configmwpb.SimulateConfigReq{
 		AppID:                     h.AppID,
-		EnabledCashableProfit:     h.EnabledCashableProfit,
 		CashableProfitProbability: h.CashableProfitProbability,
 		SendCouponMode:            h.SendCouponMode,
 		SendCouponProbability:     h.SendCouponProbability,

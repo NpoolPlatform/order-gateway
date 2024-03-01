@@ -30,7 +30,6 @@ func (h *updateHandler) checkExist(ctx context.Context) error {
 	return nil
 }
 
-//nolint:dupl
 func (h *Handler) UpdateSimulateConfig(ctx context.Context) (*configmwpb.SimulateConfig, error) {
 	handler := &updateHandler{
 		Handler: h,
@@ -42,7 +41,6 @@ func (h *Handler) UpdateSimulateConfig(ctx context.Context) (*configmwpb.Simulat
 
 	info, err := configmwcli.UpdateSimulateConfig(ctx, &configmwpb.SimulateConfigReq{
 		ID:                        h.ID,
-		EnabledCashableProfit:     h.EnabledCashableProfit,
 		CashableProfitProbability: h.CashableProfitProbability,
 		SendCouponMode:            h.SendCouponMode,
 		SendCouponProbability:     h.SendCouponProbability,

@@ -21,7 +21,6 @@ type Handler struct {
 	Duration                  *uint32
 	SendCouponMode            *ordertypes.SendCouponMode
 	SendCouponProbability     *string
-	EnabledCashableProfit     *bool
 	CashableProfitProbability *string
 	Enabled                   *bool
 	Reqs                      []*configmw.SimulateConfigReq
@@ -191,19 +190,6 @@ func WithCashableProfitProbability(amount *string, must bool) func(context.Conte
 			return fmt.Errorf("cashableprofitprobability is more than 1")
 		}
 		h.CashableProfitProbability = amount
-		return nil
-	}
-}
-
-func WithEnabledCashableProfit(enabled *bool, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if enabled == nil {
-			if must {
-				return fmt.Errorf("invalid enabledcashableprofit")
-			}
-			return nil
-		}
-		h.EnabledCashableProfit = enabled
 		return nil
 	}
 }
