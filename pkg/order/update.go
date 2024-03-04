@@ -205,6 +205,9 @@ func (h *updateHandler) checkCancelable(ctx context.Context) error {
 }
 
 func (h *updateHandler) getCommission(ctx context.Context) error {
+	if h.order.Simulate {
+		return nil
+	}
 	offset := int32(0)
 	limit := int32(1000) //nolint
 	in := ledgertypes.IOType_Incoming

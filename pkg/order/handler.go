@@ -36,6 +36,7 @@ type Handler struct {
 	UserSetCanceled  *bool
 	AdminSetCanceled *bool
 	PaymentID        *string
+	Simulate         *bool
 	Offset           int32
 	Limit            int32
 	Orders           []*npool.CreateOrdersRequest_OrderReq
@@ -300,6 +301,19 @@ func WithAdminSetCanceled(value *bool, must bool) func(context.Context, *Handler
 	}
 }
 
+func WithSimulate(value *bool, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if value == nil {
+			if must {
+				return fmt.Errorf("invalid simulate")
+			}
+			return nil
+		}
+		h.Simulate = value
+		return nil
+	}
+}
+
 func WithPaymentID(id *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
@@ -357,6 +371,18 @@ func WithOrders(orders []*npool.CreateOrdersRequest_OrderReq, must bool) func(co
 			}
 			if order.Duration != nil && *order.Duration <= 0 {
 				return fmt.Errorf("invalid duration")
+			}
+		}
+		h.Orders = orders
+		return nil
+	}
+}
+
+func WithSimulateOrders(orders []*npool.CreateOrdersRequest_OrderReq, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		for _, order := range orders {
+			if _, err := uuid.Parse(order.AppGoodID); err != nil {
+				return err
 			}
 		}
 		h.Orders = orders

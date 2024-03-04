@@ -11,6 +11,7 @@ import (
 	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
 	redis2 "github.com/NpoolPlatform/go-service-framework/pkg/redis"
 	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
+	appsimulategoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good/simulate"
 	topmostmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good/topmost/good"
 	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	goodrequiredmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/required"
@@ -21,6 +22,7 @@ import (
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
 	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
+	appsimulategoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/simulate"
 	appgoodstockmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/stock"
 	topmostmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/topmost/good"
 	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
@@ -68,7 +70,28 @@ func (h *createsHandler) checkAppGoods(ctx context.Context) error {
 		if !good.EnablePurchase {
 			return fmt.Errorf("permission denied")
 		}
+		if h.Simulate != nil && *h.Simulate {
+			simulategood, err := appsimulategoodmwcli.GetSimulateOnly(ctx, &appsimulategoodmwpb.Conds{
+				AppID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+				AppGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: good.EntID},
+			})
+			if err != nil {
+				return err
+			}
+			if simulategood == nil {
+				return fmt.Errorf("good not support simulate")
+			}
+			h.appSimulateGoods[good.EntID] = simulategood
+		}
 		h.appGoods[good.EntID] = good
+	}
+	for _, order := range h.Orders {
+		simulategood, ok := h.appSimulateGoods[order.AppGoodID]
+		if !ok {
+			return fmt.Errorf("good not support simulate")
+		}
+		order.Units = &simulategood.FixedOrderUnits
+		order.Duration = &simulategood.FixedOrderDuration
 	}
 	return nil
 }
@@ -526,6 +549,7 @@ func (h *createsHandler) withCreateOrders(dispose *dtmcli.SagaDispose) error {
 		}
 		req.GoodID = &appGood.GoodID
 		req.AppGoodID = &appGood.EntID
+		req.Simulate = h.Simulate
 	}
 
 	dispose.Add(
@@ -668,7 +692,8 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 			dtmHandler: &dtmHandler{
 				Handler: h,
 			},
-			coupons: map[string]*allocatedmwpb.Coupon{},
+			coupons:          map[string]*allocatedmwpb.Coupon{},
+			appSimulateGoods: map[string]*appsimulategoodmwpb.Simulate{},
 		},
 		appGoods:          map[string]*appgoodmwpb.Good{},
 		goods:             map[string]*goodmwpb.Good{},
@@ -692,6 +717,9 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 	if err := handler.checkGoods(ctx); err != nil {
 		return nil, err
 	}
+	if err := handler.getSimulateConfig(ctx); err != nil {
+		return nil, err
+	}
 	if err := handler.getCoupons(ctx); err != nil {
 		return nil, err
 	}
@@ -699,6 +727,9 @@ func (h *Handler) CreateOrders(ctx context.Context) (infos []*npool.Order, err e
 		return nil, err
 	}
 	if err := handler.validateDiscountCoupon(); err != nil {
+		return nil, err
+	}
+	if err := handler.checkSimulateRepeated(ctx); err != nil {
 		return nil, err
 	}
 	if err := handler.checkMaxUnpaidOrders(ctx); err != nil {

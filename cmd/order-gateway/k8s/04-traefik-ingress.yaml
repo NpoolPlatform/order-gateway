@@ -90,6 +90,14 @@ spec:
             backend:
               serviceName: order-gateway
               servicePort: 50430
+          - path: /api/order/v1/create/simulateorder
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/create/simulateorders
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
           ######
           # Only enable for app admin
           ######
@@ -106,6 +114,38 @@ spec:
               serviceName: order-gateway
               servicePort: 50430
           - path: /api/order/v1/update/app/user/order
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/create/simulate/config
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/update/simulate/config
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/simulate/config
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/simulate/configs
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/create/app/simulate/config
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/update/app/simulate/config
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/app/simulate/configs
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/app/simulate/config
             backend:
               serviceName: order-gateway
               servicePort: 50430

@@ -31,13 +31,16 @@ import (
 	coinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin"
 	currencymwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin/currency"
 	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
+	appsimulategoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/simulate"
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	appgoodscopemwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/app/scope"
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
 	couponwithdrawmwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/withdraw/coupon"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
+	configmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/simulate/config"
 	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
+	configmwcli "github.com/NpoolPlatform/order-middleware/pkg/client/simulate/config"
 	sphinxproxycli "github.com/NpoolPlatform/sphinx-proxy/pkg/client"
 
 	"github.com/google/uuid"
@@ -51,9 +54,11 @@ type baseCreateHandler struct {
 	parentOrder             *ordermwpb.Order
 	paymentCoin             *appcoinmwpb.Coin
 	paymentAccount          *payaccmwpb.Account
+	simulateConfig          *configmwpb.SimulateConfig
 	paymentAccountLockStart time.Time
 	paymentStartAmount      decimal.Decimal
 	coupons                 map[string]*allocatedmwpb.Coupon
+	appSimulateGoods        map[string]*appsimulategoodmwpb.Simulate
 	paymentCoinAmount       decimal.Decimal
 	paymentUSDAmount        decimal.Decimal
 	reductionUSDAmount      decimal.Decimal
@@ -125,6 +130,9 @@ func (h *baseCreateHandler) getStableUSDCoin(ctx context.Context) error {
 }
 
 func (h *baseCreateHandler) getPaymentCoin(ctx context.Context) error {
+	if h.Simulate != nil && *h.Simulate {
+		return nil
+	}
 	if h.PaymentCoinID == nil {
 		return h.getStableUSDCoin(ctx)
 	}
@@ -149,6 +157,9 @@ func (h *baseCreateHandler) getPaymentCoin(ctx context.Context) error {
 }
 
 func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
+	if h.Simulate != nil && *h.Simulate {
+		return nil
+	}
 	if len(h.CouponIDs) == 0 {
 		return nil
 	}
@@ -174,6 +185,9 @@ func (h *baseCreateHandler) getCoupons(ctx context.Context) error {
 }
 
 func (h *baseCreateHandler) checkCouponWithdraw(ctx context.Context) error {
+	if h.Simulate != nil && *h.Simulate {
+		return nil
+	}
 	for _, coupon := range h.coupons {
 		cw, err := couponwithdrawmwcli.GetCouponWithdrawOnly(ctx, &couponwithdrawmwpb.Conds{
 			AppID:       &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
@@ -192,6 +206,9 @@ func (h *baseCreateHandler) checkCouponWithdraw(ctx context.Context) error {
 }
 
 func (h *baseCreateHandler) validateCouponScope(ctx context.Context, goodID, appGoodID string) error {
+	if h.Simulate != nil && *h.Simulate {
+		return nil
+	}
 	if len(h.CouponIDs) == 0 {
 		return nil
 	}
@@ -213,6 +230,9 @@ func (h *baseCreateHandler) validateCouponScope(ctx context.Context, goodID, app
 }
 
 func (h *baseCreateHandler) validateDiscountCoupon() error {
+	if h.Simulate != nil && *h.Simulate {
+		return nil
+	}
 	discountCoupons := 0
 	fixAmountCoupons := uint32(0)
 	for _, coupon := range h.coupons {
@@ -233,6 +253,9 @@ func (h *baseCreateHandler) validateDiscountCoupon() error {
 }
 
 func (h *baseCreateHandler) checkMaxUnpaidOrders(ctx context.Context) error {
+	if h.Simulate != nil && *h.Simulate {
+		return nil
+	}
 	const maxUnpaidOrders = uint32(5)
 	orderCount, err := ordermwcli.CountOrders(ctx, &ordermwpb.Conds{
 		AppID:        &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
@@ -604,6 +627,9 @@ func (h *baseCreateHandler) withLockPaymentAccount(dispose *dtmcli.SagaDispose) 
 }
 
 func (h *baseCreateHandler) prepareStockAndLedgerLockIDs() {
+	if h.Simulate != nil && *h.Simulate {
+		return
+	}
 	if h.needCheckStock {
 		id := uuid.NewString()
 		h.stockLockID = &id
@@ -612,6 +638,30 @@ func (h *baseCreateHandler) prepareStockAndLedgerLockIDs() {
 		id1 := uuid.NewString()
 		h.balanceLockID = &id1
 	}
+}
+
+func (h *baseCreateHandler) checkSimulateRepeated(ctx context.Context) error {
+	if h.Simulate == nil {
+		return nil
+	}
+	if !*h.Simulate {
+		return nil
+	}
+	simulate := true
+	exist, err := ordermwcli.ExistOrderConds(ctx, &ordermwpb.Conds{
+		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		UserID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
+		AppGoodID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
+		Simulate:   &basetypes.BoolVal{Op: cruder.EQ, Value: simulate},
+		OrderState: &basetypes.Uint32Val{Op: cruder.NEQ, Value: uint32(types.OrderState_OrderStateCanceled)},
+	})
+	if err != nil {
+		return err
+	}
+	if exist {
+		return fmt.Errorf("repeated simulate order")
+	}
+	return nil
 }
 
 //nolint:gocyclo
@@ -632,6 +682,7 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 	if err != nil {
 		return err
 	}
+
 	max, err := decimal.NewFromString(appGood.MaxOrderAmount)
 	if err != nil {
 		return err
@@ -646,6 +697,9 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 	}
 	if !appGood.EnablePurchase {
 		return fmt.Errorf("permission denied")
+	}
+	if h.Simulate != nil && *h.Simulate {
+		return nil
 	}
 	purchaseCountStr, err := ordermwcli.SumOrderUnits(ctx, &ordermwpb.Conds{
 		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
@@ -668,5 +722,28 @@ func (h *baseCreateHandler) checkUnitsLimit(ctx context.Context, appGood *appgoo
 		purchaseCount.Add(units).Cmp(userPurchaseLimit) > 0 {
 		return fmt.Errorf("too many units")
 	}
+	return nil
+}
+
+func (h *baseCreateHandler) getSimulateConfig(ctx context.Context) error {
+	if h.Simulate == nil {
+		return nil
+	}
+	if !*h.Simulate {
+		return nil
+	}
+	enabled := true
+	simulateConfig, err := configmwcli.GetSimulateConfigOnly(ctx, &configmwpb.Conds{
+		AppID:   &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		Enabled: &basetypes.BoolVal{Op: cruder.EQ, Value: enabled},
+	})
+	if err != nil {
+		return err
+	}
+	if simulateConfig == nil {
+		return fmt.Errorf("not support simulate order")
+	}
+	h.simulateConfig = simulateConfig
+
 	return nil
 }
