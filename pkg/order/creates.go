@@ -85,13 +85,15 @@ func (h *createsHandler) checkAppGoods(ctx context.Context) error {
 		}
 		h.appGoods[good.EntID] = good
 	}
-	for _, order := range h.Orders {
-		simulategood, ok := h.appSimulateGoods[order.AppGoodID]
-		if !ok {
-			return fmt.Errorf("good not support simulate")
+	if h.Simulate != nil && *h.Simulate {
+		for _, order := range h.Orders {
+			simulategood, ok := h.appSimulateGoods[order.AppGoodID]
+			if !ok {
+				return fmt.Errorf("good not support simulate")
+			}
+			order.Units = &simulategood.FixedOrderUnits
+			order.Duration = &simulategood.FixedOrderDuration
 		}
-		order.Units = &simulategood.FixedOrderUnits
-		order.Duration = &simulategood.FixedOrderDuration
 	}
 	return nil
 }
