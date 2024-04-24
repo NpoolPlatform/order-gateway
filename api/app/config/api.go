@@ -1,9 +1,9 @@
-package config
+package appconfig
 
 import (
 	"context"
 
-	"github.com/NpoolPlatform/message/npool/order/gw/v1/simulate/config"
+	"github.com/NpoolPlatform/message/npool/order/gw/v1/app/config"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"

@@ -1,11 +1,11 @@
 //nolint:dupl
-package config
+package appconfig
 
 import (
 	"context"
 
-	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/simulate/config"
-	config1 "github.com/NpoolPlatform/order-gateway/pkg/simulate/config"
+	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/app/config"
+	config1 "github.com/NpoolPlatform/order-gateway/pkg/app/config"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

@@ -31,16 +31,16 @@ import (
 	coinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin"
 	currencymwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin/currency"
 	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
-	appsimulategoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/simulate"
+	// appsimulategoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/simulate"
 	allocatedmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	appgoodscopemwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/app/scope"
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
 	couponwithdrawmwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/withdraw/coupon"
+	appconfigmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/app/config"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
-	configmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/simulate/config"
 	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
+	appconfigmwcli "github.com/NpoolPlatform/order-middleware/pkg/client/app/config"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
-	configmwcli "github.com/NpoolPlatform/order-middleware/pkg/client/simulate/config"
 	sphinxproxycli "github.com/NpoolPlatform/sphinx-proxy/pkg/client"
 
 	"github.com/google/uuid"
@@ -54,7 +54,7 @@ type baseCreateHandler struct {
 	parentOrder             *ordermwpb.Order
 	paymentCoin             *appcoinmwpb.Coin
 	paymentAccount          *payaccmwpb.Account
-	simulateConfig          *configmwpb.SimulateConfig
+	simulateConfig          *appconfigmwpb.SimulateConfig
 	paymentAccountLockStart time.Time
 	paymentStartAmount      decimal.Decimal
 	coupons                 map[string]*allocatedmwpb.Coupon
@@ -733,7 +733,7 @@ func (h *baseCreateHandler) getSimulateConfig(ctx context.Context) error {
 		return nil
 	}
 	enabled := true
-	simulateConfig, err := configmwcli.GetSimulateConfigOnly(ctx, &configmwpb.Conds{
+	simulateConfig, err := appconfigmwcli.GetSimulateConfigOnly(ctx, &appconfigmwpb.Conds{
 		AppID:   &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 		Enabled: &basetypes.BoolVal{Op: cruder.EQ, Value: enabled},
 	})

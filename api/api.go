@@ -5,8 +5,8 @@ import (
 
 	order "github.com/NpoolPlatform/message/npool/order/gw/v1"
 
+	appconfig1 "github.com/NpoolPlatform/order-gateway/api/app/config"
 	order1 "github.com/NpoolPlatform/order-gateway/api/order"
-	config1 "github.com/NpoolPlatform/order-gateway/api/simulate/config"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
@@ -19,7 +19,7 @@ type Server struct {
 func Register(server grpc.ServiceRegistrar) {
 	order.RegisterGatewayServer(server, &Server{})
 	order1.Register(server)
-	config1.Register(server)
+	appconfig1.Register(server)
 }
 
 func RegisterGateway(mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) error {
@@ -29,7 +29,7 @@ func RegisterGateway(mux *runtime.ServeMux, endpoint string, opts []grpc.DialOpt
 	if err := order1.RegisterGateway(mux, endpoint, opts); err != nil {
 		return err
 	}
-	if err := config1.RegisterGateway(mux, endpoint, opts); err != nil {
+	if err := appconfig1.RegisterGateway(mux, endpoint, opts); err != nil {
 		return err
 	}
 	return nil

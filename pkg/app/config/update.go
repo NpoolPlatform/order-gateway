@@ -1,11 +1,11 @@
-package config
+package appconfig
 
 import (
 	"context"
 	"fmt"
 
-	configmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/simulate/config"
-	configmwcli "github.com/NpoolPlatform/order-middleware/pkg/client/simulate/config"
+	appconfigmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/app/config"
+	appconfigmwcli "github.com/NpoolPlatform/order-middleware/pkg/client/app/config"
 
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
@@ -16,7 +16,7 @@ type updateHandler struct {
 }
 
 func (h *updateHandler) checkExist(ctx context.Context) error {
-	exist, err := configmwcli.ExistSimulateConfigConds(ctx, &configmwpb.Conds{
+	exist, err := appconfigmwcli.ExistSimulateConfigConds(ctx, &appconfigmwpb.Conds{
 		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 		ID:    &basetypes.Uint32Val{Op: cruder.EQ, Value: *h.ID},
 		EntID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.EntID},
@@ -30,7 +30,7 @@ func (h *updateHandler) checkExist(ctx context.Context) error {
 	return nil
 }
 
-func (h *Handler) UpdateSimulateConfig(ctx context.Context) (*configmwpb.SimulateConfig, error) {
+func (h *Handler) UpdateSimulateConfig(ctx context.Context) (*appconfigmwpb.SimulateConfig, error) {
 	handler := &updateHandler{
 		Handler: h,
 	}
@@ -39,7 +39,7 @@ func (h *Handler) UpdateSimulateConfig(ctx context.Context) (*configmwpb.Simulat
 		return nil, err
 	}
 
-	info, err := configmwcli.UpdateSimulateConfig(ctx, &configmwpb.SimulateConfigReq{
+	info, err := appconfigmwcli.UpdateSimulateConfig(ctx, &appconfigmwpb.SimulateConfigReq{
 		ID:                        h.ID,
 		CashableProfitProbability: h.CashableProfitProbability,
 		SendCouponMode:            h.SendCouponMode,

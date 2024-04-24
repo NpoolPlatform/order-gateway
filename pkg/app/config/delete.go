@@ -1,4 +1,4 @@
-package config
+package appconfig
 
 import (
 	"context"
@@ -6,12 +6,12 @@ import (
 
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
-	configmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/simulate/config"
-	configmwcli "github.com/NpoolPlatform/order-middleware/pkg/client/simulate/config"
+	appconfigmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/app/config"
+	appconfigmwcli "github.com/NpoolPlatform/order-middleware/pkg/client/app/config"
 )
 
-func (h *Handler) DeleteSimulateConfig(ctx context.Context) (*configmwpb.SimulateConfig, error) {
-	exist, err := configmwcli.ExistSimulateConfigConds(ctx, &configmwpb.Conds{
+func (h *Handler) DeleteSimulateConfig(ctx context.Context) (*appconfigmwpb.SimulateConfig, error) {
+	exist, err := appconfigmwcli.ExistSimulateConfigConds(ctx, &appconfigmwpb.Conds{
 		ID:    &basetypes.Uint32Val{Op: cruder.EQ, Value: *h.ID},
 		EntID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.EntID},
 		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
@@ -23,7 +23,7 @@ func (h *Handler) DeleteSimulateConfig(ctx context.Context) (*configmwpb.Simulat
 		return nil, fmt.Errorf("invalid config")
 	}
 
-	info, err := configmwcli.DeleteSimulateConfig(ctx, *h.ID)
+	info, err := appconfigmwcli.DeleteSimulateConfig(ctx, *h.ID)
 	if err != nil {
 		return nil, err
 	}

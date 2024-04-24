@@ -24,7 +24,7 @@ import (
 	ledgerstatementpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger/statement"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
-	orderlockmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order/orderlock"
+	// orderlockmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order/orderlock"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
 

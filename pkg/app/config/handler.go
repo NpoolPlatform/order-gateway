@@ -1,4 +1,4 @@
-package config
+package appconfig
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 
 	appcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/app"
 	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
-	configmw "github.com/NpoolPlatform/message/npool/order/mw/v1/simulate/config"
+	appconfigmw "github.com/NpoolPlatform/message/npool/order/mw/v1/app/config"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 
 	"github.com/google/uuid"
@@ -23,7 +23,7 @@ type Handler struct {
 	SendCouponProbability     *string
 	CashableProfitProbability *string
 	Enabled                   *bool
-	Reqs                      []*configmw.SimulateConfigReq
+	Reqs                      []*appconfigmw.SimulateConfigReq
 	Offset                    int32
 	Limit                     int32
 }

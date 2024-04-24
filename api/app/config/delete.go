@@ -1,15 +1,15 @@
-package config
+package appconfig
 
 import (
 	"context"
 
-	config1 "github.com/NpoolPlatform/order-gateway/pkg/simulate/config"
+	config1 "github.com/NpoolPlatform/order-gateway/pkg/app/config"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
-	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/simulate/config"
+	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/app/config"
 )
 
 func (s *Server) DeleteAppSimulateConfig(ctx context.Context, in *npool.DeleteAppSimulateConfigRequest) (*npool.DeleteAppSimulateConfigResponse, error) {
