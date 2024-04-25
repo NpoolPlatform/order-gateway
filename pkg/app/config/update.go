@@ -2,53 +2,39 @@ package appconfig
 
 import (
 	"context"
-	"fmt"
 
 	appconfigmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/app/config"
 	appconfigmwcli "github.com/NpoolPlatform/order-middleware/pkg/client/app/config"
-
-	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
-	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 )
 
 type updateHandler struct {
-	*Handler
+	*checkHandler
 }
 
-func (h *updateHandler) checkExist(ctx context.Context) error {
-	exist, err := appconfigmwcli.ExistSimulateConfigConds(ctx, &appconfigmwpb.Conds{
-		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		ID:    &basetypes.Uint32Val{Op: cruder.EQ, Value: *h.ID},
-		EntID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.EntID},
-	})
-	if err != nil {
-		return err
-	}
-	if !exist {
-		return fmt.Errorf("invalid config")
-	}
-	return nil
-}
-
-func (h *Handler) UpdateSimulateConfig(ctx context.Context) (*appconfigmwpb.SimulateConfig, error) {
+func (h *Handler) UpdateAppConfig(ctx context.Context) (*appconfigmwpb.AppConfig, error) {
 	handler := &updateHandler{
-		Handler: h,
+		checkHandler: &checkHandler{
+			Handler: h,
+		},
 	}
 
-	if err := handler.checkExist(ctx); err != nil {
+	if err := handler.checkAppConfig(ctx); err != nil {
 		return nil, err
 	}
 
-	info, err := appconfigmwcli.UpdateSimulateConfig(ctx, &appconfigmwpb.SimulateConfigReq{
-		ID:                        h.ID,
-		CashableProfitProbability: h.CashableProfitProbability,
-		SendCouponMode:            h.SendCouponMode,
-		SendCouponProbability:     h.SendCouponProbability,
-		Enabled:                   h.Enabled,
-	})
-	if err != nil {
+	if err := appconfigmwcli.UpdateAppConfig(ctx, &appconfigmwpb.AppConfigReq{
+		ID:                                     h.ID,
+		EntID:                                  h.EntID,
+		AppID:                                  h.AppID,
+		EnableSimulateOrder:                    h.EnableSimulateOrder,
+		SimulateOrderUnits:                     h.SimulateOrderUnits,
+		SimulateOrderCouponMode:                h.SimulateOrderCouponMode,
+		SimulateOrderCouponProbability:         h.SimulateOrderCouponProbability,
+		SimulateOrderDurationSeconds:           h.SimulateOrderDurationSeconds,
+		SimulateOrderCashableProfitProbability: h.SimulateOrderCashableProfitProbability,
+		MaxUnpaidOrders:                        h.MaxUnpaidOrders,
+	}); err != nil {
 		return nil, err
 	}
-
-	return info, nil
+	return h.GetAppConfig(ctx)
 }

@@ -5,8 +5,7 @@ import (
 	"fmt"
 
 	appcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/app"
-	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
-	appconfigmw "github.com/NpoolPlatform/message/npool/order/mw/v1/app/config"
+	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 
 	"github.com/google/uuid"
@@ -14,18 +13,20 @@ import (
 )
 
 type Handler struct {
-	ID                        *uint32
-	EntID                     *string
-	AppID                     *string
-	Units                     *string
-	Duration                  *uint32
-	SendCouponMode            *ordertypes.SendCouponMode
-	SendCouponProbability     *string
-	CashableProfitProbability *string
-	Enabled                   *bool
-	Reqs                      []*appconfigmw.SimulateConfigReq
-	Offset                    int32
-	Limit                     int32
+	ID                                     *uint32
+	EntID                                  *string
+	AppID                                  *string
+	Units                                  *string
+	Duration                               *uint32
+	EnableSimulateOrder                    *bool
+	SimulateOrderUnits                     *string
+	SimulateOrderDurationSeconds           *uint32
+	SimulateOrderCouponMode                *types.SimulateOrderCouponMode
+	SimulateOrderCouponProbability         *string
+	SimulateOrderCashableProfitProbability *string
+	MaxUnpaidOrders                        *uint32
+	Offset                                 int32
+	Limit                                  int32
 }
 
 func NewHandler(ctx context.Context, options ...func(context.Context, *Handler) error) (*Handler, error) {
@@ -92,11 +93,18 @@ func WithAppID(id *string, must bool) func(context.Context, *Handler) error {
 	}
 }
 
-func WithUnits(amount *string, must bool) func(context.Context, *Handler) error {
+func WithEnableSimulateOrder(enabled *bool, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		h.EnableSimulateOrder = enabled
+		return nil
+	}
+}
+
+func WithSimulateOrderUnits(amount *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if amount == nil {
 			if must {
-				return fmt.Errorf("invalid units")
+				return fmt.Errorf("invalid simulateorderunits")
 			}
 			return nil
 		}
@@ -105,32 +113,51 @@ func WithUnits(amount *string, must bool) func(context.Context, *Handler) error 
 			return err
 		}
 		if _amount.Cmp(decimal.NewFromInt32(0)) <= 0 {
-			return fmt.Errorf("invalid units")
+			return fmt.Errorf("invalid simulateorderunits")
 		}
-		h.Units = amount
+		h.SimulateOrderUnits = amount
 		return nil
 	}
 }
 
-func WithDuration(duration *uint32, must bool) func(context.Context, *Handler) error {
+func WithSimulateOrderDurationSeconds(duration *uint32, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if duration == nil {
 			if must {
-				return fmt.Errorf("invalid duration")
+				return fmt.Errorf("invalid simulateorderdurationseconds")
 			}
 			return nil
 		}
-		h.Duration = duration
+		if *duration <= 0 {
+			return fmt.Errorf("invalid simulateorderdurationseconds")
+		}
+		h.SimulateOrderDurationSeconds = duration
+		return nil
+	}
+}
+
+func WithMaxUnpaidOrders(duration *uint32, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if duration == nil {
+			if must {
+				return fmt.Errorf("invalid maxunpaidorders")
+			}
+			return nil
+		}
+		if *duration <= 0 {
+			return fmt.Errorf("invalid maxunpaidorders")
+		}
+		h.MaxUnpaidOrders = duration
 		return nil
 	}
 }
 
 //nolint:dupl
-func WithSendCouponProbability(amount *string, must bool) func(context.Context, *Handler) error {
+func WithSimulateOrderCouponProbability(amount *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if amount == nil {
 			if must {
-				return fmt.Errorf("invalid sendcouponprobability")
+				return fmt.Errorf("invalid simulateordercouponprobability")
 			}
 			return nil
 		}
@@ -139,43 +166,43 @@ func WithSendCouponProbability(amount *string, must bool) func(context.Context, 
 			return err
 		}
 		if _amount.Cmp(decimal.NewFromInt(0)) < 0 {
-			return fmt.Errorf("sendcouponprobability is less than 0")
+			return fmt.Errorf("invalid simulateordercouponprobability")
 		}
 		if _amount.Cmp(decimal.NewFromInt(1)) > 0 {
-			return fmt.Errorf("sendcouponprobability is more than 1")
+			return fmt.Errorf("invalid simulateordercouponprobability")
 		}
-		h.SendCouponProbability = amount
+		h.SimulateOrderCouponProbability = amount
 		return nil
 	}
 }
 
-func WithSendCouponMode(value *ordertypes.SendCouponMode, must bool) func(context.Context, *Handler) error {
+func WithSimulateOrderCouponMode(value *types.SimulateOrderCouponMode, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if value == nil {
 			if must {
-				return fmt.Errorf("invalid sendcouponmode")
+				return fmt.Errorf("invalid simulateordercouponmode")
 			}
 			return nil
 		}
 		switch *value {
-		case ordertypes.SendCouponMode_WithoutCoupon:
-		case ordertypes.SendCouponMode_FirstBenifit:
-		case ordertypes.SendCouponMode_RandomBenifit:
-		case ordertypes.SendCouponMode_FirstAndRandomBenifit:
+		case types.SimulateOrderCouponMode_WithoutCoupon:
+		case types.SimulateOrderCouponMode_FirstBenifit:
+		case types.SimulateOrderCouponMode_RandomBenifit:
+		case types.SimulateOrderCouponMode_FirstAndRandomBenifit:
 		default:
-			return fmt.Errorf("invalid sendcouponmode")
+			return fmt.Errorf("invalid simulateordercouponmode")
 		}
-		h.SendCouponMode = value
+		h.SimulateOrderCouponMode = value
 		return nil
 	}
 }
 
 //nolint:dupl
-func WithCashableProfitProbability(amount *string, must bool) func(context.Context, *Handler) error {
+func WithSimulateOrderCashableProfitProbability(amount *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if amount == nil {
 			if must {
-				return fmt.Errorf("invalid cashableprofitprobability")
+				return fmt.Errorf("invalid simulateordercashableprofitprobability")
 			}
 			return nil
 		}
@@ -184,25 +211,12 @@ func WithCashableProfitProbability(amount *string, must bool) func(context.Conte
 			return err
 		}
 		if _amount.Cmp(decimal.NewFromInt(0)) < 0 {
-			return fmt.Errorf("cashableprofitprobability is less than 0")
+			return fmt.Errorf("invalid simulateordercashableprofitprobability")
 		}
 		if _amount.Cmp(decimal.NewFromInt(1)) > 0 {
-			return fmt.Errorf("cashableprofitprobability is more than 1")
+			return fmt.Errorf("invalid simulateordercashableprofitprobability")
 		}
-		h.CashableProfitProbability = amount
-		return nil
-	}
-}
-
-func WithEnabled(enabled *bool, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if enabled == nil {
-			if must {
-				return fmt.Errorf("invalid enabled")
-			}
-			return nil
-		}
-		h.Enabled = enabled
+		h.SimulateOrderCashableProfitProbability = amount
 		return nil
 	}
 }

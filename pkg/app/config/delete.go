@@ -4,29 +4,20 @@ import (
 	"context"
 	"fmt"
 
-	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
-	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	appconfigmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/app/config"
 	appconfigmwcli "github.com/NpoolPlatform/order-middleware/pkg/client/app/config"
 )
 
-func (h *Handler) DeleteSimulateConfig(ctx context.Context) (*appconfigmwpb.SimulateConfig, error) {
-	exist, err := appconfigmwcli.ExistSimulateConfigConds(ctx, &appconfigmwpb.Conds{
-		ID:    &basetypes.Uint32Val{Op: cruder.EQ, Value: *h.ID},
-		EntID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.EntID},
-		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-	})
+func (h *Handler) DeleteAppConfig(ctx context.Context) (*appconfigmwpb.AppConfig, error) {
+	info, err := h.GetAppConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if !exist {
-		return nil, fmt.Errorf("invalid config")
+	if info == nil {
+		return nil, fmt.Errorf("invalid appconfig")
 	}
-
-	info, err := appconfigmwcli.DeleteSimulateConfig(ctx, *h.ID)
-	if err != nil {
+	if err := appconfigmwcli.DeleteAppConfig(ctx, h.ID, h.EntID, h.AppID); err != nil {
 		return nil, err
 	}
-
 	return info, nil
 }
