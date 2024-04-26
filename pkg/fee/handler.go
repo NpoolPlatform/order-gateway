@@ -2,9 +2,15 @@ package fee
 
 import (
 	"context"
+	"fmt"
 
+	paymentgwpb "github.com/NpoolPlatform/message/npool/order/gw/v1/payment"
+	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
 	ordergwcommon "github.com/NpoolPlatform/order-gateway/pkg/common"
+	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
+
+	"github.com/google/uuid"
 )
 
 type Handler struct {
@@ -12,9 +18,10 @@ type Handler struct {
 	EntID *string
 	ordercommon.OrderCheckHandler
 	ordergwcommon.CoinCheckHandler
+	ordergwcommon.AllocatedCouponCheckHandler
 	ParentOrderID             *string
 	DurationSeconds           *uint32
-	Balances                  *paymentgwpb.PaymentBalance
+	Balances                  []*paymentmwpb.PaymentBalanceReq
 	PaymentTransferCoinTypeID *string
 	CouponIDs                 []string
 	Paid                      *bool
@@ -156,6 +163,104 @@ func WithParentOrderID(id *string, must bool) func(context.Context, *Handler) er
 			return err
 		}
 		h.ParentOrderID = id
+		return nil
+	}
+}
+
+func WithDurationSeconds(u *uint32, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if u == nil {
+			if must {
+				return fmt.Errorf("invalid durationseconds")
+			}
+			return nil
+		}
+		if *u <= 0 {
+			return fmt.Errorf("invalid durationseconds")
+		}
+		h.DurationSeconds = u
+		return nil
+	}
+}
+
+func WithPaymentBalances(bs []*paymentgwpb.PaymentBalance, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		for _, balance := range bs {
+			if err := h.CheckCoinWithCoinTypeID(ctx, balance.CoinTypeID); err != nil {
+				return err
+			}
+			// Fill coin_usd_currency later
+			h.Balances = append(h.Balances, &paymentmwpb.PaymentBalanceReq{
+				CoinTypeID: &balance.CoinTypeID,
+				Amount:     &balance.Amount,
+			})
+		}
+		return nil
+	}
+}
+
+func WithPaymentTransferCoinTypeID(s *string, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if s == nil {
+			if must {
+				return fmt.Errorf("invalid paymenttransfercointypeid")
+			}
+			return nil
+		}
+		if err := h.CheckCoinWithCoinTypeID(ctx, *s); err != nil {
+			return err
+		}
+		h.PaymentTransferCoinTypeID = s
+		return nil
+	}
+}
+
+func WithCouponIDs(ss []string, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		for _, couponID := range ss {
+			if err := h.CheckAllocatedCouponWithAllocatedCouponID(ctx, couponID); err != nil {
+				return err
+			}
+		}
+		h.CouponIDs = ss
+		return nil
+	}
+}
+
+func WithPaid(b *bool, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		h.Paid = b
+		return nil
+	}
+}
+
+func WithUserSetCanceled(b *bool, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		h.UserSetCanceled = b
+		return nil
+	}
+}
+
+func WithAdminSetCanceled(b *bool, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		h.AdminSetCanceled = b
+		return nil
+	}
+}
+
+func WithOffset(offset int32) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		h.Offset = offset
+		return nil
+	}
+}
+
+func WithLimit(limit int32) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if limit == 0 {
+			limit = constant.DefaultRowLimit
+		}
+		h.Limit = limit
 		return nil
 	}
 }
