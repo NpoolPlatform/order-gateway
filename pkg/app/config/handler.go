@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	appcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/app"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
+	ordergwcommon "github.com/NpoolPlatform/order-gateway/pkg/common"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 
 	"github.com/google/uuid"
@@ -13,9 +13,9 @@ import (
 )
 
 type Handler struct {
-	ID                                     *uint32
-	EntID                                  *string
-	AppID                                  *string
+	ID    *uint32
+	EntID *string
+	ordergwcommon.AppCheckHandler
 	Units                                  *string
 	Duration                               *uint32
 	EnableSimulateOrder                    *bool
@@ -77,16 +77,8 @@ func WithAppID(id *string, must bool) func(context.Context, *Handler) error {
 			}
 			return nil
 		}
-		_, err := uuid.Parse(*id)
-		if err != nil {
+		if err := h.CheckAppWithAppID(ctx, *id); err != nil {
 			return err
-		}
-		exist, err := appcli.ExistApp(ctx, *id)
-		if err != nil {
-			return err
-		}
-		if !exist {
-			return fmt.Errorf("invalid app")
 		}
 		h.AppID = id
 		return nil

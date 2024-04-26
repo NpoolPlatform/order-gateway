@@ -11,7 +11,7 @@ import (
 )
 
 type AppGoodCheckHandler struct {
-	AppUserCheckHandler
+	UserCheckHandler
 	GoodCheckHandler
 	AppGoodID *string
 }
