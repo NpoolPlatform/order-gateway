@@ -27,6 +27,7 @@ type Handler struct {
 	Paid                      *bool
 	UserSetCanceled           *bool
 	AdminSetCanceled          *bool
+	AppGoodIDs                []string
 	Offset                    int32
 	Limit                     int32
 }
@@ -130,7 +131,7 @@ func WithAppGoodID(id *string, must bool) func(context.Context, *Handler) error 
 		if err := h.CheckAppGoodWithAppGoodID(ctx, *id); err != nil {
 			return err
 		}
-		h.AppGoodID = id
+		h.AppGoodIDs = append(h.AppGoodIDs, *id)
 		return nil
 	}
 }
@@ -244,6 +245,18 @@ func WithUserSetCanceled(b *bool, must bool) func(context.Context, *Handler) err
 func WithAdminSetCanceled(b *bool, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		h.AdminSetCanceled = b
+		return nil
+	}
+}
+
+func WithAppGoodIDs(ss []string, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		for _, appGoodID := range ss {
+			if err := h.CheckAppGoodWithAppGoodID(ctx, appGoodID); err != nil {
+				return err
+			}
+			h.AppGoodIDs = append(h.AppGoodIDs, appGoodID)
+		}
 		return nil
 	}
 }
