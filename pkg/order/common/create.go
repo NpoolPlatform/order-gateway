@@ -19,6 +19,7 @@ import (
 type OrderCreateHandler struct {
 	ordergwcommon.AppGoodCheckHandler
 	ordergwcommon.CoinCheckHandler
+	ordergwcommon.AllocatedCouponCheckHandler
 	DurationSeconds           *uint32
 	PaymentBalances           []*paymentgwpb.PaymentBalance
 	PaymentTransferCoinTypeID *string
@@ -35,8 +36,8 @@ type OrderCreateHandler struct {
 
 func (h *OrderCreateHandler) GetAllocatedCoupons(ctx context.Context) error {
 	infos, _, err := allocatedcouponmwcli.GetCoupons(ctx, &allocatedcouponmwpb.Conds{
-		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		UserID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
+		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodCheckHandler.AppID},
+		UserID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodCheckHandler.UserID},
 		EntIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: h.AllocatedCouponIDs},
 	}, 0, int32(len(h.AllocatedCouponIDs)))
 	if err != nil {
@@ -71,7 +72,7 @@ func (h *OrderCreateHandler) getCoinUSDCurrencies(ctx context.Context) error {
 
 func (h *OrderCreateHandler) getAppGoods(ctx context.Context) error {
 	appGoods, _, err := appgoodmwcli.GetGoods(ctx, &appgoodmwpb.Conds{
-		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodCheckHandler.AppID},
 		EntIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: h.AppGoodIDs},
 	}, 0, int32(len(h.AppGoodIDs)))
 	if err != nil {

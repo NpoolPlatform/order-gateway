@@ -6,7 +6,6 @@ import (
 
 	paymentgwpb "github.com/NpoolPlatform/message/npool/order/gw/v1/payment"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
-	ordergwcommon "github.com/NpoolPlatform/order-gateway/pkg/common"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
 
@@ -17,8 +16,7 @@ type Handler struct {
 	ID    *uint32
 	EntID *string
 	ordercommon.OrderCheckHandler
-	ordergwcommon.CoinCheckHandler
-	ordergwcommon.AllocatedCouponCheckHandler
+	ordercommon.OrderCreateHandler
 	ParentOrderID             *string
 	DurationSeconds           *uint32
 	Balances                  []*paymentmwpb.PaymentBalanceReq
@@ -80,10 +78,12 @@ func WithAppID(id *string, must bool) func(context.Context, *Handler) error {
 			}
 			return nil
 		}
-		if err := h.CheckAppWithAppID(ctx, *id); err != nil {
+		if err := h.OrderCheckHandler.CheckAppWithAppID(ctx, *id); err != nil {
 			return err
 		}
-		h.AppID = id
+		h.OrderCheckHandler.AppID = id
+		h.OrderCreateHandler.AppGoodCheckHandler.AppID = id
+		h.OrderCreateHandler.AllocatedCouponCheckHandler.AppID = id
 		return nil
 	}
 }
@@ -96,10 +96,12 @@ func WithUserID(id *string, must bool) func(context.Context, *Handler) error {
 			}
 			return nil
 		}
-		if err := h.CheckUserWithUserID(ctx, *id); err != nil {
+		if err := h.OrderCheckHandler.CheckUserWithUserID(ctx, *id); err != nil {
 			return err
 		}
-		h.UserID = id
+		h.OrderCheckHandler.UserID = id
+		h.OrderCreateHandler.AppGoodCheckHandler.UserID = id
+		h.OrderCreateHandler.AllocatedCouponCheckHandler.UserID = id
 		return nil
 	}
 }
@@ -112,10 +114,11 @@ func WithGoodID(id *string, must bool) func(context.Context, *Handler) error {
 			}
 			return nil
 		}
-		if err := h.CheckGoodWithGoodID(ctx, *id); err != nil {
+		if err := h.OrderCheckHandler.CheckGoodWithGoodID(ctx, *id); err != nil {
 			return err
 		}
-		h.GoodID = id
+		h.OrderCheckHandler.GoodID = id
+		h.OrderCreateHandler.GoodID = id
 		return nil
 	}
 }
@@ -128,7 +131,7 @@ func WithAppGoodID(id *string, must bool) func(context.Context, *Handler) error 
 			}
 			return nil
 		}
-		if err := h.CheckAppGoodWithAppGoodID(ctx, *id); err != nil {
+		if err := h.OrderCheckHandler.CheckAppGoodWithAppGoodID(ctx, *id); err != nil {
 			return err
 		}
 		h.AppGoodIDs = append(h.AppGoodIDs, *id)
@@ -252,7 +255,7 @@ func WithAdminSetCanceled(b *bool, must bool) func(context.Context, *Handler) er
 func WithAppGoodIDs(ss []string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		for _, appGoodID := range ss {
-			if err := h.CheckAppGoodWithAppGoodID(ctx, appGoodID); err != nil {
+			if err := h.OrderCheckHandler.CheckAppGoodWithAppGoodID(ctx, appGoodID); err != nil {
 				return err
 			}
 			h.AppGoodIDs = append(h.AppGoodIDs, appGoodID)
