@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	paymentgwpb "github.com/NpoolPlatform/message/npool/order/gw/v1/payment"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
+	ordergwcommon "github.com/NpoolPlatform/order-gateway/pkg/common"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
 
@@ -16,7 +18,9 @@ type Handler struct {
 	ID    *uint32
 	EntID *string
 	ordercommon.OrderCheckHandler
-	ordercommon.OrderCreateHandler
+	ordergwcommon.CoinCheckHandler
+	ordergwcommon.AllocatedCouponCheckHandler
+	ordergwcommon.AppGoodCheckHandler
 	ParentOrderID             *string
 	DurationSeconds           *uint32
 	Balances                  []*paymentmwpb.PaymentBalanceReq
@@ -26,6 +30,7 @@ type Handler struct {
 	UserSetCanceled           *bool
 	AdminSetCanceled          *bool
 	AppGoodIDs                []string
+	CreateMethod              *types.OrderCreateMethod
 	Offset                    int32
 	Limit                     int32
 }
@@ -82,8 +87,6 @@ func WithAppID(id *string, must bool) func(context.Context, *Handler) error {
 			return err
 		}
 		h.OrderCheckHandler.AppID = id
-		h.OrderCreateHandler.AppGoodCheckHandler.AppID = id
-		h.OrderCreateHandler.AllocatedCouponCheckHandler.AppID = id
 		return nil
 	}
 }
@@ -100,8 +103,6 @@ func WithUserID(id *string, must bool) func(context.Context, *Handler) error {
 			return err
 		}
 		h.OrderCheckHandler.UserID = id
-		h.OrderCreateHandler.AppGoodCheckHandler.UserID = id
-		h.OrderCreateHandler.AllocatedCouponCheckHandler.UserID = id
 		return nil
 	}
 }
@@ -118,7 +119,6 @@ func WithGoodID(id *string, must bool) func(context.Context, *Handler) error {
 			return err
 		}
 		h.OrderCheckHandler.GoodID = id
-		h.OrderCreateHandler.GoodID = id
 		return nil
 	}
 }
@@ -260,6 +260,26 @@ func WithAppGoodIDs(ss []string, must bool) func(context.Context, *Handler) erro
 			}
 			h.AppGoodIDs = append(h.AppGoodIDs, appGoodID)
 		}
+		return nil
+	}
+}
+
+func WithCreateMethod(e *types.OrderCreateMethod, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if e == nil {
+			if must {
+				return fmt.Errorf("invalid createmethod")
+			}
+			return nil
+		}
+		switch *e {
+		case types.OrderCreateMethod_OrderCreatedByPurchase:
+		case types.OrderCreateMethod_OrderCreatedByAdmin:
+		case types.OrderCreateMethod_OrderCreatedByRenew:
+		default:
+			return fmt.Errorf("invalid createmethod")
+		}
+		h.CreateMethod = e
 		return nil
 	}
 }

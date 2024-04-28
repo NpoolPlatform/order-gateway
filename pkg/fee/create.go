@@ -58,6 +58,42 @@ func (h *Handler) CreateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	if err := handler.validateRequiredAppGoods(); err != nil {
 		return nil, err
 	}
+	if err := handler.GetTopMostAppGoods(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.GetCoinUSDCurrencies(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.CalculateDeductAmountUSD(); err != nil {
+		return nil, err
+	}
+	if err := handler.getAppFees(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.calculateTotalGoodValueUSD(); err != nil {
+		return nil, err
+	}
+	if err := handler.CalculateDeductAmountUSD(); err != nil {
+		return nil, err
+	}
+	handler.CalculatePaymentAmountUSD()
+	if err := handler.ConstructOrderPayment(); err != nil {
+		return nil, err
+	}
+	if err := handler.ValidateCouponConstraint(); err != nil {
+		return nil, err
+	}
+	if err := handler.ResolvePaymentType(); err != nil {
+		return nil, err
+	}
+	if err := handler.AcquirePaymentTransferAccount(ctx); err != nil {
+		return nil, err
+	}
+	defer handler.ReleasePaymentTransferAccount()
+	if err := handler.GetPaymentTransferStartAmount(ctx); err != nil {
+		return nil, err
+	}
+	handler.PrepareLedgerLockID()
 
 	return h.GetFeeOrder(ctx)
 }
