@@ -31,6 +31,7 @@ type Handler struct {
 	AdminSetCanceled          *bool
 	AppGoodIDs                []string
 	CreateMethod              *types.OrderCreateMethod
+	OrderType                 *types.OrderType
 	Offset                    int32
 	Limit                     int32
 }
@@ -280,6 +281,26 @@ func WithCreateMethod(e *types.OrderCreateMethod, must bool) func(context.Contex
 			return fmt.Errorf("invalid createmethod")
 		}
 		h.CreateMethod = e
+		return nil
+	}
+}
+
+func WithOrderType(orderType *types.OrderType, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if orderType == nil {
+			if must {
+				return fmt.Errorf("invalid ordertype")
+			}
+			return nil
+		}
+		switch *orderType {
+		case types.OrderType_Airdrop:
+		case types.OrderType_Offline:
+		case types.OrderType_Normal:
+		default:
+			return fmt.Errorf("invalid ordertype")
+		}
+		h.OrderType = orderType
 		return nil
 	}
 }

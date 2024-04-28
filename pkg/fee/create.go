@@ -94,6 +94,9 @@ func (h *Handler) CreateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 		return nil, err
 	}
 	handler.PrepareLedgerLockID()
+	if err := handler.constructFeeOrderReq(*h.AppGoodID); err != nil {
+		return nil, err
+	}
 
 	return h.GetFeeOrder(ctx)
 }

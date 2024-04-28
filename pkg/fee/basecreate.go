@@ -179,48 +179,59 @@ func (h *baseCreateHandler) calculateTotalGoodValueUSD() error {
 	return nil
 }
 
+func (h *baseCreateHandler) constructFeeOrderReq(appGoodID string) error {
+	appFee, ok := h.appFees[appGoodID]
+	if !ok {
+		return fmt.Errorf("invalid appfee")
+	}
+	goodValueUSD, err := h.calculateFeeOrderValueUSD(appGoodID)
+	if err != nil {
+		return err
+	}
+	paymentAmountUSD := h.PaymentAmountUSD
+	paymentType := h.PaymentType
+	if len(h.feeOrderReqs) == 0 {
+		paymentAmountUSD = decimal.NewFromInt(0)
+		paymentType = types.PaymentType_PayWithOtherOrder
+	}
+	var promotionID *string
+	topMostAppGood, ok := h.TopMostAppGoods[appFee.AppGoodID]
+	if ok {
+		promotionID = &topMostAppGood.TopMostID
+	}
+	req := &feeordermwpb.FeeOrderReq{
+		EntID:         func() *string { s := uuid.NewString(); return &s }(),
+		AppID:         h.Handler.OrderCheckHandler.AppID,
+		UserID:        h.Handler.OrderCheckHandler.UserID,
+		GoodID:        &appFee.GoodID,
+		GoodType:      &appFee.GoodType,
+		AppGoodID:     &appFee.AppGoodID,
+		OrderID:       func() *string { s := uuid.NewString(); return &s }(),
+		ParentOrderID: &h.parentOrder.OrderID,
+		OrderType:     h.Handler.OrderType,
+		PaymentType:   &paymentType,
+		CreateMethod:  h.CreateMethod, // Admin or Purchase
+
+		GoodValueUSD:      func() *string { s := goodValueUSD.String(); return &s }(),
+		PaymentAmountUSD:  func() *string { s := paymentAmountUSD.String(); return &s }(),
+		DiscountAmountUSD: func() *string { s := h.DeductAmountUSD.String(); return &s }(),
+		PromotionID:       promotionID,
+		DurationSeconds:   h.Handler.DurationSeconds,
+		LedgerLockID:      h.BalanceLockID,
+		PaymentID:         h.PaymentID,
+		CouponIDs:         h.CouponIDs,
+		PaymentBalances:   h.PaymentBalanceReqs,
+		PaymentTransfers:  []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq},
+	}
+	h.feeOrderReqs = append(h.feeOrderReqs, req)
+	return nil
+}
+
 func (h *baseCreateHandler) constructFeeOrderReqs() error {
 	for _, appFee := range h.appFees {
-		goodValueUSD, err := h.calculateFeeOrderValueUSD(appFee.AppGoodID)
-		if err != nil {
+		if err := h.constructFeeOrderReq(appFee.AppGoodID); err != nil {
 			return err
 		}
-		paymentAmountUSD := h.PaymentAmountUSD
-		paymentType := h.PaymentType
-		if len(h.feeOrderReqs) == 0 {
-			paymentAmountUSD = decimal.NewFromInt(0)
-			paymentType = types.PaymentType_PayWithOtherOrder
-		}
-		var promotionID *string
-		topMostAppGood, ok := h.TopMostAppGoods[appFee.AppGoodID]
-		if ok {
-			promotionID = &topMostAppGood.TopMostID
-		}
-		req := &feeordermwpb.FeeOrderReq{
-			EntID:         func() *string { s := uuid.NewString(); return &s }(),
-			AppID:         h.Handler.OrderCheckHandler.AppID,
-			UserID:        h.Handler.OrderCheckHandler.UserID,
-			GoodID:        &appFee.GoodID,
-			GoodType:      &appFee.GoodType,
-			AppGoodID:     &appFee.AppGoodID,
-			OrderID:       func() *string { s := uuid.NewString(); return &s }(),
-			ParentOrderID: &h.parentOrder.OrderID,
-			OrderType:     &h.OrderType,
-			PaymentType:   &paymentType,
-			CreateMethod:  h.CreateMethod, // Admin or Purchase
-
-			GoodValueUSD:      func() *string { s := goodValueUSD.String(); return &s }(),
-			PaymentAmountUSD:  func() *string { s := paymentAmountUSD.String(); return &s }(),
-			DiscountAmountUSD: func() *string { s := h.DeductAmountUSD.String(); return &s }(),
-			PromotionID:       promotionID,
-			DurationSeconds:   h.Handler.DurationSeconds,
-			LedgerLockID:      h.BalanceLockID,
-			PaymentID:         h.PaymentID,
-			CouponIDs:         h.CouponIDs,
-			PaymentBalances:   h.PaymentBalanceReqs,
-			PaymentTransfers:  []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq},
-		}
-		h.feeOrderReqs = append(h.feeOrderReqs, req)
 	}
 	return nil
 }
