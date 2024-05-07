@@ -4,6 +4,7 @@ import (
 	"context"
 
 	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
+	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
@@ -16,7 +17,7 @@ import (
 func GetGoods(ctx context.Context, goodIDs []string) (map[string]*goodmwpb.Good, error) {
 	for _, goodID := range goodIDs {
 		if _, err := uuid.Parse(goodID); err != nil {
-			return nil, err
+			return nil, wlog.WrapError(err)
 		}
 	}
 
@@ -24,7 +25,7 @@ func GetGoods(ctx context.Context, goodIDs []string) (map[string]*goodmwpb.Good,
 		EntIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: goodIDs},
 	}, int32(0), int32(len(goodIDs)))
 	if err != nil {
-		return nil, err
+		return nil, wlog.WrapError(err)
 	}
 	goodMap := map[string]*goodmwpb.Good{}
 	for _, good := range goods {

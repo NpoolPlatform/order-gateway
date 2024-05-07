@@ -2,8 +2,8 @@ package common
 
 import (
 	"context"
-	"fmt"
 
+	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
@@ -19,10 +19,10 @@ func (h *GoodCheckHandler) CheckGoodWithGoodID(ctx context.Context, goodID strin
 		EntID: &basetypes.StringVal{Op: cruder.EQ, Value: goodID},
 	})
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	if !exist {
-		return fmt.Errorf("invalid good")
+		return wlog.Errorf("invalid good")
 	}
 	return nil
 }

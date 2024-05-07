@@ -2,9 +2,9 @@ package common
 
 import (
 	"context"
-	"fmt"
 
 	appmwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/app"
+	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 )
 
 type AppCheckHandler struct {
@@ -14,10 +14,10 @@ type AppCheckHandler struct {
 func (h *AppCheckHandler) CheckAppWithAppID(ctx context.Context, appID string) error {
 	exist, err := appmwcli.ExistApp(ctx, appID)
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	if !exist {
-		return fmt.Errorf("invalid app")
+		return wlog.Errorf("invalid app")
 	}
 	return nil
 }

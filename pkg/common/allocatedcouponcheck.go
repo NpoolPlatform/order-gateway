@@ -2,8 +2,8 @@ package common
 
 import (
 	"context"
-	"fmt"
 
+	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	allocatedcouponmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
@@ -23,10 +23,10 @@ func (h *AllocatedCouponCheckHandler) CheckAllocatedCouponWithAllocatedCouponID(
 		UserID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
 	})
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	if info == nil {
-		return fmt.Errorf("invalid allocatedcoupon")
+		return wlog.Errorf("invalid allocatedcoupon")
 	}
 	return nil
 }
