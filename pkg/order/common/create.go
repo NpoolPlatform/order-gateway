@@ -201,6 +201,9 @@ func (h *OrderCreateHandler) GetUser(ctx context.Context) error {
 }
 
 func (h *OrderCreateHandler) ValidateCouponScope(ctx context.Context, parentAppGoodID *string) error {
+	if len(h.allocatedCoupons) == 0 {
+		return nil
+	}
 	reqs := []*appgoodscopemwpb.ScopeReq{}
 	for _, allocatedCoupon := range h.allocatedCoupons {
 		for appGoodID, appGood := range h.AppGoods {

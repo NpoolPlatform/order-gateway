@@ -5,6 +5,7 @@ import (
 
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/fee"
+	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
 )
 
 type createHandler struct {
@@ -15,6 +16,11 @@ func (h *Handler) CreateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	handler := &createHandler{
 		baseCreateHandler: &baseCreateHandler{
 			Handler: h,
+			OrderCreateHandler: &ordercommon.OrderCreateHandler{
+				AppGoodCheckHandler:         h.AppGoodCheckHandler,
+				CoinCheckHandler:            h.CoinCheckHandler,
+				AllocatedCouponCheckHandler: h.AllocatedCouponCheckHandler,
+			},
 		},
 	}
 

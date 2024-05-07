@@ -88,6 +88,7 @@ func WithAppID(id *string, must bool) func(context.Context, *Handler) error {
 			return wlog.WrapError(err)
 		}
 		h.OrderCheckHandler.AppID = id
+		h.AppGoodCheckHandler.AppID = id
 		return nil
 	}
 }
@@ -104,6 +105,7 @@ func WithUserID(id *string, must bool) func(context.Context, *Handler) error {
 			return wlog.WrapError(err)
 		}
 		h.OrderCheckHandler.UserID = id
+		h.AppGoodCheckHandler.UserID = id
 		return nil
 	}
 }
