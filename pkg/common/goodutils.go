@@ -3,8 +3,10 @@ package common
 import (
 	"context"
 
+	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
 	goodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
+	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	goodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good"
 
@@ -29,4 +31,25 @@ func GetGoods(ctx context.Context, goodIDs []string) (map[string]*goodmwpb.Good,
 		goodMap[good.EntID] = good
 	}
 	return goodMap, nil
+}
+
+func GoodDurationDisplayType2Unit(_type goodtypes.GoodDurationType, seconds uint32) (units uint32, unit string) {
+	switch _type {
+	case goodtypes.GoodDurationType_GoodDurationByHour:
+		units = seconds / timedef.SecondsPerHour
+		unit = "MSG_HOUR"
+	case goodtypes.GoodDurationType_GoodDurationByDay:
+		units = seconds / timedef.SecondsPerDay
+		unit = "MSG_DAY"
+	case goodtypes.GoodDurationType_GoodDurationByMonth:
+		units = seconds / timedef.SecondsPerMonth
+		unit = "MSG_MONTH"
+	case goodtypes.GoodDurationType_GoodDurationByYear:
+		units = seconds / timedef.SecondsPerYear
+		unit = "MSG_YEAR"
+	}
+	if units > 1 {
+		unit += "S"
+	}
+	return units, unit
 }

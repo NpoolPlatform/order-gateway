@@ -10,6 +10,7 @@ import (
 	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	coinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin"
+	appfeemwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/fee"
 	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
 	topmostmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/topmost"
 	allocatedcouponmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
@@ -27,7 +28,8 @@ type queryHandler struct {
 	infos            []*npool.FeeOrder
 	apps             map[string]*appmwpb.App
 	users            map[string]*usermwpb.User
-	appGoods         map[string]*appgoodmwpb.Good
+	appFees          map[string]*appfeemwpb.Fee
+	parentAppGoods   map[string]*appgoodmwpb.Good
 	topMosts         map[string]*topmostmwpb.TopMost
 	allocatedCoupons map[string]*allocatedcouponmwpb.Coupon
 	coins            map[string]*coinmwpb.Coin
@@ -54,10 +56,20 @@ func (h *queryHandler) getUsers(ctx context.Context) (err error) {
 	return err
 }
 
-func (h *queryHandler) getAppGoods(ctx context.Context) (err error) {
-	h.appGoods, err = ordergwcommon.GetAppGoods(ctx, func() (appGoodIDs []string) {
+func (h *queryHandler) getParentAppGoods(ctx context.Context) (err error) {
+	h.parentAppGoods, err = ordergwcommon.GetAppGoods(ctx, func() (appGoodIDs []string) {
 		for _, fee := range h.fees {
-			appGoodIDs = append(appGoodIDs, fee.AppGoodID, fee.ParentAppGoodID)
+			appGoodIDs = append(appGoodIDs, fee.ParentAppGoodID)
+		}
+		return
+	}())
+	return err
+}
+
+func (h *queryHandler) getAppFees(ctx context.Context) (err error) {
+	h.appFees, err = ordergwcommon.GetAppFees(ctx, func() (appGoodIDs []string) {
+		for _, fee := range h.fees {
+			appGoodIDs = append(appGoodIDs, fee.AppGoodID)
 		}
 		return
 	}())
@@ -155,12 +167,16 @@ func (h *queryHandler) formalize() {
 			info.EmailAddress = user.EmailAddress
 			info.PhoneNO = user.PhoneNO
 		}
-		appGood, ok := h.appGoods[fee.AppGoodID]
+		appFee, ok := h.appFees[fee.AppGoodID]
 		if ok {
-			info.GoodName = appGood.GoodName
-			info.AppGoodName = appGood.AppGoodName
+			info.GoodName = appFee.Name
+			info.AppGoodName = appFee.Name
+			info.DurationDisplayType = appFee.DurationDisplayType
+			info.Durations, info.DurationUnit = ordergwcommon.GoodDurationDisplayType2Unit(
+				appFee.DurationDisplayType, info.DurationSeconds,
+			)
 		}
-		parentAppGood, ok := h.appGoods[fee.ParentAppGoodID]
+		parentAppGood, ok := h.parentAppGoods[fee.ParentAppGoodID]
 		if ok {
 			info.ParentAppGoodName = parentAppGood.AppGoodName
 		}
@@ -243,7 +259,10 @@ func (h *Handler) GetFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	if err := handler.getUsers(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if err := handler.getAppGoods(ctx); err != nil {
+	if err := handler.getParentAppGoods(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+	if err := handler.getAppFees(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.getTopMosts(ctx); err != nil {
@@ -291,7 +310,10 @@ func (h *Handler) GetFeeOrders(ctx context.Context) ([]*npool.FeeOrder, uint32, 
 	if err := handler.getUsers(ctx); err != nil {
 		return nil, 0, wlog.WrapError(err)
 	}
-	if err := handler.getAppGoods(ctx); err != nil {
+	if err := handler.getParentAppGoods(ctx); err != nil {
+		return nil, 0, wlog.WrapError(err)
+	}
+	if err := handler.getAppFees(ctx); err != nil {
 		return nil, 0, wlog.WrapError(err)
 	}
 	if err := handler.getTopMosts(ctx); err != nil {
