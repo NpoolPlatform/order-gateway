@@ -2,7 +2,6 @@ package common
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	payaccmwcli "github.com/NpoolPlatform/account-middleware/pkg/client/payment"
@@ -11,6 +10,7 @@ import (
 	usermwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
 	currencymwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin/currency"
+	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
 	requiredappgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good/required"
 	topmostgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good/topmost/good"
@@ -84,7 +84,7 @@ type OrderCreateHandler struct {
 
 func (h *OrderCreateHandler) GetAppConfig(ctx context.Context) (err error) {
 	h.OrderConfig, err = orderappconfigmwcli.GetAppConfig(ctx, *h.AppGoodCheckHandler.AppID)
-	return err
+	return wlog.WrapError(err)
 }
 
 func (h *OrderCreateHandler) GetAllocatedCoupons(ctx context.Context) error {
@@ -94,10 +94,10 @@ func (h *OrderCreateHandler) GetAllocatedCoupons(ctx context.Context) error {
 		EntIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: h.AllocatedCouponIDs},
 	}, 0, int32(len(h.AllocatedCouponIDs)))
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	if len(infos) != len(h.AllocatedCouponIDs) {
-		return fmt.Errorf("invalid allocatedcoupons")
+		return wlog.Errorf("invalid allocatedcoupons")
 	}
 	h.allocatedCoupons = map[string]*allocatedcouponmwpb.Coupon{}
 	for _, info := range infos {
@@ -122,13 +122,13 @@ func (h *OrderCreateHandler) GetAppCoins(ctx context.Context, parentGoodCoinType
 		EntIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: coinTypeIDs},
 	}, 0, int32(len(coinTypeIDs)))
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	h.AppCoins = map[string]*appcoinmwpb.Coin{}
 	coinENV := ""
 	for _, coin := range coins {
 		if coinENV != "" && coin.ENV != coinENV {
-			return fmt.Errorf("invalid appcoins")
+			return wlog.Errorf("invalid appcoins")
 		}
 		h.AppCoins[coin.CoinTypeID] = coin
 	}
@@ -149,7 +149,7 @@ func (h *OrderCreateHandler) GetCoinUSDCurrencies(ctx context.Context) error {
 		CoinTypeIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: coinTypeIDs},
 	}, 0, int32(len(coinTypeIDs)))
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	h.coinUSDCurrencies = map[string]*currencymwpb.Currency{}
 	for _, info := range infos {
@@ -164,10 +164,10 @@ func (h *OrderCreateHandler) GetAppGoods(ctx context.Context) error {
 		EntIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: h.AppGoodIDs},
 	}, 0, int32(len(h.AppGoodIDs)))
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	if len(appGoods) != len(h.AppGoodIDs) {
-		return fmt.Errorf("invalid appgoods")
+		return wlog.Errorf("invalid appgoods")
 	}
 	h.AppGoods = map[string]*appgoodmwpb.Good{}
 	for _, appGood := range appGoods {
@@ -179,10 +179,10 @@ func (h *OrderCreateHandler) GetAppGoods(ctx context.Context) error {
 func (h *OrderCreateHandler) GetApp(ctx context.Context) error {
 	app, err := appmwcli.GetApp(ctx, *h.AppGoodCheckHandler.AppID)
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	if app == nil {
-		return fmt.Errorf("invalid app")
+		return wlog.Errorf("invalid app")
 	}
 	h.App = app
 	return nil
@@ -191,10 +191,10 @@ func (h *OrderCreateHandler) GetApp(ctx context.Context) error {
 func (h *OrderCreateHandler) GetUser(ctx context.Context) error {
 	user, err := usermwcli.GetUser(ctx, *h.AppGoodCheckHandler.AppID, *h.AppGoodCheckHandler.UserID)
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	if user == nil {
-		return fmt.Errorf("invalid user")
+		return wlog.Errorf("invalid user")
 	}
 	h.User = user
 	return nil
@@ -227,7 +227,7 @@ func (h *OrderCreateHandler) ValidateCouponCount() error {
 		case inspiretypes.CouponType_Discount:
 			discountCoupons++
 			if discountCoupons > 1 {
-				return fmt.Errorf("invalid discountcoupon")
+				return wlog.Errorf("invalid discountcoupon")
 			}
 		case inspiretypes.CouponType_FixAmount:
 			fixAmountCoupons++
@@ -235,7 +235,7 @@ func (h *OrderCreateHandler) ValidateCouponCount() error {
 				continue
 			}
 			if fixAmountCoupons > h.OrderConfig.MaxTypedCouponsPerOrder {
-				return fmt.Errorf("invalid fixamountcoupon")
+				return wlog.Errorf("invalid fixamountcoupon")
 			}
 		}
 	}
@@ -253,7 +253,7 @@ func (h *OrderCreateHandler) ValidateMaxUnpaidOrders(ctx context.Context) error 
 		PaymentState: &basetypes.Uint32Val{Op: cruder.IN, Value: uint32(types.PaymentState_PaymentStateWait)},
 	})
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	feeOrders, err := feeordermwcli.CountFeeOrders(ctx, &feeordermwpb.Conds{
 		AppID:        &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodCheckHandler.AppID},
@@ -262,10 +262,10 @@ func (h *OrderCreateHandler) ValidateMaxUnpaidOrders(ctx context.Context) error 
 		PaymentState: &basetypes.Uint32Val{Op: cruder.IN, Value: uint32(types.PaymentState_PaymentStateWait)},
 	})
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	if powerRentals+feeOrders >= h.OrderConfig.MaxUnpaidOrders {
-		return fmt.Errorf("too many unpaid orders")
+		return wlog.Errorf("too many unpaid orders")
 	}
 	return nil
 }
@@ -281,7 +281,7 @@ func (h *OrderCreateHandler) GetRequiredAppGoods(ctx context.Context) error {
 			AppGoodIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: h.AppGoodIDs},
 		}, offset, limit)
 		if err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		if len(requiredAppGoods) == 0 {
 			return nil
@@ -309,7 +309,7 @@ func (h *OrderCreateHandler) GetTopMostAppGoods(ctx context.Context) error {
 			AppGoodIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: h.AppGoodIDs},
 		}, offset, limit)
 		if err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		if len(topMostGoods) == 0 {
 			return nil
@@ -317,14 +317,14 @@ func (h *OrderCreateHandler) GetTopMostAppGoods(ctx context.Context) error {
 		for _, topMostGood := range topMostGoods {
 			unitPrice, err := decimal.NewFromString(topMostGood.UnitPrice)
 			if err != nil {
-				return err
+				return wlog.WrapError(err)
 			}
 			unitPrice1 := decimal.NewFromInt(0)
 			existTopMostGood, ok := h.TopMostAppGoods[topMostGood.AppGoodID]
 			if ok {
 				unitPrice1, err = decimal.NewFromString(existTopMostGood.UnitPrice)
 				if err != nil {
-					return err
+					return wlog.WrapError(err)
 				}
 			}
 			if unitPrice1.Equal(decimal.NewFromInt(0)) || unitPrice.LessThan(unitPrice1) {
@@ -337,25 +337,25 @@ func (h *OrderCreateHandler) GetTopMostAppGoods(ctx context.Context) error {
 
 func (h *OrderCreateHandler) CalculateDeductAmountUSD() error {
 	if h.TotalGoodValueUSD.Equal(decimal.NewFromInt(0)) {
-		return fmt.Errorf("invalid totalgoodvalueusd")
+		return wlog.Errorf("invalid totalgoodvalueusd")
 	}
 	for _, allocatedCoupon := range h.allocatedCoupons {
 		switch allocatedCoupon.CouponType {
 		case inspiretypes.CouponType_Discount:
 			discount, err := decimal.NewFromString(allocatedCoupon.Denomination)
 			if err != nil {
-				return err
+				return wlog.WrapError(err)
 			}
 			discount = discount.Div(decimal.NewFromInt(100))
 			h.DeductAmountUSD = h.DeductAmountUSD.Add(h.TotalGoodValueUSD.Mul(discount))
 		case inspiretypes.CouponType_FixAmount:
 			amount, err := decimal.NewFromString(allocatedCoupon.Denomination)
 			if err != nil {
-				return err
+				return wlog.WrapError(err)
 			}
 			h.DeductAmountUSD = h.DeductAmountUSD.Add(amount)
 		default:
-			return fmt.Errorf("invalid coupontype")
+			return wlog.Errorf("invalid coupontype")
 		}
 	}
 	return nil
@@ -371,7 +371,7 @@ func (h *OrderCreateHandler) CalculatePaymentAmountUSD() {
 func (h *OrderCreateHandler) getCoinUSDCurrency(coinTypeID string) (cur decimal.Decimal, live, local *string, err error) {
 	currency, ok := h.coinUSDCurrencies[coinTypeID]
 	if !ok {
-		return cur, live, local, fmt.Errorf("invalid currency")
+		return cur, live, local, wlog.Errorf("invalid currency")
 	}
 	amount, err := decimal.NewFromString(currency.MarketValueLow)
 	if err != nil {
@@ -383,7 +383,7 @@ func (h *OrderCreateHandler) getCoinUSDCurrency(coinTypeID string) (cur decimal.
 
 	appCoin, ok := h.AppCoins[coinTypeID]
 	if !ok {
-		return cur, live, local, fmt.Errorf("ivnalid coin")
+		return cur, live, local, wlog.Errorf("ivnalid coin")
 	}
 
 	amount, err = decimal.NewFromString(appCoin.SettleValue)
@@ -402,7 +402,7 @@ func (h *OrderCreateHandler) getCoinUSDCurrency(coinTypeID string) (cur decimal.
 		local = func() *string { s := amount.String(); return &s }()
 	}
 	if cur.Cmp(decimal.NewFromInt(0)) <= 0 {
-		return cur, live, local, fmt.Errorf("invalid currency")
+		return cur, live, local, wlog.Errorf("invalid currency")
 	}
 
 	return cur, live, local, nil
@@ -414,14 +414,14 @@ func (h *OrderCreateHandler) ConstructOrderPayment() error {
 	for _, balance := range h.PaymentBalances {
 		cur, live, local, err := h.getCoinUSDCurrency(balance.CoinTypeID)
 		if err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		amount, err := decimal.NewFromString(balance.Amount)
 		if err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		if amount.Cmp(decimal.NewFromInt(0)) <= 0 {
-			return fmt.Errorf("invalid paymentbalanceamount")
+			return wlog.Errorf("invalid paymentbalanceamount")
 		}
 		amountUSD := amount.Mul(cur)
 		if remainAmountUSD.Cmp(amountUSD) < 0 {
@@ -445,7 +445,7 @@ func (h *OrderCreateHandler) ConstructOrderPayment() error {
 	}
 	cur, live, local, err := h.getCoinUSDCurrency(*h.PaymentTransferCoinTypeID)
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	remainAmountCoin := remainAmountUSD.Div(cur)
 	h.PaymentTransferReq = &paymentmwpb.PaymentTransferReq{
@@ -465,10 +465,10 @@ func (h *OrderCreateHandler) ValidateCouponConstraint() error {
 		}
 		thresholdAmount, err := decimal.NewFromString(allocatedCoupon.Threshold)
 		if err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		if h.PaymentAmountUSD.LessThan(thresholdAmount) {
-			return fmt.Errorf("not enough payment amount")
+			return wlog.Errorf("not enough payment amount")
 		}
 	}
 	return nil
@@ -480,7 +480,7 @@ func (h *OrderCreateHandler) ResolvePaymentType() error {
 		case types.OrderType_Offline:
 		case types.OrderType_Airdrop:
 		default:
-			return fmt.Errorf("invalid paymenttype")
+			return wlog.Errorf("invalid paymenttype")
 		}
 		h.PaymentType = types.PaymentType_PayWithNoPayment
 	}
@@ -505,7 +505,7 @@ func (h *OrderCreateHandler) recheckPaymentAccount(ctx context.Context, paymentA
 		return false, err
 	}
 	if account == nil {
-		return false, fmt.Errorf("invalid account")
+		return false, wlog.Errorf("invalid account")
 	}
 	if account.Locked || !account.Active || account.Blocked {
 		return false, nil
@@ -542,13 +542,13 @@ func (h *OrderCreateHandler) peekExistPaymentAccount(ctx context.Context) (*paya
 		}
 		return account, nil
 	}
-	return nil, fmt.Errorf("invalid paymentaccount")
+	return nil, wlog.Errorf("invalid paymentaccount")
 }
 
 func (h *OrderCreateHandler) peekNewPaymentAccount(ctx context.Context) (*payaccmwpb.Account, error) {
 	paymentTransferCoin, ok := h.AppCoins[*h.PaymentTransferCoinTypeID]
 	if !ok {
-		return nil, fmt.Errorf("invalid paymenttransfercoin")
+		return nil, wlog.Errorf("invalid paymenttransfercoin")
 	}
 	for i := 0; i < 5; i++ {
 		address, err := sphinxproxycli.CreateAddress(ctx, paymentTransferCoin.CoinName)
@@ -556,7 +556,7 @@ func (h *OrderCreateHandler) peekNewPaymentAccount(ctx context.Context) (*payacc
 			return nil, err
 		}
 		if address == nil || address.Address == "" {
-			return nil, fmt.Errorf("invalid address")
+			return nil, wlog.Errorf("invalid address")
 		}
 		_, err = payaccmwcli.CreateAccount(ctx, &payaccmwpb.AccountReq{
 			CoinTypeID: &paymentTransferCoin.CoinTypeID,
@@ -577,7 +577,7 @@ func (h *OrderCreateHandler) AcquirePaymentTransferAccount(ctx context.Context) 
 	if err != nil {
 		account, err = h.peekNewPaymentAccount(ctx)
 		if err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 	}
 	h.PaymentTransferAccount = account
@@ -597,17 +597,17 @@ func (h *OrderCreateHandler) GetPaymentTransferStartAmount(ctx context.Context) 
 	}
 	paymentTransferCoin, ok := h.AppCoins[*h.PaymentTransferCoinTypeID]
 	if !ok {
-		return fmt.Errorf("invalid paymenttransfercoin")
+		return wlog.Errorf("invalid paymenttransfercoin")
 	}
 	balance, err := sphinxproxycli.GetBalance(ctx, &sphinxproxypb.GetBalanceRequest{
 		Name:    paymentTransferCoin.CoinName,
 		Address: h.PaymentTransferAccount.Address,
 	})
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	if balance == nil {
-		return fmt.Errorf("invalid balance")
+		return wlog.Errorf("invalid balance")
 	}
 	h.PaymentTransferStartAmount, err = decimal.NewFromString(balance.BalanceStr)
 	return nil

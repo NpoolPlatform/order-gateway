@@ -2,9 +2,9 @@ package fee
 
 import (
 	"context"
-	"fmt"
 
 	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
+	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	appfeemwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/fee"
 	goodcoinmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/coin"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
@@ -39,23 +39,23 @@ type baseCreateHandler struct {
 func (h *baseCreateHandler) getParentOrder(ctx context.Context) error {
 	info, err := ordermwcli.GetOrder(ctx, *h.ParentOrderID)
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	if info == nil {
-		return fmt.Errorf("invalid parentorder")
+		return wlog.Errorf("invalid parentorder")
 	}
 	switch info.GoodType {
 	case goodtypes.GoodType_PowerRental:
 	case goodtypes.GoodType_LegacyPowerRental:
 	default:
-		return fmt.Errorf("invalid parentorder goodtype")
+		return wlog.Errorf("invalid parentorder goodtype")
 	}
 	info1, err := powerrentalordermwcli.GetPowerRentalOrder(ctx, *h.ParentOrderID)
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	if info1 == nil {
-		return fmt.Errorf("invalid parentorder")
+		return wlog.Errorf("invalid parentorder")
 	}
 	h.parentOrder = info1
 	return nil
@@ -64,7 +64,7 @@ func (h *baseCreateHandler) getParentOrder(ctx context.Context) error {
 func (h *baseCreateHandler) getAppGoods(ctx context.Context) error {
 	h.OrderCreateHandler.AppGoodIDs = append(h.OrderCreateHandler.AppGoodIDs, h.parentOrder.AppGoodID)
 	if err := h.GetAppGoods(ctx); err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	for appGoodID, appGood := range h.AppGoods {
 		if appGoodID == h.parentOrder.AppGoodID {
@@ -73,7 +73,7 @@ func (h *baseCreateHandler) getAppGoods(ctx context.Context) error {
 		}
 	}
 	if h.parentAppGood == nil {
-		return fmt.Errorf("invalid parentappgood")
+		return wlog.Errorf("invalid parentappgood")
 	}
 	return nil
 }
@@ -87,7 +87,7 @@ func (h *baseCreateHandler) getParentGoodCoins(ctx context.Context) error {
 			GoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.parentAppGood.GoodID},
 		}, offset, limit)
 		if err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		if len(goodCoins) == 0 {
 			return nil
@@ -100,14 +100,14 @@ func (h *baseCreateHandler) getParentGoodCoins(ctx context.Context) error {
 func (h *baseCreateHandler) validateRequiredAppGoods() error {
 	requireds, ok := h.RequiredAppGoods[h.parentAppGood.EntID]
 	if !ok {
-		return fmt.Errorf("invalid requiredappgood")
+		return wlog.Errorf("invalid requiredappgood")
 	}
 	for _, required := range requireds {
 		if !required.Must {
 			continue
 		}
 		if _, ok := h.AppGoods[required.RequiredAppGoodID]; !ok {
-			return fmt.Errorf("miss requiredappgood")
+			return wlog.Errorf("miss requiredappgood")
 		}
 	}
 	for appGoodID, _ := range h.AppGoods {
@@ -115,7 +115,7 @@ func (h *baseCreateHandler) validateRequiredAppGoods() error {
 			continue
 		}
 		if _, ok := requireds[appGoodID]; !ok {
-			return fmt.Errorf("invalid requiredappgood")
+			return wlog.Errorf("invalid requiredappgood")
 		}
 	}
 	return nil
@@ -127,7 +127,7 @@ func (h *baseCreateHandler) getAppFees(ctx context.Context) error {
 		AppGoodIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: h.OrderCreateHandler.AppGoodIDs},
 	}, 0, int32(len(h.OrderCreateHandler.AppGoodIDs)))
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	h.appFees = map[string]*appfeemwpb.Fee{}
 	for _, appFee := range appFees {
@@ -139,15 +139,15 @@ func (h *baseCreateHandler) getAppFees(ctx context.Context) error {
 func (h *baseCreateHandler) calculateFeeOrderValueUSD(appGoodID string) (value decimal.Decimal, err error) {
 	appFee, ok := h.appFees[appGoodID]
 	if !ok {
-		return value, fmt.Errorf("invalid appfee")
+		return value, wlog.Errorf("invalid appfee")
 	}
 	unitValue, err := decimal.NewFromString(appFee.UnitValue)
 	if err != nil {
-		return value, err
+		return value, wlog.WrapError(err)
 	}
 	quantityUnits, err := decimal.NewFromString(h.parentOrder.Units)
 	if err != nil {
-		return value, err
+		return value, wlog.WrapError(err)
 	}
 	durationUnits := *h.Handler.DurationSeconds
 	switch appFee.DurationDisplayType {
@@ -160,7 +160,7 @@ func (h *baseCreateHandler) calculateFeeOrderValueUSD(appGoodID string) (value d
 	case goodtypes.GoodDurationType_GoodDurationByYear:
 		durationUnits /= timedef.SecondsPerYear
 	default:
-		return value, fmt.Errorf("invalid appfee durationdisplaytype")
+		return value, wlog.Errorf("invalid appfee durationdisplaytype")
 	}
 	return unitValue.Mul(quantityUnits).Mul(decimal.NewFromInt(int64(durationUnits))), nil
 }
@@ -168,11 +168,11 @@ func (h *baseCreateHandler) calculateFeeOrderValueUSD(appGoodID string) (value d
 func (h *baseCreateHandler) calculateTotalGoodValueUSD() error {
 	for _, appFee := range h.appFees {
 		if appFee.SettlementType != goodtypes.GoodSettlementType_GoodSettledByPaymentAmount {
-			return fmt.Errorf("invalid appfee settlementtype")
+			return wlog.Errorf("invalid appfee settlementtype")
 		}
 		goodValueUSD, err := h.calculateFeeOrderValueUSD(appFee.AppGoodID)
 		if err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		h.TotalGoodValueUSD = h.TotalGoodValueUSD.Add(goodValueUSD)
 	}
@@ -182,11 +182,11 @@ func (h *baseCreateHandler) calculateTotalGoodValueUSD() error {
 func (h *baseCreateHandler) constructFeeOrderReq(appGoodID string) error {
 	appFee, ok := h.appFees[appGoodID]
 	if !ok {
-		return fmt.Errorf("invalid appfee")
+		return wlog.Errorf("invalid appfee")
 	}
 	goodValueUSD, err := h.calculateFeeOrderValueUSD(appGoodID)
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	paymentAmountUSD := h.PaymentAmountUSD
 	paymentType := h.PaymentType
@@ -230,7 +230,7 @@ func (h *baseCreateHandler) constructFeeOrderReq(appGoodID string) error {
 func (h *baseCreateHandler) constructFeeOrderReqs() error {
 	for _, appFee := range h.appFees {
 		if err := h.constructFeeOrderReq(appFee.AppGoodID); err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 	}
 	return nil

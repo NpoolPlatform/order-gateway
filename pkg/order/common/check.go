@@ -2,8 +2,8 @@ package common
 
 import (
 	"context"
-	"fmt"
 
+	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
@@ -17,18 +17,23 @@ type OrderCheckHandler struct {
 }
 
 func (h *OrderCheckHandler) CheckOrderWithOrderID(ctx context.Context, orderID string) error {
-	exist, err := ordermwcli.ExistOrderConds(ctx, &ordermwpb.Conds{
-		EntID:     &basetypes.StringVal{Op: cruder.EQ, Value: orderID},
-		AppID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		UserID:    &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
-		GoodID:    &basetypes.StringVal{Op: cruder.EQ, Value: *h.GoodID},
-		AppGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID},
-	})
+	conds := &ordermwpb.Conds{
+		EntID:  &basetypes.StringVal{Op: cruder.EQ, Value: orderID},
+		AppID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+		UserID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID},
+	}
+	if h.GoodID != nil {
+		conds.GoodID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.GoodID}
+	}
+	if h.AppGoodID != nil {
+		conds.AppGoodID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID}
+	}
+	exist, err := ordermwcli.ExistOrderConds(ctx, conds)
 	if err != nil {
 		return err
 	}
 	if !exist {
-		return fmt.Errorf("invalid order")
+		return wlog.Errorf("invalid order")
 	}
 	return nil
 }

@@ -2,8 +2,8 @@ package fee
 
 import (
 	"context"
-	"fmt"
 
+	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	paymentgwpb "github.com/NpoolPlatform/message/npool/order/gw/v1/payment"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
@@ -50,7 +50,7 @@ func WithID(id *uint32, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
 			if must {
-				return fmt.Errorf("invalid id")
+				return wlog.Errorf("invalid id")
 			}
 			return nil
 		}
@@ -63,13 +63,13 @@ func WithEntID(id *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
 			if must {
-				return fmt.Errorf("invalid entid")
+				return wlog.Errorf("invalid entid")
 			}
 			return nil
 		}
 		_, err := uuid.Parse(*id)
 		if err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		h.EntID = id
 		return nil
@@ -80,12 +80,12 @@ func WithAppID(id *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
 			if must {
-				return fmt.Errorf("invalid appid")
+				return wlog.Errorf("invalid appid")
 			}
 			return nil
 		}
 		if err := h.OrderCheckHandler.CheckAppWithAppID(ctx, *id); err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		h.OrderCheckHandler.AppID = id
 		return nil
@@ -96,12 +96,12 @@ func WithUserID(id *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
 			if must {
-				return fmt.Errorf("invalid userid")
+				return wlog.Errorf("invalid userid")
 			}
 			return nil
 		}
 		if err := h.OrderCheckHandler.CheckUserWithUserID(ctx, *id); err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		h.OrderCheckHandler.UserID = id
 		return nil
@@ -112,12 +112,12 @@ func WithGoodID(id *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
 			if must {
-				return fmt.Errorf("invalid goodid")
+				return wlog.Errorf("invalid goodid")
 			}
 			return nil
 		}
 		if err := h.OrderCheckHandler.CheckGoodWithGoodID(ctx, *id); err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		h.OrderCheckHandler.GoodID = id
 		return nil
@@ -128,14 +128,15 @@ func WithAppGoodID(id *string, must bool) func(context.Context, *Handler) error 
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
 			if must {
-				return fmt.Errorf("invalid appgoodid")
+				return wlog.Errorf("invalid appgoodid")
 			}
 			return nil
 		}
 		if err := h.OrderCheckHandler.CheckAppGoodWithAppGoodID(ctx, *id); err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		h.AppGoodIDs = append(h.AppGoodIDs, *id)
+		h.AppGoodID = id
 		return nil
 	}
 }
@@ -144,12 +145,12 @@ func WithOrderID(id *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
 			if must {
-				return fmt.Errorf("invalid orderid")
+				return wlog.Errorf("invalid orderid")
 			}
 			return nil
 		}
 		if err := h.CheckOrderWithOrderID(ctx, *id); err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		h.OrderID = id
 		return nil
@@ -160,12 +161,12 @@ func WithParentOrderID(id *string, must bool) func(context.Context, *Handler) er
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
 			if must {
-				return fmt.Errorf("invalid parentorderid")
+				return wlog.Errorf("invalid parentorderid")
 			}
 			return nil
 		}
 		if err := h.CheckOrderWithOrderID(ctx, *id); err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		h.ParentOrderID = id
 		return nil
@@ -176,12 +177,12 @@ func WithDurationSeconds(u *uint32, must bool) func(context.Context, *Handler) e
 	return func(ctx context.Context, h *Handler) error {
 		if u == nil {
 			if must {
-				return fmt.Errorf("invalid durationseconds")
+				return wlog.Errorf("invalid durationseconds")
 			}
 			return nil
 		}
 		if *u <= 0 {
-			return fmt.Errorf("invalid durationseconds")
+			return wlog.Errorf("invalid durationseconds")
 		}
 		h.DurationSeconds = u
 		return nil
@@ -192,7 +193,7 @@ func WithPaymentBalances(bs []*paymentgwpb.PaymentBalance, must bool) func(conte
 	return func(ctx context.Context, h *Handler) error {
 		for _, balance := range bs {
 			if err := h.CheckCoinWithCoinTypeID(ctx, balance.CoinTypeID); err != nil {
-				return err
+				return wlog.WrapError(err)
 			}
 			// Fill coin_usd_currency later
 			h.Balances = append(h.Balances, &paymentmwpb.PaymentBalanceReq{
@@ -208,12 +209,12 @@ func WithPaymentTransferCoinTypeID(s *string, must bool) func(context.Context, *
 	return func(ctx context.Context, h *Handler) error {
 		if s == nil {
 			if must {
-				return fmt.Errorf("invalid paymenttransfercointypeid")
+				return wlog.Errorf("invalid paymenttransfercointypeid")
 			}
 			return nil
 		}
 		if err := h.CheckCoinWithCoinTypeID(ctx, *s); err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		h.PaymentTransferCoinTypeID = s
 		return nil
@@ -224,7 +225,7 @@ func WithCouponIDs(ss []string, must bool) func(context.Context, *Handler) error
 	return func(ctx context.Context, h *Handler) error {
 		for _, couponID := range ss {
 			if err := h.CheckAllocatedCouponWithAllocatedCouponID(ctx, couponID); err != nil {
-				return err
+				return wlog.WrapError(err)
 			}
 		}
 		h.CouponIDs = ss
@@ -257,7 +258,7 @@ func WithAppGoodIDs(ss []string, must bool) func(context.Context, *Handler) erro
 	return func(ctx context.Context, h *Handler) error {
 		for _, appGoodID := range ss {
 			if err := h.OrderCheckHandler.CheckAppGoodWithAppGoodID(ctx, appGoodID); err != nil {
-				return err
+				return wlog.WrapError(err)
 			}
 			h.AppGoodIDs = append(h.AppGoodIDs, appGoodID)
 		}
@@ -269,7 +270,7 @@ func WithCreateMethod(e *types.OrderCreateMethod, must bool) func(context.Contex
 	return func(ctx context.Context, h *Handler) error {
 		if e == nil {
 			if must {
-				return fmt.Errorf("invalid createmethod")
+				return wlog.Errorf("invalid createmethod")
 			}
 			return nil
 		}
@@ -278,7 +279,7 @@ func WithCreateMethod(e *types.OrderCreateMethod, must bool) func(context.Contex
 		case types.OrderCreateMethod_OrderCreatedByAdmin:
 		case types.OrderCreateMethod_OrderCreatedByRenew:
 		default:
-			return fmt.Errorf("invalid createmethod")
+			return wlog.Errorf("invalid createmethod")
 		}
 		h.CreateMethod = e
 		return nil
@@ -289,7 +290,7 @@ func WithOrderType(orderType *types.OrderType, must bool) func(context.Context, 
 	return func(ctx context.Context, h *Handler) error {
 		if orderType == nil {
 			if must {
-				return fmt.Errorf("invalid ordertype")
+				return wlog.Errorf("invalid ordertype")
 			}
 			return nil
 		}
@@ -298,7 +299,7 @@ func WithOrderType(orderType *types.OrderType, must bool) func(context.Context, 
 		case types.OrderType_Offline:
 		case types.OrderType_Normal:
 		default:
-			return fmt.Errorf("invalid ordertype")
+			return wlog.Errorf("invalid ordertype")
 		}
 		h.OrderType = orderType
 		return nil
