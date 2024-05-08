@@ -215,11 +215,13 @@ func (h *baseCreateHandler) constructFeeOrderReq(appGoodID string) error {
 		PaymentID:         h.PaymentID,
 		CouponIDs:         h.CouponIDs,
 	}
-	if len(h.feeOrderReqs) > 0 {
+	if len(h.feeOrderReqs) == 0 {
 		req.PaymentBalances = h.PaymentBalanceReqs
 		if h.PaymentTransferReq != nil {
 			req.PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}
 		}
+		h.OrderID = req.OrderID
+		h.OrderIDs = append(h.OrderIDs, *req.OrderID)
 	}
 	h.feeOrderReqs = append(h.feeOrderReqs, req)
 	return nil

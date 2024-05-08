@@ -30,6 +30,7 @@ type Handler struct {
 	UserSetCanceled           *bool
 	AdminSetCanceled          *bool
 	AppGoodIDs                []string
+	OrderIDs                  []string
 	CreateMethod              *types.OrderCreateMethod
 	OrderType                 *types.OrderType
 	Offset                    int32

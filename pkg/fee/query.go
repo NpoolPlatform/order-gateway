@@ -299,6 +299,9 @@ func (h *Handler) GetFeeOrders(ctx context.Context) ([]*npool.FeeOrder, uint32, 
 	if h.AppGoodID != nil {
 		conds.AppGoodID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID}
 	}
+	if len(h.OrderIDs) > 0 {
+		conds.OrderIDs = &basetypes.StringSliceVal{Op: cruder.IN, Value: h.OrderIDs}
+	}
 	infos, total, err := feeordermwcli.GetFeeOrders(ctx, conds, h.Offset, h.Limit)
 	if err != nil {
 		return nil, 0, wlog.WrapError(err)

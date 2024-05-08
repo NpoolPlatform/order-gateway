@@ -8,12 +8,12 @@ import (
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
 )
 
-type createHandler struct {
+type createsHandler struct {
 	*baseCreateHandler
 }
 
-func (h *Handler) CreateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
-	handler := &createHandler{
+func (h *Handler) CreateFeeOrders(ctx context.Context) ([]*npool.FeeOrder, error) {
+	handler := &createsHandler{
 		baseCreateHandler: &baseCreateHandler{
 			Handler: h,
 			OrderCreateHandler: &ordercommon.OrderCreateHandler{
@@ -88,7 +88,7 @@ func (h *Handler) CreateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	if err := handler.GetPaymentTransferStartAmount(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if err := handler.constructFeeOrderReq(*h.AppGoodID); err != nil {
+	if err := handler.constructFeeOrderReqs(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.calculateTotalGoodValueUSD(); err != nil {
@@ -114,5 +114,9 @@ func (h *Handler) CreateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 		return nil, wlog.WrapError(err)
 	}
 
-	return h.GetFeeOrder(ctx)
+	infos, _, err := h.GetFeeOrders(ctx)
+	if err != nil {
+		return nil, wlog.WrapError(err)
+	}
+	return infos, nil
 }
