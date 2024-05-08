@@ -6,8 +6,6 @@ import (
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/fee"
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
-
-	"github.com/google/uuid"
 )
 
 type createHandler struct {
@@ -112,16 +110,12 @@ func (h *Handler) CreateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 		return nil, wlog.WrapError(err)
 	}
 
-	if h.OrderID == nil {
-		h.OrderID = func() *string { s := uuid.NewString(); return &s }()
-	}
-	if h.EntID == nil {
-		h.EntID = func() *string { s := uuid.NewString(); return &s }()
-	}
-
 	if err := handler.createFeeOrders(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+
+	h.OrderID = handler.feeOrderReqs[0].OrderID
+	h.EntID = handler.feeOrderReqs[0].EntID
 
 	return h.GetFeeOrder(ctx)
 }

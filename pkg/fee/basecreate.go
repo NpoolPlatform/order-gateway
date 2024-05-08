@@ -240,6 +240,8 @@ func (h *baseCreateHandler) formalizePayment() {
 	if h.PaymentTransferReq != nil {
 		h.feeOrderReqs[0].PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}
 	}
+	h.feeOrderReqs[0].PaymentAmountUSD = func() *string { s := h.PaymentAmountUSD.String(); return &s }()
+	h.feeOrderReqs[0].DiscountAmountUSD = func() *string { s := h.DeductAmountUSD.String(); return &s }()
 }
 
 func (h *baseCreateHandler) dtmDo(ctx context.Context, dispose *dtmcli.SagaDispose) error {
@@ -250,7 +252,7 @@ func (h *baseCreateHandler) dtmDo(ctx context.Context, dispose *dtmcli.SagaDispo
 	dtmElapsed := time.Since(start)
 	logger.Sugar().Infow(
 		"CreateFeeOrders",
-		"OrderID", *h.OrderID,
+		"OrderID", *h.feeOrderReqs[0].OrderID,
 		"Start", start,
 		"DtmElapsed", dtmElapsed,
 		"Error", err,

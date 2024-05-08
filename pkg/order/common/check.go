@@ -30,10 +30,10 @@ func (h *OrderCheckHandler) CheckOrderWithOrderID(ctx context.Context, orderID s
 	}
 	exist, err := ordermwcli.ExistOrderConds(ctx, conds)
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	if !exist {
-		return wlog.Errorf("invalid order")
+		return wlog.Errorf("invalid order: %v", conds)
 	}
 	return nil
 }

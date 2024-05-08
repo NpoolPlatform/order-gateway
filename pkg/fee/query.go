@@ -20,6 +20,8 @@ import (
 	feeordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/fee"
 	ordergwcommon "github.com/NpoolPlatform/order-gateway/pkg/common"
 	feeordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/fee"
+
+	"github.com/google/uuid"
 )
 
 type queryHandler struct {
@@ -79,6 +81,9 @@ func (h *queryHandler) getAppFees(ctx context.Context) (err error) {
 func (h *queryHandler) getTopMosts(ctx context.Context) (err error) {
 	h.topMosts, err = ordergwcommon.GetTopMosts(ctx, func() (topMostIDs []string) {
 		for _, fee := range h.fees {
+			if _, err := uuid.Parse(fee.PromotionID); err != nil {
+				continue
+			}
 			topMostIDs = append(topMostIDs, fee.PromotionID)
 		}
 		return
@@ -181,7 +186,7 @@ func (h *queryHandler) formalize() {
 			info.ParentAppGoodName = parentAppGood.AppGoodName
 		}
 		topMost, ok := h.topMosts[fee.PromotionID]
-		if !ok {
+		if ok {
 			info.TopMostTitle = topMost.Title
 			info.TopMostTargetUrl = topMost.TargetUrl
 		}
