@@ -7,14 +7,14 @@ require (
 	github.com/NpoolPlatform/appuser-middleware v0.0.0-20240119021359-948c8504d662
 	github.com/NpoolPlatform/basal-middleware v0.0.0-20231015112137-254853c60eec
 	github.com/NpoolPlatform/chain-middleware v0.0.0-20231020114413-49166aeb1ec8
-	github.com/NpoolPlatform/dtm-cluster v0.0.0-20231011071916-859e5dcbf626
+	github.com/NpoolPlatform/dtm-cluster v0.0.0-20240508013939-4ccc5836ba1f
 	github.com/NpoolPlatform/go-service-framework v0.0.0-20240507084859-362174af9b92
 	github.com/NpoolPlatform/good-middleware v0.0.0-20240507094852-fbca01938bc4
 	github.com/NpoolPlatform/inspire-middleware v0.0.0-20240423090602-a86ba4e22f49
 	github.com/NpoolPlatform/ledger-middleware v0.0.0-20240304030403-1e129dfe4e3f
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20240323085036-7679b4818ce7
-	github.com/NpoolPlatform/message v0.0.0-20240507055028-527182911566
-	github.com/NpoolPlatform/order-middleware v0.0.0-20240507052609-58303bdb71e0
+	github.com/NpoolPlatform/message v0.0.0-20240508033257-c8aa3ce3b738
+	github.com/NpoolPlatform/order-middleware v0.0.0-20240508033700-59c57a5dd3db
 	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20231201062049-852b1487d4a9
 	github.com/dtm-labs/dtm v1.17.1
 	github.com/go-resty/resty/v2 v2.7.0

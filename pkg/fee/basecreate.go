@@ -2,8 +2,10 @@ package fee
 
 import (
 	"context"
+	"time"
 
-	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
+	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
+	logger "github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	appfeemwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/fee"
 	goodcoinmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/coin"
@@ -17,10 +19,13 @@ import (
 	feeordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/fee"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
 	powerrentalordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/powerrental"
+	ordergwcommon "github.com/NpoolPlatform/order-gateway/pkg/common"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
 	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 	powerrentalordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/powerrental"
+	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
+	"github.com/dtm-labs/dtm/client/dtmcli/dtmimp"
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
@@ -62,7 +67,6 @@ func (h *baseCreateHandler) getParentOrder(ctx context.Context) error {
 }
 
 func (h *baseCreateHandler) getAppGoods(ctx context.Context) error {
-	h.OrderCreateHandler.AppGoodIDs = append(h.OrderCreateHandler.AppGoodIDs, h.parentOrder.AppGoodID)
 	if err := h.GetAppGoods(ctx); err != nil {
 		return wlog.WrapError(err)
 	}
@@ -124,8 +128,8 @@ func (h *baseCreateHandler) validateRequiredAppGoods() error {
 func (h *baseCreateHandler) getAppFees(ctx context.Context) error {
 	appFees, _, err := appfeemwcli.GetFees(ctx, &appfeemwpb.Conds{
 		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.OrderCheckHandler.AppID},
-		AppGoodIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: h.OrderCreateHandler.AppGoodIDs},
-	}, 0, int32(len(h.OrderCreateHandler.AppGoodIDs)))
+		AppGoodIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: h.Handler.AppGoodIDs},
+	}, 0, int32(len(h.Handler.AppGoodIDs)))
 	if err != nil {
 		return wlog.WrapError(err)
 	}
@@ -149,19 +153,9 @@ func (h *baseCreateHandler) calculateFeeOrderValueUSD(appGoodID string) (value d
 	if err != nil {
 		return value, wlog.WrapError(err)
 	}
-	durationUnits := *h.Handler.DurationSeconds
-	switch appFee.DurationDisplayType {
-	case goodtypes.GoodDurationType_GoodDurationByHour:
-		durationUnits /= timedef.SecondsPerHour
-	case goodtypes.GoodDurationType_GoodDurationByDay:
-		durationUnits /= timedef.SecondsPerDay
-	case goodtypes.GoodDurationType_GoodDurationByMonth:
-		durationUnits /= timedef.SecondsPerMonth
-	case goodtypes.GoodDurationType_GoodDurationByYear:
-		durationUnits /= timedef.SecondsPerYear
-	default:
-		return value, wlog.Errorf("invalid appfee durationdisplaytype")
-	}
+	durationUnits, _ := ordergwcommon.GoodDurationDisplayType2Unit(
+		appFee.DurationDisplayType, *h.Handler.DurationSeconds,
+	)
 	return unitValue.Mul(quantityUnits).Mul(decimal.NewFromInt(int64(durationUnits))), nil
 }
 
@@ -190,7 +184,7 @@ func (h *baseCreateHandler) constructFeeOrderReq(appGoodID string) error {
 	}
 	paymentAmountUSD := h.PaymentAmountUSD
 	paymentType := h.PaymentType
-	if len(h.feeOrderReqs) == 0 {
+	if len(h.feeOrderReqs) > 0 {
 		paymentAmountUSD = decimal.NewFromInt(0)
 		paymentType = types.PaymentType_PayWithOtherOrder
 	}
@@ -220,8 +214,12 @@ func (h *baseCreateHandler) constructFeeOrderReq(appGoodID string) error {
 		LedgerLockID:      h.BalanceLockID,
 		PaymentID:         h.PaymentID,
 		CouponIDs:         h.CouponIDs,
-		PaymentBalances:   h.PaymentBalanceReqs,
-		PaymentTransfers:  []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq},
+	}
+	if len(h.feeOrderReqs) > 0 {
+		req.PaymentBalances = h.PaymentBalanceReqs
+		if h.PaymentTransferReq != nil {
+			req.PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}
+		}
 	}
 	h.feeOrderReqs = append(h.feeOrderReqs, req)
 	return nil
@@ -234,4 +232,56 @@ func (h *baseCreateHandler) constructFeeOrderReqs() error {
 		}
 	}
 	return nil
+}
+
+func (h *baseCreateHandler) formalizePayment() {
+	h.feeOrderReqs[0].PaymentType = &h.PaymentType
+	h.feeOrderReqs[0].PaymentBalances = h.PaymentBalanceReqs
+	if h.PaymentTransferReq != nil {
+		h.feeOrderReqs[0].PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}
+	}
+}
+
+func (h *baseCreateHandler) dtmDo(ctx context.Context, dispose *dtmcli.SagaDispose) error {
+	start := time.Now()
+	_ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	err := dtmcli.WithSaga(_ctx, dispose)
+	dtmElapsed := time.Since(start)
+	logger.Sugar().Infow(
+		"CreateFeeOrders",
+		"OrderID", *h.OrderID,
+		"Start", start,
+		"DtmElapsed", dtmElapsed,
+		"Error", err,
+	)
+	return wlog.WrapError(err)
+}
+
+func (h *baseCreateHandler) notifyCouponUsed() {
+
+}
+
+func (h *baseCreateHandler) _createFeeOrders(dispose *dtmcli.SagaDispose) {
+	dispose.Add(
+		ordermwsvcname.ServiceDomain,
+		"order.middleware.fee.v1.Middleware/CreateFeeOrders",
+		"order.middleware.fee.v1.Middleware/DeleteFeeOrders",
+		&feeordermwpb.CreateFeeOrdersRequest{
+			Infos: h.feeOrderReqs,
+		},
+	)
+}
+
+func (h *baseCreateHandler) createFeeOrders(ctx context.Context) error {
+	sagaDispose := dtmcli.NewSagaDispose(dtmimp.TransOptions{
+		WaitResult:     true,
+		RequestTimeout: 10,
+		TimeoutToFail:  10,
+	})
+	h.LockBalances(sagaDispose)
+	h.LockPaymentTransferAccount(sagaDispose)
+	h._createFeeOrders(sagaDispose)
+	defer h.notifyCouponUsed()
+	return h.dtmDo(ctx, sagaDispose)
 }

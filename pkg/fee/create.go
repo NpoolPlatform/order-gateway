@@ -6,6 +6,8 @@ import (
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/fee"
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
+
+	"github.com/google/uuid"
 )
 
 type createHandler struct {
@@ -20,6 +22,9 @@ func (h *Handler) CreateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 				AppGoodCheckHandler:         h.AppGoodCheckHandler,
 				CoinCheckHandler:            h.CoinCheckHandler,
 				AllocatedCouponCheckHandler: h.AllocatedCouponCheckHandler,
+				AppGoodIDs:                  h.AppGoodIDs,
+				PaymentTransferCoinTypeID:   h.PaymentTransferCoinTypeID,
+				PaymentBalanceReqs:          h.Balances,
 			},
 		},
 	}
@@ -27,6 +32,10 @@ func (h *Handler) CreateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	if err := handler.getParentOrder(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+	handler.OrderCreateHandler.AppGoodIDs = append(
+		handler.OrderCreateHandler.AppGoodIDs,
+		handler.parentOrder.AppGoodID,
+	)
 	if err := handler.GetApp(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
@@ -71,10 +80,17 @@ func (h *Handler) CreateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	if err := handler.GetCoinUSDCurrencies(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if err := handler.CalculateDeductAmountUSD(); err != nil {
+	if err := handler.getAppFees(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if err := handler.getAppFees(ctx); err != nil {
+	if err := handler.AcquirePaymentTransferAccount(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+	defer handler.ReleasePaymentTransferAccount()
+	if err := handler.GetPaymentTransferStartAmount(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+	if err := handler.constructFeeOrderReq(*h.AppGoodID); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.calculateTotalGoodValueUSD(); err != nil {
@@ -87,21 +103,23 @@ func (h *Handler) CreateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	if err := handler.ConstructOrderPayment(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if err := handler.ValidateCouponConstraint(); err != nil {
-		return nil, wlog.WrapError(err)
-	}
 	if err := handler.ResolvePaymentType(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if err := handler.AcquirePaymentTransferAccount(ctx); err != nil {
-		return nil, wlog.WrapError(err)
-	}
-	defer handler.ReleasePaymentTransferAccount()
-	if err := handler.GetPaymentTransferStartAmount(ctx); err != nil {
-		return nil, wlog.WrapError(err)
-	}
+	handler.formalizePayment()
 	handler.PrepareLedgerLockID()
-	if err := handler.constructFeeOrderReq(*h.AppGoodID); err != nil {
+	if err := handler.ValidateCouponConstraint(); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+
+	if h.OrderID == nil {
+		h.OrderID = func() *string { s := uuid.NewString(); return &s }()
+	}
+	if h.EntID == nil {
+		h.EntID = func() *string { s := uuid.NewString(); return &s }()
+	}
+
+	if err := handler.createFeeOrders(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 

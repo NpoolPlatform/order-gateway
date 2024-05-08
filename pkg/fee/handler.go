@@ -89,6 +89,7 @@ func WithAppID(id *string, must bool) func(context.Context, *Handler) error {
 		}
 		h.OrderCheckHandler.AppID = id
 		h.AppGoodCheckHandler.AppID = id
+		h.AllocatedCouponCheckHandler.AppID = id
 		return nil
 	}
 }
@@ -106,6 +107,7 @@ func WithUserID(id *string, must bool) func(context.Context, *Handler) error {
 		}
 		h.OrderCheckHandler.UserID = id
 		h.AppGoodCheckHandler.UserID = id
+		h.AllocatedCouponCheckHandler.UserID = id
 		return nil
 	}
 }
