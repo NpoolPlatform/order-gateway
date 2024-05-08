@@ -26,7 +26,7 @@ type Handler struct {
 	Balances                  []*paymentmwpb.PaymentBalanceReq
 	PaymentTransferCoinTypeID *string
 	CouponIDs                 []string
-	Paid                      *bool
+	UserSetPaid               *bool
 	UserSetCanceled           *bool
 	AdminSetCanceled          *bool
 	AppGoodIDs                []string
@@ -238,9 +238,9 @@ func WithCouponIDs(ss []string, must bool) func(context.Context, *Handler) error
 	}
 }
 
-func WithPaid(b *bool, must bool) func(context.Context, *Handler) error {
+func WithUserSetPaid(b *bool, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
-		h.Paid = b
+		h.UserSetPaid = b
 		return nil
 	}
 }

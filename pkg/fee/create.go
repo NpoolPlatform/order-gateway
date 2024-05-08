@@ -16,7 +16,7 @@ func (h *Handler) CreateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	handler := &createHandler{
 		baseCreateHandler: &baseCreateHandler{
 			Handler: h,
-			OrderCreateHandler: &ordercommon.OrderCreateHandler{
+			OrderOpHandler: &ordercommon.OrderOpHandler{
 				AppGoodCheckHandler:         h.AppGoodCheckHandler,
 				CoinCheckHandler:            h.CoinCheckHandler,
 				AllocatedCouponCheckHandler: h.AllocatedCouponCheckHandler,
@@ -30,8 +30,8 @@ func (h *Handler) CreateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	if err := handler.getParentOrder(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	handler.OrderCreateHandler.AppGoodIDs = append(
-		handler.OrderCreateHandler.AppGoodIDs,
+	handler.OrderOpHandler.AppGoodIDs = append(
+		handler.OrderOpHandler.AppGoodIDs,
 		handler.parentOrder.AppGoodID,
 	)
 	if err := handler.GetApp(ctx); err != nil {
@@ -104,8 +104,8 @@ func (h *Handler) CreateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	if err := handler.ResolvePaymentType(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	handler.formalizePayment()
 	handler.PrepareLedgerLockID()
+	handler.formalizePayment()
 	if err := handler.ValidateCouponConstraint(); err != nil {
 		return nil, wlog.WrapError(err)
 	}

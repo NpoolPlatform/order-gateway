@@ -33,7 +33,7 @@ import (
 
 type baseCreateHandler struct {
 	*Handler
-	*ordercommon.OrderCreateHandler
+	*ordercommon.OrderOpHandler
 	parentOrder     *powerrentalordermwpb.PowerRentalOrder
 	parentAppGood   *appgoodmwpb.Good
 	parentGoodCoins []*goodcoinmwpb.GoodCoin
@@ -244,6 +244,7 @@ func (h *baseCreateHandler) formalizePayment() {
 	}
 	h.feeOrderReqs[0].PaymentAmountUSD = func() *string { s := h.PaymentAmountUSD.String(); return &s }()
 	h.feeOrderReqs[0].DiscountAmountUSD = func() *string { s := h.DeductAmountUSD.String(); return &s }()
+	h.feeOrderReqs[0].LedgerLockID = h.BalanceLockID
 }
 
 func (h *baseCreateHandler) dtmDo(ctx context.Context, dispose *dtmcli.SagaDispose) error {
