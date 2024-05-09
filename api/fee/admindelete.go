@@ -19,6 +19,7 @@ func (s *Server) AdminDeleteFeeOrder(ctx context.Context, in *npool.AdminDeleteF
 		feeorder1.WithID(&in.ID, true),
 		feeorder1.WithEntID(&in.EntID, true),
 		feeorder1.WithAppID(&in.TargetAppID, true),
+		feeorder1.WithUserID(&in.TargetUserID, true),
 		feeorder1.WithOrderID(&in.OrderID, true),
 	)
 	if err != nil {
