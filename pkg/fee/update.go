@@ -35,6 +35,12 @@ func (h *Handler) UpdateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	if err := handler.getFeeOrder(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+	if err := handler.GetAppCoins(ctx, nil); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+	if err := handler.GetCoinUSDCurrencies(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
 	handler.OrderOpHandler.PaymentAmountUSD, _ = decimal.NewFromString(handler.feeOrder.PaymentAmountUSD)
 	if err := handler.GetCoinUSDCurrencies(ctx); err != nil {
 		return nil, wlog.WrapError(err)

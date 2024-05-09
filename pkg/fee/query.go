@@ -252,6 +252,9 @@ func (h *Handler) GetFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	if err != nil {
 		return nil, wlog.WrapError(err)
 	}
+	if info == nil {
+		return nil, wlog.Errorf("invalid feeorder")
+	}
 
 	handler := &queryHandler{
 		Handler: h,
