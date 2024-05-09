@@ -8,6 +8,7 @@ import (
 	feeordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/fee"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
+	feeordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/fee"
 )
 
 type baseUpdateHandler struct {
@@ -51,6 +52,6 @@ func (h *baseUpdateHandler) formalizePayment() {
 	h.feeOrderReq.LedgerLockID = h.BalanceLockID
 }
 
-func (h *baseUpdateHandler) updateFeeOrders(ctx context.Context) error {
-	return nil
+func (h *baseUpdateHandler) updateFeeOrder(ctx context.Context) error {
+	return feeordermwcli.UpdateFeeOrder(ctx, h.feeOrderReq)
 }

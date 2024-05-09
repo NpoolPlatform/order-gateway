@@ -56,7 +56,7 @@ func (h *Handler) UpdateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	handler.PrepareLedgerLockID()
 	handler.formalizePayment()
 
-	if err := handler.updateFeeOrders(ctx); err != nil {
+	if err := handler.updateFeeOrder(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 
