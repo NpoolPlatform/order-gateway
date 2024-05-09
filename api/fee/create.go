@@ -51,3 +51,48 @@ func (s *Server) CreateFeeOrder(ctx context.Context, in *npool.CreateFeeOrderReq
 		Info: info,
 	}, nil
 }
+
+func (s *Server) CreateUserFeeOrder(ctx context.Context, in *npool.CreateUserFeeOrderRequest) (*npool.CreateUserFeeOrderResponse, error) {
+	switch in.OrderType {
+	case types.OrderType_Offline:
+	case types.OrderType_Airdrop:
+	default:
+		logger.Sugar().Errorw(
+			"CreateUserFeeOrder",
+			"In", in,
+		)
+		return &npool.CreateUserFeeOrderResponse{}, status.Error(codes.InvalidArgument, "invalid ordertype")
+	}
+	handler, err := feeorder1.NewHandler(
+		ctx,
+		feeorder1.WithAppID(&in.AppID, true),
+		feeorder1.WithUserID(&in.TargetUserID, true),
+		feeorder1.WithAppGoodID(&in.AppGoodID, true),
+		feeorder1.WithParentOrderID(&in.ParentOrderID, true),
+		feeorder1.WithOrderType(&in.OrderType, true),
+		feeorder1.WithCreateMethod(func() *types.OrderCreateMethod { e := types.OrderCreateMethod_OrderCreatedByAdmin; return &e }(), true),
+		feeorder1.WithDurationSeconds(&in.DurationSeconds, true),
+	)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"CreateUserFeeOrder",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.CreateUserFeeOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	info, err := handler.CreateFeeOrder(ctx)
+	if err != nil {
+		logger.Sugar().Errorw(
+			"CreateUserFeeOrder",
+			"In", in,
+			"Error", err,
+		)
+		return &npool.CreateUserFeeOrderResponse{}, status.Error(codes.Internal, err.Error())
+	}
+
+	return &npool.CreateUserFeeOrderResponse{
+		Info: info,
+	}, nil
+}
