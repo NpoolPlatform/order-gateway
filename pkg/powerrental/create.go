@@ -54,6 +54,9 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	if err := handler.ValidateMaxUnpaidOrders(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+	if err := handler.getAppPowerRental(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
 	if err := handler.getGoodCoins(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
@@ -81,7 +84,10 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	if err := handler.GetPaymentTransferStartAmount(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if err := handler.constructFeeOrderReq(*h.AppGoodID); err != nil {
+	if err := handler.constructPowerRentalOrderReq(); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+	if err := handler.constructFeeOrderReqs(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.calculateTotalGoodValueUSD(); err != nil {

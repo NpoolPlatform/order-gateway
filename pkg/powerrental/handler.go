@@ -36,6 +36,9 @@ type Handler struct {
 	FeeAutoDeduction          *bool
 	OrderIDs                  []string
 	CreateMethod              *types.OrderCreateMethod
+	Simulate                  *bool
+	AppGoodStockID            *string
+	InvestmentType            *types.InvestmentType
 	OrderType                 *types.OrderType
 	Offset                    int32
 	Limit                     int32
@@ -350,6 +353,48 @@ func WithOrderType(orderType *types.OrderType, must bool) func(context.Context, 
 			return wlog.Errorf("invalid ordertype")
 		}
 		h.OrderType = orderType
+		return nil
+	}
+}
+
+func WithSimulate(b *bool, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		h.Simulate = b
+		return nil
+	}
+}
+
+func WithAppGoodStockID(s *string, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if s == nil {
+			if must {
+				return wlog.Errorf("invalid appgoodstockid")
+			}
+			return nil
+		}
+		if _, err := uuid.Parse(*s); err != nil {
+			return wlog.WrapError(err)
+		}
+		h.AppGoodStockID = s
+		return nil
+	}
+}
+
+func WithInvestmentType(_type *types.InvestmentType, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if _type == nil {
+			if must {
+				return wlog.Errorf("invalid investmenttype")
+			}
+			return nil
+		}
+		switch *_type {
+		case types.InvestmentType_FullPayment:
+		case types.InvestmentType_UnionMining:
+		default:
+			return wlog.Errorf("invalid investmenttype")
+		}
+		h.InvestmentType = _type
 		return nil
 	}
 }

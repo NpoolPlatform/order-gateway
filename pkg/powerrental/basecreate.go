@@ -38,6 +38,7 @@ type baseCreateHandler struct {
 	appFees             map[string]*appfeemwpb.Fee
 	powerRentalOrderReq *powerrentalordermwpb.PowerRentalOrderReq
 	feeOrderReqs        []*feeordermwpb.FeeOrderReq
+	appGoodStockLockID  *string
 }
 
 func (h *baseCreateHandler) getAppGoods(ctx context.Context) error {
@@ -79,7 +80,7 @@ func (h *baseCreateHandler) validateRequiredAppGoods() error {
 			return wlog.Errorf("miss requiredappgood")
 		}
 	}
-	for appGoodID, _ := range h.AppGoods {
+	for _, appGoodID := range h.FeeAppGoodIDs {
 		if _, ok := requireds[appGoodID]; !ok {
 			return wlog.Errorf("invalid requiredappgood")
 		}
@@ -118,12 +119,28 @@ func (h *baseCreateHandler) calculateFeeOrderValueUSD(appGoodID string) (value d
 	}
 	quantityUnits := *h.Handler.Units
 	durationUnits, _ := ordergwcommon.GoodDurationDisplayType2Unit(
-		appFee.DurationDisplayType, *h.Handler.DurationSeconds,
+		appFee.DurationDisplayType, *h.Handler.FeeDurationSeconds,
 	)
 	return unitValue.Mul(quantityUnits).Mul(decimal.NewFromInt(int64(durationUnits))), nil
 }
 
-func (h *baseCreateHandler) calculateTotalGoodValueUSD() error {
+func (h *baseCreateHandler) calculatePowerRentalOrderValueUSD() (value decimal.Decimal, err error) {
+	unitValue, err := decimal.NewFromString(h.appPowerRental.UnitPrice)
+	if err != nil {
+		return value, wlog.WrapError(err)
+	}
+	quantityUnits := *h.Handler.Units
+	durationUnits, _ := ordergwcommon.GoodDurationDisplayType2Unit(
+		h.appPowerRental.DurationDisplayType, *h.Handler.DurationSeconds,
+	)
+	return unitValue.Mul(quantityUnits).Mul(decimal.NewFromInt(int64(durationUnits))), nil
+}
+
+func (h *baseCreateHandler) calculateTotalGoodValueUSD() (err error) {
+	h.TotalGoodValueUSD, err = h.calculatePowerRentalOrderValueUSD()
+	if err != nil {
+		return err
+	}
 	for _, appFee := range h.appFees {
 		if appFee.SettlementType != goodtypes.GoodSettlementType_GoodSettledByPaymentAmount {
 			return wlog.Errorf("invalid appfee settlementtype")
@@ -146,12 +163,6 @@ func (h *baseCreateHandler) constructFeeOrderReq(appGoodID string) error {
 	if err != nil {
 		return wlog.WrapError(err)
 	}
-	paymentAmountUSD := h.PaymentAmountUSD
-	paymentType := h.PaymentType
-	if len(h.feeOrderReqs) > 0 {
-		paymentAmountUSD = decimal.NewFromInt(0)
-		paymentType = types.PaymentType_PayWithOtherOrder
-	}
 	var promotionID *string
 	topMostAppGood, ok := h.TopMostAppGoods[appFee.AppGoodID]
 	if ok {
@@ -166,24 +177,15 @@ func (h *baseCreateHandler) constructFeeOrderReq(appGoodID string) error {
 		AppGoodID:    &appFee.AppGoodID,
 		OrderID:      func() *string { s := uuid.NewString(); return &s }(),
 		OrderType:    h.Handler.OrderType,
-		PaymentType:  &paymentType,
+		PaymentType:  func() *types.PaymentType { e := types.PaymentType_PayWithOtherOrder; return &e }(),
 		CreateMethod: h.CreateMethod, // Admin or Purchase
 
 		GoodValueUSD:      func() *string { s := goodValueUSD.String(); return &s }(),
-		PaymentAmountUSD:  func() *string { s := paymentAmountUSD.String(); return &s }(),
-		DiscountAmountUSD: func() *string { s := h.DeductAmountUSD.String(); return &s }(),
+		PaymentAmountUSD:  func() *string { s := decimal.NewFromInt(0).String(); return &s }(),
+		DiscountAmountUSD: func() *string { s := decimal.NewFromInt(0).String(); return &s }(),
 		PromotionID:       promotionID,
-		DurationSeconds:   h.Handler.DurationSeconds,
-		LedgerLockID:      h.BalanceLockID,
+		DurationSeconds:   h.Handler.FeeDurationSeconds,
 		PaymentID:         h.PaymentID,
-		CouponIDs:         h.CouponIDs,
-	}
-	if len(h.feeOrderReqs) == 0 {
-		req.PaymentBalances = h.PaymentBalanceReqs
-		if h.PaymentTransferReq != nil {
-			req.PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}
-		}
-		h.OrderID = req.OrderID
 	}
 	h.OrderIDs = append(h.OrderIDs, *req.OrderID)
 	h.feeOrderReqs = append(h.feeOrderReqs, req)
@@ -199,15 +201,62 @@ func (h *baseCreateHandler) constructFeeOrderReqs() error {
 	return nil
 }
 
-func (h *baseCreateHandler) formalizePayment() {
-	h.feeOrderReqs[0].PaymentType = &h.PaymentType
-	h.feeOrderReqs[0].PaymentBalances = h.PaymentBalanceReqs
-	if h.PaymentTransferReq != nil {
-		h.feeOrderReqs[0].PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}
+func (h *baseCreateHandler) constructPowerRentalOrderReq() error {
+	goodValueUSD, err := h.calculatePowerRentalOrderValueUSD()
+	if err != nil {
+		return wlog.WrapError(err)
 	}
-	h.feeOrderReqs[0].PaymentAmountUSD = func() *string { s := h.PaymentAmountUSD.String(); return &s }()
-	h.feeOrderReqs[0].DiscountAmountUSD = func() *string { s := h.DeductAmountUSD.String(); return &s }()
-	h.feeOrderReqs[0].LedgerLockID = h.BalanceLockID
+	var promotionID *string
+	topMostAppGood, ok := h.TopMostAppGoods[*h.Handler.AppGoodID]
+	if ok {
+		promotionID = &topMostAppGood.TopMostID
+	}
+	req := &powerrentalordermwpb.PowerRentalOrderReq{
+		EntID:        func() *string { s := uuid.NewString(); return &s }(),
+		AppID:        h.Handler.OrderCheckHandler.AppID,
+		UserID:       h.Handler.OrderCheckHandler.UserID,
+		GoodID:       &h.appPowerRental.GoodID,
+		GoodType:     &h.appPowerRental.GoodType,
+		AppGoodID:    &h.appPowerRental.AppGoodID,
+		OrderID:      func() *string { s := uuid.NewString(); return &s }(),
+		OrderType:    h.Handler.OrderType,
+		PaymentType:  func() *types.PaymentType { e := types.PaymentType_PayWithOtherOrder; return &e }(),
+		CreateMethod: h.CreateMethod, // Admin or Purchase
+		Simulate:     h.Simulate,
+
+		AppGoodStockID:    h.AppGoodStockID,
+		Units:             func() *string { s := h.Handler.Units.String(); return &s }(),
+		GoodValueUSD:      func() *string { s := goodValueUSD.String(); return &s }(),
+		PaymentAmountUSD:  func() *string { s := h.PaymentAmountUSD.String(); return &s }(),
+		DiscountAmountUSD: func() *string { s := h.DeductAmountUSD.String(); return &s }(),
+		PromotionID:       promotionID,
+		DurationSeconds:   h.Handler.DurationSeconds,
+		InvestmentType:    h.Handler.InvestmentType,
+
+		AppGoodStockLockID: h.appGoodStockLockID,
+		LedgerLockID:       h.BalanceLockID,
+		CouponIDs:          h.CouponIDs,
+		PaymentID:          h.PaymentID,
+	}
+	req.PaymentBalances = h.PaymentBalanceReqs
+	if h.PaymentTransferReq != nil {
+		req.PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}
+	}
+	h.OrderID = req.OrderID
+	h.OrderIDs = append(h.OrderIDs, *req.OrderID)
+	h.powerRentalOrderReq = req
+	return nil
+}
+
+func (h *baseCreateHandler) formalizePayment() {
+	h.powerRentalOrderReq.PaymentType = &h.PaymentType
+	h.powerRentalOrderReq.PaymentBalances = h.PaymentBalanceReqs
+	if h.PaymentTransferReq != nil {
+		h.powerRentalOrderReq.PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}
+	}
+	h.powerRentalOrderReq.PaymentAmountUSD = func() *string { s := h.PaymentAmountUSD.String(); return &s }()
+	h.powerRentalOrderReq.DiscountAmountUSD = func() *string { s := h.DeductAmountUSD.String(); return &s }()
+	h.powerRentalOrderReq.LedgerLockID = h.BalanceLockID
 }
 
 func (h *baseCreateHandler) dtmDo(ctx context.Context, dispose *dtmcli.SagaDispose) error {
@@ -218,7 +267,7 @@ func (h *baseCreateHandler) dtmDo(ctx context.Context, dispose *dtmcli.SagaDispo
 	dtmElapsed := time.Since(start)
 	logger.Sugar().Infow(
 		"CreatePowerRentalOrderWithFees",
-		"OrderID", *h.feeOrderReqs[0].OrderID,
+		"OrderID", *h.OrderID,
 		"Start", start,
 		"DtmElapsed", dtmElapsed,
 		"Error", err,
@@ -233,7 +282,7 @@ func (h *baseCreateHandler) notifyCouponUsed() {
 func (h *baseCreateHandler) _createPowerRentalOrderWithFees(dispose *dtmcli.SagaDispose) {
 	dispose.Add(
 		ordermwsvcname.ServiceDomain,
-		"order.middleware.fee.v1.Middleware/CreatePowerRentalOrderWithFees",
+		"order.middleware.powerrental.v1.Middleware/CreatePowerRentalOrderWithFees",
 		"",
 		&powerrentalordermwpb.CreatePowerRentalOrderWithFeesRequest{
 			PowerRentalOrder: h.powerRentalOrderReq,
