@@ -205,7 +205,7 @@ func (h *baseCreateHandler) constructFeeOrderReqs() error {
 }
 
 func (h *baseCreateHandler) resolveStartMode() error {
-	switch h.appPowerRental.StartMode {
+	switch h.appPowerRental.AppGoodStartMode {
 	case goodtypes.GoodStartMode_GoodStartModeTBD:
 		h.orderStartMode = types.OrderStartMode_OrderStartTBD
 	case goodtypes.GoodStartMode_GoodStartModeConfirmed:
@@ -228,15 +228,15 @@ func (h *baseCreateHandler) resolveStartAt() error {
 	case types.OrderStartMode_OrderStartTBD:
 		fallthrough //nolint
 	case types.OrderStartMode_OrderStartPreset:
-		h.orderStartAt = h.appPowerRental.ServiceStartAt
+		h.orderStartAt = h.appPowerRental.AppGoodServiceStartAt
 	case types.OrderStartMode_OrderStartInstantly:
 		h.orderStartAt = now + timedef.SecondsPerMinute*10
 	case types.OrderStartMode_OrderStartNextDay:
 		h.orderStartAt = uint32(timedef.TomorrowStart().Unix())
 	}
 
-	if h.appPowerRental.ServiceStartAt > h.orderStartAt {
-		h.orderStartAt = h.appPowerRental.ServiceStartAt
+	if h.appPowerRental.AppGoodServiceStartAt > h.orderStartAt {
+		h.orderStartAt = h.appPowerRental.AppGoodServiceStartAt
 	}
 	if h.orderStartAt < now {
 		return wlog.Errorf("invalid orderstartat")
