@@ -24,6 +24,8 @@ import (
 	"github.com/google/uuid"
 )
 
+// TODO: expand all field
+
 type queryHandler struct {
 	*Handler
 	fees             []*powerrentalordermwpb.PowerRentalOrder
