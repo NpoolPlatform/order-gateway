@@ -5,6 +5,7 @@ import (
 	"time"
 
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
+	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
 	logger "github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	appfeemwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/fee"
@@ -39,6 +40,8 @@ type baseCreateHandler struct {
 	powerRentalOrderReq *powerrentalordermwpb.PowerRentalOrderReq
 	feeOrderReqs        []*feeordermwpb.FeeOrderReq
 	appGoodStockLockID  *string
+	orderStartMode      types.OrderStartMode
+	orderStartAt        uint32
 }
 
 func (h *baseCreateHandler) getAppGoods(ctx context.Context) error {
@@ -201,7 +204,53 @@ func (h *baseCreateHandler) constructFeeOrderReqs() error {
 	return nil
 }
 
+func (h *baseCreateHandler) resolveStartMode() error {
+	switch h.appPowerRental.StartMode {
+	case goodtypes.GoodStartMode_GoodStartModeTBD:
+		h.orderStartMode = types.OrderStartMode_OrderStartTBD
+	case goodtypes.GoodStartMode_GoodStartModeConfirmed:
+		h.orderStartMode = types.OrderStartMode_OrderStartNextDay
+	case goodtypes.GoodStartMode_GoodStartModeInstantly:
+		h.orderStartMode = types.OrderStartMode_OrderStartInstantly
+	case goodtypes.GoodStartMode_GoodStartModeNextDay:
+		h.orderStartMode = types.OrderStartMode_OrderStartNextDay
+	case goodtypes.GoodStartMode_GoodStartModePreset:
+		h.orderStartMode = types.OrderStartMode_OrderStartPreset
+	default:
+		return wlog.Errorf("invalid goodstartmode")
+	}
+	return nil
+}
+
+func (h *baseCreateHandler) resolveStartAt() error {
+	now := uint32(time.Now().Unix())
+	switch h.orderStartMode {
+	case types.OrderStartMode_OrderStartTBD:
+		fallthrough //nolint
+	case types.OrderStartMode_OrderStartPreset:
+		h.orderStartAt = h.appPowerRental.ServiceStartAt
+	case types.OrderStartMode_OrderStartInstantly:
+		h.orderStartAt = now + timedef.SecondsPerMinute*10
+	case types.OrderStartMode_OrderStartNextDay:
+		h.orderStartAt = uint32(timedef.TomorrowStart().Unix())
+	}
+
+	if h.appPowerRental.ServiceStartAt > h.orderStartAt {
+		h.orderStartAt = h.appPowerRental.ServiceStartAt
+	}
+	if h.orderStartAt < now {
+		return wlog.Errorf("invalid orderstartat")
+	}
+	return nil
+}
+
 func (h *baseCreateHandler) constructPowerRentalOrderReq() error {
+	if err := h.resolveStartMode(); err != nil {
+		return wlog.WrapError(err)
+	}
+	if err := h.resolveStartAt(); err != nil {
+		return wlog.WrapError(err)
+	}
 	goodValueUSD, err := h.calculatePowerRentalOrderValueUSD()
 	if err != nil {
 		return wlog.WrapError(err)
@@ -232,6 +281,9 @@ func (h *baseCreateHandler) constructPowerRentalOrderReq() error {
 		PromotionID:       promotionID,
 		DurationSeconds:   h.Handler.DurationSeconds,
 		InvestmentType:    h.Handler.InvestmentType,
+
+		StartMode: &h.orderStartMode,
+		StartAt:   &h.orderStartAt,
 
 		AppGoodStockLockID: h.appGoodStockLockID,
 		LedgerLockID:       h.BalanceLockID,
