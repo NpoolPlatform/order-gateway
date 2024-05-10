@@ -31,6 +31,7 @@ func (s *Server) CreatePowerRentalOrder(ctx context.Context, in *npool.CreatePow
 		powerrental1.WithFeeAppGoodIDs(in.FeeAppGoodIDs, true),
 		powerrental1.WithFeeDurationSeconds(in.FeeDurationSeconds, false),
 		powerrental1.WithFeeAutoDeduction(in.FeeAutoDeduction, false),
+		powerrental1.WithAppGoodStockID(in.AppGoodStockID, false),
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
