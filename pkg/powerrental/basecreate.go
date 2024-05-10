@@ -11,11 +11,13 @@ import (
 	appfeemwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/fee"
 	apppowerrentalmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/powerrental"
 	goodcoinmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/coin"
+	goodmwsvcname "github.com/NpoolPlatform/good-middleware/pkg/servicename"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	appfeemwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/fee"
+	appgoodstockmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/stock"
 	apppowerrentalmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/powerrental"
 	goodcoinmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/coin"
 	feeordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/fee"
@@ -43,8 +45,6 @@ type baseCreateHandler struct {
 	orderStartMode      types.OrderStartMode
 	orderStartAt        uint32
 }
-
-// TODO: lock stock
 
 func (h *baseCreateHandler) getAppGoods(ctx context.Context) error {
 	if err := h.GetAppGoods(ctx); err != nil {
@@ -262,6 +262,7 @@ func (h *baseCreateHandler) constructPowerRentalOrderReq() error {
 	if ok {
 		promotionID = &topMostAppGood.TopMostID
 	}
+	h.appGoodStockLockID = func() *string { s := uuid.NewString(); return &s }()
 	req := &powerrentalordermwpb.PowerRentalOrderReq{
 		EntID:        func() *string { s := uuid.NewString(); return &s }(),
 		AppID:        h.Handler.OrderCheckHandler.AppID,
@@ -345,12 +346,29 @@ func (h *baseCreateHandler) _createPowerRentalOrderWithFees(dispose *dtmcli.Saga
 	)
 }
 
+func (h *baseCreateHandler) lockStock(dispose *dtmcli.SagaDispose) {
+	dispose.Add(
+		goodmwsvcname.ServiceDomain,
+		"good.middleware.app.good1.stock.v1.Middleware/Lock",
+		"good.middleware.app.good1.stock.v1.Middleware/Unlock",
+		&appgoodstockmwpb.LockRequest{
+			EntID:        *h.AppGoodStockID,
+			AppGoodID:    *h.Handler.AppGoodID,
+			Units:        h.Units.String(),
+			AppSpotUnits: h.AppSpotUnits.String(),
+			LockID:       *h.appGoodStockLockID,
+			Rollback:     true,
+		},
+	)
+}
+
 func (h *baseCreateHandler) createPowerRentalOrder(ctx context.Context) error {
 	sagaDispose := dtmcli.NewSagaDispose(dtmimp.TransOptions{
 		WaitResult:     true,
 		RequestTimeout: 10,
 		TimeoutToFail:  10,
 	})
+	h.lockStock(sagaDispose)
 	h.LockBalances(sagaDispose)
 	h.LockPaymentTransferAccount(sagaDispose)
 	h._createPowerRentalOrderWithFees(sagaDispose)

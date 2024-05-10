@@ -25,6 +25,7 @@ type Handler struct {
 	ParentOrderID             *string
 	DurationSeconds           *uint32
 	Units                     *decimal.Decimal
+	AppSpotUnits              *decimal.Decimal
 	Balances                  []*paymentmwpb.PaymentBalanceReq
 	PaymentTransferCoinTypeID *string
 	CouponIDs                 []string
@@ -213,6 +214,23 @@ func WithUnits(s *string, must bool) func(context.Context, *Handler) error {
 			return wlog.WrapError(err)
 		}
 		h.Units = &units
+		return nil
+	}
+}
+
+func WithAppSpotUnits(s *string, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if s == nil {
+			if must {
+				return wlog.Errorf("invalid appspotunits")
+			}
+			return nil
+		}
+		units, err := decimal.NewFromString(*s)
+		if err != nil {
+			return wlog.WrapError(err)
+		}
+		h.AppSpotUnits = &units
 		return nil
 	}
 }
