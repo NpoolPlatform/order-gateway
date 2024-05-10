@@ -44,6 +44,8 @@ type baseCreateHandler struct {
 	orderStartAt        uint32
 }
 
+// TODO: lock stock
+
 func (h *baseCreateHandler) getAppGoods(ctx context.Context) error {
 	if err := h.GetAppGoods(ctx); err != nil {
 		return wlog.WrapError(err)

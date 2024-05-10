@@ -6,6 +6,8 @@ import (
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/powerrental"
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
+
+	"github.com/google/uuid"
 )
 
 type createHandler struct {
@@ -24,6 +26,7 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 				PaymentTransferCoinTypeID:   h.PaymentTransferCoinTypeID,
 				PaymentBalanceReqs:          h.Balances,
 			},
+			appGoodStockLockID: func() *string { s := uuid.NewString(); return &s }(),
 		},
 	}
 
