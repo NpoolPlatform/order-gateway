@@ -274,7 +274,7 @@ func (h *baseCreateHandler) constructPowerRentalOrderReq() error {
 		OrderType:    h.Handler.OrderType,
 		PaymentType:  func() *types.PaymentType { e := types.PaymentType_PayWithOtherOrder; return &e }(),
 		CreateMethod: h.CreateMethod, // Admin or Purchase
-		Simulate:     h.Simulate,
+		Simulate:     h.Handler.Simulate,
 
 		AppGoodStockID:    h.AppGoodStockID,
 		Units:             func() *string { s := h.Handler.Units.String(); return &s }(),
@@ -352,12 +352,17 @@ func (h *baseCreateHandler) lockStock(dispose *dtmcli.SagaDispose) {
 		"good.middleware.app.good1.stock.v1.Middleware/Lock",
 		"good.middleware.app.good1.stock.v1.Middleware/Unlock",
 		&appgoodstockmwpb.LockRequest{
-			EntID:        *h.AppGoodStockID,
-			AppGoodID:    *h.Handler.AppGoodID,
-			Units:        h.Units.String(),
-			AppSpotUnits: h.AppSpotUnits.String(),
-			LockID:       *h.appGoodStockLockID,
-			Rollback:     true,
+			EntID:     *h.AppGoodStockID,
+			AppGoodID: *h.Handler.AppGoodID,
+			Units:     h.Units.String(),
+			AppSpotUnits: func() string {
+				if h.AppSpotUnits != nil {
+					return h.AppSpotUnits.String()
+				}
+				return decimal.NewFromInt(0).String()
+			}(),
+			LockID:   *h.appGoodStockLockID,
+			Rollback: true,
 		},
 	)
 }
@@ -368,9 +373,14 @@ func (h *baseCreateHandler) createPowerRentalOrder(ctx context.Context) error {
 		RequestTimeout: 10,
 		TimeoutToFail:  10,
 	})
-	h.lockStock(sagaDispose)
-	h.LockBalances(sagaDispose)
-	h.LockPaymentTransferAccount(sagaDispose)
+	if !h.OrderOpHandler.Simulate {
+		if h.AppGoodStockID == nil {
+			return wlog.Errorf("invalid appgoodstockid")
+		}
+		h.lockStock(sagaDispose)
+		h.LockBalances(sagaDispose)
+		h.LockPaymentTransferAccount(sagaDispose)
+	}
 	h._createPowerRentalOrderWithFees(sagaDispose)
 	defer h.notifyCouponUsed()
 	return h.dtmDo(ctx, sagaDispose)

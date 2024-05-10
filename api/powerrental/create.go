@@ -24,6 +24,7 @@ func (s *Server) CreatePowerRentalOrder(ctx context.Context, in *npool.CreatePow
 		powerrental1.WithCreateMethod(func() *types.OrderCreateMethod { e := types.OrderCreateMethod_OrderCreatedByPurchase; return &e }(), true),
 		powerrental1.WithDurationSeconds(&in.DurationSeconds, true),
 		powerrental1.WithUnits(&in.Units, true),
+		powerrental1.WithAppSpotUnits(in.AppSpotUnits, false),
 		powerrental1.WithPaymentBalances(in.Balances, true),
 		powerrental1.WithPaymentTransferCoinTypeID(in.PaymentTransferCoinTypeID, false),
 		powerrental1.WithCouponIDs(in.CouponIDs, true),

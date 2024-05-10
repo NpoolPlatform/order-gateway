@@ -59,6 +59,7 @@ type OrderOpHandler struct {
 	AllocatedCouponIDs        []string
 	AppGoodIDs                []string
 	OrderType                 types.OrderType
+	Simulate                  bool
 
 	allocatedCoupons  map[string]*allocatedcouponmwpb.Coupon
 	coinUSDCurrencies map[string]*currencymwpb.Currency

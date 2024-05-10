@@ -25,6 +25,7 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 				AllocatedCouponCheckHandler: h.AllocatedCouponCheckHandler,
 				PaymentTransferCoinTypeID:   h.PaymentTransferCoinTypeID,
 				PaymentBalanceReqs:          h.Balances,
+				Simulate:                    h.Simulate != nil && *h.Simulate,
 			},
 			appGoodStockLockID: func() *string { s := uuid.NewString(); return &s }(),
 		},
