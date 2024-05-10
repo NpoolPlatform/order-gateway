@@ -19,34 +19,33 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 			OrderOpHandler: &ordercommon.OrderOpHandler{
 				AppGoodCheckHandler:         h.AppGoodCheckHandler,
 				CoinCheckHandler:            h.CoinCheckHandler,
+				AppGoodIDs:                  append(h.FeeAppGoodIDs, *h.AppGoodID),
 				AllocatedCouponCheckHandler: h.AllocatedCouponCheckHandler,
-				AppGoodIDs:                  h.AppGoodIDs,
 				PaymentTransferCoinTypeID:   h.PaymentTransferCoinTypeID,
 				PaymentBalanceReqs:          h.Balances,
 			},
 		},
 	}
 
-	if err := handler.getParentOrder(ctx); err != nil {
-		return nil, wlog.WrapError(err)
-	}
-	handler.OrderOpHandler.AppGoodIDs = append(
-		handler.OrderOpHandler.AppGoodIDs,
-		handler.parentOrder.AppGoodID,
-	)
 	if err := handler.GetApp(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.GetUser(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+	if err := handler.GetRequiredAppGoods(ctx, *h.AppGoodID); err != nil {
+		return nil, wlog.WrapError(err)
+	}
 	if err := handler.getAppGoods(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+	if err := handler.validateRequiredAppGoods(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.GetAllocatedCoupons(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if err := handler.ValidateCouponScope(ctx, &handler.parentOrder.AppGoodID); err != nil {
+	if err := handler.ValidateCouponScope(ctx, h.AppGoodID); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.ValidateCouponCount(); err != nil {
@@ -55,21 +54,15 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	if err := handler.ValidateMaxUnpaidOrders(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if err := handler.getParentGoodCoins(ctx); err != nil {
+	if err := handler.getGoodCoins(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.GetAppCoins(ctx, func() (coinTypeIDs []string) {
-		for _, goodCoin := range handler.parentGoodCoins {
+		for _, goodCoin := range handler.goodCoins {
 			coinTypeIDs = append(coinTypeIDs, goodCoin.CoinTypeID)
 		}
 		return
 	}()); err != nil {
-		return nil, wlog.WrapError(err)
-	}
-	if err := handler.GetRequiredAppGoods(ctx); err != nil {
-		return nil, wlog.WrapError(err)
-	}
-	if err := handler.validateRequiredAppGoods(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.GetTopMostAppGoods(ctx); err != nil {

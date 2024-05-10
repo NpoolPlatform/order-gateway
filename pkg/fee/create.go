@@ -66,7 +66,7 @@ func (h *Handler) CreateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	}()); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if err := handler.GetRequiredAppGoods(ctx); err != nil {
+	if err := handler.GetRequiredAppGoods(ctx, handler.parentAppGood.EntID); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.validateRequiredAppGoods(); err != nil {

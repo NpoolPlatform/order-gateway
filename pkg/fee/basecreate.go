@@ -22,7 +22,6 @@ import (
 	ordergwcommon "github.com/NpoolPlatform/order-gateway/pkg/common"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
-	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 	powerrentalordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/powerrental"
 	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
 	"github.com/dtm-labs/dtm/client/dtmcli/dtmimp"
@@ -42,27 +41,14 @@ type baseCreateHandler struct {
 }
 
 func (h *baseCreateHandler) getParentOrder(ctx context.Context) error {
-	info, err := ordermwcli.GetOrder(ctx, *h.ParentOrderID)
+	info, err := powerrentalordermwcli.GetPowerRentalOrder(ctx, *h.ParentOrderID)
 	if err != nil {
 		return wlog.WrapError(err)
 	}
 	if info == nil {
 		return wlog.Errorf("invalid parentorder")
 	}
-	switch info.GoodType {
-	case goodtypes.GoodType_PowerRental:
-	case goodtypes.GoodType_LegacyPowerRental:
-	default:
-		return wlog.Errorf("invalid parentorder goodtype")
-	}
-	info1, err := powerrentalordermwcli.GetPowerRentalOrder(ctx, *h.ParentOrderID)
-	if err != nil {
-		return wlog.WrapError(err)
-	}
-	if info1 == nil {
-		return wlog.Errorf("invalid parentorder")
-	}
-	h.parentOrder = info1
+	h.parentOrder = info
 	return nil
 }
 

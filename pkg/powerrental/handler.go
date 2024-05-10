@@ -31,7 +31,9 @@ type Handler struct {
 	UserSetPaid               *bool
 	UserSetCanceled           *bool
 	AdminSetCanceled          *bool
-	AppGoodIDs                []string
+	FeeAppGoodIDs             []string
+	FeeDurationSeconds        *uint32
+	FeeAutoDeduction          *bool
 	OrderIDs                  []string
 	CreateMethod              *types.OrderCreateMethod
 	OrderType                 *types.OrderType
@@ -142,7 +144,6 @@ func WithAppGoodID(id *string, must bool) func(context.Context, *Handler) error 
 		if err := h.OrderCheckHandler.CheckAppGoodWithAppGoodID(ctx, *id); err != nil {
 			return wlog.WrapError(err)
 		}
-		h.AppGoodIDs = append(h.AppGoodIDs, *id)
 		h.AppGoodID = id
 		return nil
 	}
@@ -278,14 +279,37 @@ func WithAdminSetCanceled(b *bool, must bool) func(context.Context, *Handler) er
 	}
 }
 
-func WithAppGoodIDs(ss []string, must bool) func(context.Context, *Handler) error {
+func WithFeeAppGoodIDs(ss []string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		for _, appGoodID := range ss {
 			if err := h.OrderCheckHandler.CheckAppGoodWithAppGoodID(ctx, appGoodID); err != nil {
 				return wlog.WrapError(err)
 			}
-			h.AppGoodIDs = append(h.AppGoodIDs, appGoodID)
+			h.FeeAppGoodIDs = append(h.FeeAppGoodIDs, appGoodID)
 		}
+		return nil
+	}
+}
+
+func WithFeeDurationSeconds(u *uint32, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if u == nil {
+			if must {
+				return wlog.Errorf("invalid feedurationseconds")
+			}
+			return nil
+		}
+		if *u <= 0 {
+			return wlog.Errorf("invalid feedurationseconds")
+		}
+		h.FeeDurationSeconds = u
+		return nil
+	}
+}
+
+func WithFeeAutoDeduction(b *bool, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		h.FeeAutoDeduction = b
 		return nil
 	}
 }

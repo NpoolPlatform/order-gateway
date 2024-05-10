@@ -8,13 +8,14 @@ import (
 	logger "github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	appfeemwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/fee"
+	apppowerrentalmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/powerrental"
 	goodcoinmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/coin"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	appfeemwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/fee"
-	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
+	apppowerrentalmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/powerrental"
 	goodcoinmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/coin"
 	feeordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/fee"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
@@ -22,8 +23,6 @@ import (
 	ordergwcommon "github.com/NpoolPlatform/order-gateway/pkg/common"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
-	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
-	powerrentalordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/powerrental"
 	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
 	"github.com/dtm-labs/dtm/client/dtmcli/dtmimp"
 
@@ -34,61 +33,27 @@ import (
 type baseCreateHandler struct {
 	*Handler
 	*ordercommon.OrderOpHandler
-	parentOrder     *powerrentalordermwpb.PowerRentalOrder
-	parentAppGood   *appgoodmwpb.Good
-	parentGoodCoins []*goodcoinmwpb.GoodCoin
-	appFees         map[string]*appfeemwpb.Fee
-	feeOrderReqs    []*feeordermwpb.FeeOrderReq
-}
-
-func (h *baseCreateHandler) getParentOrder(ctx context.Context) error {
-	info, err := ordermwcli.GetOrder(ctx, *h.ParentOrderID)
-	if err != nil {
-		return wlog.WrapError(err)
-	}
-	if info == nil {
-		return wlog.Errorf("invalid parentorder")
-	}
-	switch info.GoodType {
-	case goodtypes.GoodType_PowerRental:
-	case goodtypes.GoodType_LegacyPowerRental:
-	default:
-		return wlog.Errorf("invalid parentorder goodtype")
-	}
-	info1, err := powerrentalordermwcli.GetPowerRentalOrder(ctx, *h.ParentOrderID)
-	if err != nil {
-		return wlog.WrapError(err)
-	}
-	if info1 == nil {
-		return wlog.Errorf("invalid parentorder")
-	}
-	h.parentOrder = info1
-	return nil
+	appPowerRental      *apppowerrentalmwpb.PowerRental
+	goodCoins           []*goodcoinmwpb.GoodCoin
+	appFees             map[string]*appfeemwpb.Fee
+	powerRentalOrderReq *powerrentalordermwpb.PowerRentalOrderReq
+	feeOrderReqs        []*feeordermwpb.FeeOrderReq
 }
 
 func (h *baseCreateHandler) getAppGoods(ctx context.Context) error {
 	if err := h.GetAppGoods(ctx); err != nil {
 		return wlog.WrapError(err)
 	}
-	for appGoodID, appGood := range h.AppGoods {
-		if appGoodID == h.parentOrder.AppGoodID {
-			h.parentAppGood = appGood
-			break
-		}
-	}
-	if h.parentAppGood == nil {
-		return wlog.Errorf("invalid parentappgood")
-	}
 	return nil
 }
 
-func (h *baseCreateHandler) getParentGoodCoins(ctx context.Context) error {
+func (h *baseCreateHandler) getGoodCoins(ctx context.Context) error {
 	offset := int32(0)
 	limit := int32(constant.DefaultRowLimit)
 
 	for {
 		goodCoins, _, err := goodcoinmwcli.GetGoodCoins(ctx, &goodcoinmwpb.Conds{
-			GoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.parentAppGood.GoodID},
+			GoodID: &basetypes.StringVal{Op: cruder.EQ, Value: h.appPowerRental.GoodID},
 		}, offset, limit)
 		if err != nil {
 			return wlog.WrapError(err)
@@ -96,15 +61,15 @@ func (h *baseCreateHandler) getParentGoodCoins(ctx context.Context) error {
 		if len(goodCoins) == 0 {
 			return nil
 		}
-		h.parentGoodCoins = append(h.parentGoodCoins, goodCoins...)
+		h.goodCoins = append(h.goodCoins, goodCoins...)
 		offset += limit
 	}
 }
 
 func (h *baseCreateHandler) validateRequiredAppGoods() error {
-	requireds, ok := h.RequiredAppGoods[h.parentAppGood.EntID]
+	requireds, ok := h.RequiredAppGoods[*h.Handler.AppGoodID]
 	if !ok {
-		return wlog.Errorf("invalid requiredappgood")
+		return nil
 	}
 	for _, required := range requireds {
 		if !required.Must {
@@ -115,9 +80,6 @@ func (h *baseCreateHandler) validateRequiredAppGoods() error {
 		}
 	}
 	for appGoodID, _ := range h.AppGoods {
-		if appGoodID == h.parentAppGood.EntID {
-			continue
-		}
 		if _, ok := requireds[appGoodID]; !ok {
 			return wlog.Errorf("invalid requiredappgood")
 		}
@@ -128,8 +90,8 @@ func (h *baseCreateHandler) validateRequiredAppGoods() error {
 func (h *baseCreateHandler) getAppFees(ctx context.Context) error {
 	appFees, _, err := appfeemwcli.GetFees(ctx, &appfeemwpb.Conds{
 		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.OrderCheckHandler.AppID},
-		AppGoodIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: h.Handler.AppGoodIDs},
-	}, 0, int32(len(h.Handler.AppGoodIDs)))
+		AppGoodIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: h.Handler.FeeAppGoodIDs},
+	}, 0, int32(len(h.Handler.FeeAppGoodIDs)))
 	if err != nil {
 		return wlog.WrapError(err)
 	}
@@ -138,6 +100,11 @@ func (h *baseCreateHandler) getAppFees(ctx context.Context) error {
 		h.appFees[appFee.AppGoodID] = appFee
 	}
 	return nil
+}
+
+func (h *baseCreateHandler) getAppPowerRental(ctx context.Context) (err error) {
+	h.appPowerRental, err = apppowerrentalmwcli.GetPowerRental(ctx, *h.Handler.AppGoodID)
+	return wlog.WrapError(err)
 }
 
 func (h *baseCreateHandler) calculateFeeOrderValueUSD(appGoodID string) (value decimal.Decimal, err error) {
@@ -149,10 +116,7 @@ func (h *baseCreateHandler) calculateFeeOrderValueUSD(appGoodID string) (value d
 	if err != nil {
 		return value, wlog.WrapError(err)
 	}
-	quantityUnits, err := decimal.NewFromString(h.parentOrder.Units)
-	if err != nil {
-		return value, wlog.WrapError(err)
-	}
+	quantityUnits := *h.Handler.Units
 	durationUnits, _ := ordergwcommon.GoodDurationDisplayType2Unit(
 		appFee.DurationDisplayType, *h.Handler.DurationSeconds,
 	)
@@ -194,17 +158,16 @@ func (h *baseCreateHandler) constructFeeOrderReq(appGoodID string) error {
 		promotionID = &topMostAppGood.TopMostID
 	}
 	req := &feeordermwpb.FeeOrderReq{
-		EntID:         func() *string { s := uuid.NewString(); return &s }(),
-		AppID:         h.Handler.OrderCheckHandler.AppID,
-		UserID:        h.Handler.OrderCheckHandler.UserID,
-		GoodID:        &appFee.GoodID,
-		GoodType:      &appFee.GoodType,
-		AppGoodID:     &appFee.AppGoodID,
-		OrderID:       func() *string { s := uuid.NewString(); return &s }(),
-		ParentOrderID: &h.parentOrder.OrderID,
-		OrderType:     h.Handler.OrderType,
-		PaymentType:   &paymentType,
-		CreateMethod:  h.CreateMethod, // Admin or Purchase
+		EntID:        func() *string { s := uuid.NewString(); return &s }(),
+		AppID:        h.Handler.OrderCheckHandler.AppID,
+		UserID:       h.Handler.OrderCheckHandler.UserID,
+		GoodID:       &appFee.GoodID,
+		GoodType:     &appFee.GoodType,
+		AppGoodID:    &appFee.AppGoodID,
+		OrderID:      func() *string { s := uuid.NewString(); return &s }(),
+		OrderType:    h.Handler.OrderType,
+		PaymentType:  &paymentType,
+		CreateMethod: h.CreateMethod, // Admin or Purchase
 
 		GoodValueUSD:      func() *string { s := goodValueUSD.String(); return &s }(),
 		PaymentAmountUSD:  func() *string { s := paymentAmountUSD.String(); return &s }(),
@@ -254,7 +217,7 @@ func (h *baseCreateHandler) dtmDo(ctx context.Context, dispose *dtmcli.SagaDispo
 	err := dtmcli.WithSaga(_ctx, dispose)
 	dtmElapsed := time.Since(start)
 	logger.Sugar().Infow(
-		"CreateFeeOrders",
+		"CreatePowerRentalOrderWithFees",
 		"OrderID", *h.feeOrderReqs[0].OrderID,
 		"Start", start,
 		"DtmElapsed", dtmElapsed,
@@ -267,13 +230,14 @@ func (h *baseCreateHandler) notifyCouponUsed() {
 
 }
 
-func (h *baseCreateHandler) _createFeeOrders(dispose *dtmcli.SagaDispose) {
+func (h *baseCreateHandler) _createPowerRentalOrderWithFees(dispose *dtmcli.SagaDispose) {
 	dispose.Add(
 		ordermwsvcname.ServiceDomain,
-		"order.middleware.fee.v1.Middleware/CreateFeeOrders",
-		"order.middleware.fee.v1.Middleware/DeleteFeeOrders",
-		&feeordermwpb.CreateFeeOrdersRequest{
-			Infos: h.feeOrderReqs,
+		"order.middleware.fee.v1.Middleware/CreatePowerRentalOrderWithFees",
+		"",
+		&powerrentalordermwpb.CreatePowerRentalOrderWithFeesRequest{
+			PowerRentalOrder: h.powerRentalOrderReq,
+			FeeOrders:        h.feeOrderReqs,
 		},
 	)
 }
@@ -286,7 +250,7 @@ func (h *baseCreateHandler) createPowerRentalOrder(ctx context.Context) error {
 	})
 	h.LockBalances(sagaDispose)
 	h.LockPaymentTransferAccount(sagaDispose)
-	h._createFeeOrders(sagaDispose)
+	h._createPowerRentalOrderWithFees(sagaDispose)
 	defer h.notifyCouponUsed()
 	return h.dtmDo(ctx, sagaDispose)
 }

@@ -275,15 +275,16 @@ func (h *OrderOpHandler) ValidateMaxUnpaidOrders(ctx context.Context) error {
 	return nil
 }
 
-func (h *OrderOpHandler) GetRequiredAppGoods(ctx context.Context) error {
+func (h *OrderOpHandler) GetRequiredAppGoods(ctx context.Context, mainAppGoodID string) error {
 	offset := int32(0)
 	limit := int32(constant.DefaultRowLimit)
 	h.RequiredAppGoods = map[string]map[string]*requiredappgoodmwpb.Required{}
 
 	for {
 		requiredAppGoods, _, err := requiredappgoodmwcli.GetRequireds(ctx, &requiredappgoodmwpb.Conds{
-			AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodCheckHandler.AppID},
-			AppGoodIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: h.AppGoodIDs},
+			AppID:         &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodCheckHandler.AppID},
+			MainAppGoodID: &basetypes.StringVal{Op: cruder.EQ, Value: mainAppGoodID},
+			AppGoodIDs:    &basetypes.StringSliceVal{Op: cruder.IN, Value: h.AppGoodIDs},
 		}, offset, limit)
 		if err != nil {
 			return wlog.WrapError(err)
