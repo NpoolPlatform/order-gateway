@@ -7,7 +7,6 @@ import (
 	malfunctionmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/malfunction"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	malfunctionmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/malfunction"
-	compensatemwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/compensate"
 	powerrentalcompensatemwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/powerrental/compensate"
 	powerrentalcompensatemwcli "github.com/NpoolPlatform/order-middleware/pkg/client/powerrental/compensate"
 
@@ -46,25 +45,22 @@ func (h *createHandler) getCompensateType(ctx context.Context) error {
 	return nil
 }
 
-func (h *Handler) CreateCompensate(ctx context.Context) ([]*compensatemwpb.Compensate, error) {
+func (h *Handler) CreateCompensate(ctx context.Context) error {
 	handler := &createHandler{
 		Handler: h,
 	}
 	if err := handler.getCompensateType(ctx); err != nil {
-		return nil, wlog.WrapError(err)
+		return wlog.WrapError(err)
 	}
 	if h.EntID == nil {
 		h.EntID = func() *string { s := uuid.NewString(); return &s }()
 	}
-	if err := powerrentalcompensatemwcli.CreateCompensate(ctx, &powerrentalcompensatemwpb.CompensateReq{
+	return powerrentalcompensatemwcli.CreateCompensate(ctx, &powerrentalcompensatemwpb.CompensateReq{
 		EntID:             h.EntID,
 		GoodID:            h.GoodID,
 		OrderID:           h.OrderID,
 		CompensateFromID:  h.CompensateFromID,
 		CompensateType:    h.CompensateType,
 		CompensateSeconds: &handler.compensateSeconds,
-	}); err != nil {
-		return nil, wlog.WrapError(err)
-	}
-	return h.GetCompensate(ctx)
+	})
 }

@@ -3,6 +3,7 @@ package compensate
 import (
 	"context"
 
+	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	appmwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/app"
 	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
@@ -30,7 +31,7 @@ func (h *queryHandler) getApps(ctx context.Context) (err error) {
 		}
 		return
 	}())
-	return err
+	return wlog.WrapError(err)
 }
 
 func (h *queryHandler) getUsers(ctx context.Context) (err error) {
@@ -40,7 +41,7 @@ func (h *queryHandler) getUsers(ctx context.Context) (err error) {
 		}
 		return
 	}())
-	return err
+	return wlog.WrapError(err)
 }
 
 func (h *queryHandler) getAppGoods(ctx context.Context) (err error) {
@@ -50,7 +51,7 @@ func (h *queryHandler) getAppGoods(ctx context.Context) (err error) {
 		}
 		return
 	}())
-	return err
+	return wlog.WrapError(err)
 }
 
 func (h *queryHandler) formalize() {
@@ -90,6 +91,33 @@ func (h *queryHandler) formalize() {
 	}
 }
 
+func (h *Handler) GetCompensate(ctx context.Context) (*npool.Compensate, error) {
+	info, err := compensatemwcli.GetCompensate(ctx, *h.EntID)
+	if err != nil {
+		return nil, err
+	}
+
+	handler := &queryHandler{
+		Handler:     h,
+		compensates: []*compensatemwpb.Compensate{info},
+	}
+	if err := handler.getApps(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.getUsers(ctx); err != nil {
+		return nil, err
+	}
+	if err := handler.getAppGoods(ctx); err != nil {
+		return nil, err
+	}
+
+	handler.formalize()
+	if len(handler.infos) == 0 {
+		return nil, nil
+	}
+	return handler.infos[0], nil
+}
+
 func (h *Handler) GetCompensates(ctx context.Context) ([]*npool.Compensate, uint32, error) {
 	conds := &compensatemwpb.Conds{}
 	if h.AppID != nil {
@@ -110,7 +138,7 @@ func (h *Handler) GetCompensates(ctx context.Context) ([]*npool.Compensate, uint
 
 	infos, total, err := compensatemwcli.GetCompensates(ctx, conds, h.Offset, h.Limit)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, wlog.WrapError(err)
 	}
 
 	handler := &queryHandler{
@@ -118,13 +146,13 @@ func (h *Handler) GetCompensates(ctx context.Context) ([]*npool.Compensate, uint
 		compensates: infos,
 	}
 	if err := handler.getApps(ctx); err != nil {
-		return nil, 0, err
+		return nil, 0, wlog.WrapError(err)
 	}
 	if err := handler.getUsers(ctx); err != nil {
-		return nil, 0, err
+		return nil, 0, wlog.WrapError(err)
 	}
 	if err := handler.getAppGoods(ctx); err != nil {
-		return nil, 0, err
+		return nil, 0, wlog.WrapError(err)
 	}
 
 	handler.formalize()
