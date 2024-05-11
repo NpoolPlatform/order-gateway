@@ -89,7 +89,7 @@ func (h *queryHandler) formalize() {
 	}
 }
 
-func (h *Handler) GetOutOfGass(ctx context.Context) ([]*npool.OutOfGas, uint32, error) {
+func (h *Handler) GetOutOfGases(ctx context.Context) ([]*npool.OutOfGas, uint32, error) {
 	conds := &outofgasmwpb.Conds{}
 	if h.AppID != nil {
 		conds.AppID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID}
