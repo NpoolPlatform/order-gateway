@@ -21,10 +21,10 @@ func (s *Server) UpdateFeeOrder(ctx context.Context, in *npool.UpdateFeeOrderReq
 		feeorder1.WithAppID(&in.AppID, true),
 		feeorder1.WithUserID(&in.UserID, true),
 		feeorder1.WithOrderID(&in.OrderID, true),
-		feeorder1.WithPaymentBalances(in.Balances, true),
+		feeorder1.WithPaymentBalances(in.Balances, false),
 		feeorder1.WithPaymentTransferCoinTypeID(in.PaymentTransferCoinTypeID, false),
-		feeorder1.WithUserSetPaid(in.Paid, true),
-		feeorder1.WithUserSetCanceled(in.Canceled, true),
+		feeorder1.WithUserSetPaid(in.Paid, false),
+		feeorder1.WithUserSetCanceled(in.Canceled, false),
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
@@ -58,7 +58,7 @@ func (s *Server) UpdateUserFeeOrder(ctx context.Context, in *npool.UpdateUserFee
 		feeorder1.WithAppID(&in.AppID, true),
 		feeorder1.WithUserID(&in.TargetUserID, true),
 		feeorder1.WithOrderID(&in.OrderID, true),
-		feeorder1.WithAdminSetCanceled(in.Canceled, true),
+		feeorder1.WithAdminSetCanceled(in.Canceled, false),
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
