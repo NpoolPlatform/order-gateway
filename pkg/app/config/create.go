@@ -11,12 +11,11 @@ func (h *Handler) CreateAppConfig(ctx context.Context) (*appconfigmwpb.AppConfig
 	if err := appconfigmwcli.CreateAppConfig(ctx, &appconfigmwpb.AppConfigReq{
 		AppID:                                  h.AppID,
 		EnableSimulateOrder:                    h.EnableSimulateOrder,
-		SimulateOrderUnits:                     h.SimulateOrderUnits,
 		SimulateOrderCouponMode:                h.SimulateOrderCouponMode,
 		SimulateOrderCouponProbability:         h.SimulateOrderCouponProbability,
-		SimulateOrderDurationSeconds:           h.SimulateOrderDurationSeconds,
 		SimulateOrderCashableProfitProbability: h.SimulateOrderCashableProfitProbability,
 		MaxUnpaidOrders:                        h.MaxUnpaidOrders,
+		MaxTypedCouponsPerOrder:                h.MaxTypedCouponsPerOrder,
 	}); err != nil {
 		return nil, err
 	}

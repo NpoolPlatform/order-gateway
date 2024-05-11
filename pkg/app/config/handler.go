@@ -25,6 +25,7 @@ type Handler struct {
 	SimulateOrderCouponProbability         *string
 	SimulateOrderCashableProfitProbability *string
 	MaxUnpaidOrders                        *uint32
+	MaxTypedCouponsPerOrder                *uint32
 	Offset                                 int32
 	Limit                                  int32
 }
@@ -140,6 +141,22 @@ func WithMaxUnpaidOrders(duration *uint32, must bool) func(context.Context, *Han
 			return fmt.Errorf("invalid maxunpaidorders")
 		}
 		h.MaxUnpaidOrders = duration
+		return nil
+	}
+}
+
+func WithMaxTypedCouponsPerOrder(duration *uint32, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if duration == nil {
+			if must {
+				return fmt.Errorf("invalid maxtypedcouponsperorder")
+			}
+			return nil
+		}
+		if *duration <= 0 {
+			return fmt.Errorf("invalid maxtypedcouponsperorder")
+		}
+		h.MaxTypedCouponsPerOrder = duration
 		return nil
 	}
 }

@@ -12,7 +12,7 @@ import (
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/app/config"
 )
 
-func (s *Server) DeleteAppSimulateConfig(ctx context.Context, in *npool.DeleteAppSimulateConfigRequest) (*npool.DeleteAppSimulateConfigResponse, error) {
+func (s *Server) AdminDeleteAppConfig(ctx context.Context, in *npool.AdminDeleteAppConfigRequest) (*npool.AdminDeleteAppConfigResponse, error) {
 	handler, err := config1.NewHandler(
 		ctx,
 		config1.WithID(&in.ID, true),
@@ -21,24 +21,24 @@ func (s *Server) DeleteAppSimulateConfig(ctx context.Context, in *npool.DeleteAp
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
-			"DeleteAppSimulateConfig",
+			"AdminDeleteAppConfig",
 			"In", in,
 			"Error", err,
 		)
-		return &npool.DeleteAppSimulateConfigResponse{}, status.Error(codes.InvalidArgument, err.Error())
+		return &npool.AdminDeleteAppConfigResponse{}, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	info, err := handler.DeleteSimulateConfig(ctx)
+	info, err := handler.DeleteAppConfig(ctx)
 	if err != nil {
 		logger.Sugar().Errorw(
-			"DeleteAppSimulateConfig",
+			"AdminDeleteAppConfig",
 			"In", in,
 			"Error", err,
 		)
-		return &npool.DeleteAppSimulateConfigResponse{}, status.Error(codes.Internal, err.Error())
+		return &npool.AdminDeleteAppConfigResponse{}, status.Error(codes.Internal, err.Error())
 	}
 
-	return &npool.DeleteAppSimulateConfigResponse{
+	return &npool.AdminDeleteAppConfigResponse{
 		Info: info,
 	}, nil
 }

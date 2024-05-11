@@ -17,22 +17,19 @@ func (h *Handler) UpdateAppConfig(ctx context.Context) (*appconfigmwpb.AppConfig
 			Handler: h,
 		},
 	}
-
 	if err := handler.checkAppConfig(ctx); err != nil {
 		return nil, err
 	}
-
 	if err := appconfigmwcli.UpdateAppConfig(ctx, &appconfigmwpb.AppConfigReq{
 		ID:                                     h.ID,
 		EntID:                                  h.EntID,
 		AppID:                                  h.AppID,
 		EnableSimulateOrder:                    h.EnableSimulateOrder,
-		SimulateOrderUnits:                     h.SimulateOrderUnits,
 		SimulateOrderCouponMode:                h.SimulateOrderCouponMode,
 		SimulateOrderCouponProbability:         h.SimulateOrderCouponProbability,
-		SimulateOrderDurationSeconds:           h.SimulateOrderDurationSeconds,
 		SimulateOrderCashableProfitProbability: h.SimulateOrderCashableProfitProbability,
 		MaxUnpaidOrders:                        h.MaxUnpaidOrders,
+		MaxTypedCouponsPerOrder:                h.MaxTypedCouponsPerOrder,
 	}); err != nil {
 		return nil, err
 	}

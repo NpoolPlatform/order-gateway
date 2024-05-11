@@ -13,12 +13,12 @@ import (
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/app/config"
 )
 
-func (s *Server) UpdateAppConfig(ctx context.Context, in *npool.UpdateAppConfigRequest) (*npool.UpdateAppConfigResponse, error) {
+func (s *Server) AdminUpdateAppConfig(ctx context.Context, in *npool.AdminUpdateAppConfigRequest) (*npool.AdminUpdateAppConfigResponse, error) {
 	handler, err := config1.NewHandler(
 		ctx,
 		config1.WithID(&in.ID, true),
 		config1.WithEntID(&in.EntID, true),
-		config1.WithAppID(&in.AppID, true),
+		config1.WithAppID(&in.TargetAppID, true),
 		config1.WithEnableSimulateOrder(in.EnableSimulateOrder, false),
 		config1.WithSimulateOrderCouponMode(in.SimulateOrderCouponMode, false),
 		config1.WithSimulateOrderCouponProbability(in.SimulateOrderCouponProbability, false),
@@ -28,24 +28,24 @@ func (s *Server) UpdateAppConfig(ctx context.Context, in *npool.UpdateAppConfigR
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
-			"UpdateAppConfig",
+			"AdminUpdateAppConfig",
 			"In", in,
 			"Error", err,
 		)
-		return &npool.UpdateAppConfigResponse{}, status.Error(codes.InvalidArgument, err.Error())
+		return &npool.AdminUpdateAppConfigResponse{}, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	info, err := handler.UpdateAppConfig(ctx)
 	if err != nil {
 		logger.Sugar().Errorw(
-			"UpdateAppConfig",
+			"AdminUpdateAppConfig",
 			"In", in,
 			"Error", err,
 		)
-		return &npool.UpdateAppConfigResponse{}, status.Error(codes.Internal, err.Error())
+		return &npool.AdminUpdateAppConfigResponse{}, status.Error(codes.Internal, err.Error())
 	}
 
-	return &npool.UpdateAppConfigResponse{
+	return &npool.AdminUpdateAppConfigResponse{
 		Info: info,
 	}, nil
 }

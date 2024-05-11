@@ -13,68 +13,37 @@ import (
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 )
 
-func (s *Server) CreateSimulateConfig(ctx context.Context, in *npool.CreateSimulateConfigRequest) (*npool.CreateSimulateConfigResponse, error) {
+func (s *Server) CreateAppConfig(ctx context.Context, in *npool.CreateAppConfigRequest) (*npool.CreateAppConfigResponse, error) {
 	handler, err := config1.NewHandler(
 		ctx,
 		config1.WithAppID(&in.AppID, true),
-		config1.WithSendCouponMode(&in.SendCouponMode, true),
-		config1.WithSendCouponProbability(in.SendCouponProbability, false),
-		config1.WithCashableProfitProbability(in.CashableProfitProbability, false),
-		config1.WithEnabled(in.Enabled, false),
+		config1.WithEnableSimulateOrder(in.EnableSimulateOrder, false),
+		config1.WithSimulateOrderCouponMode(in.SimulateOrderCouponMode, false),
+		config1.WithSimulateOrderCouponProbability(in.SimulateOrderCouponProbability, false),
+		config1.WithSimulateOrderCashableProfitProbability(in.SimulateOrderCashableProfitProbability, false),
+		config1.WithMaxUnpaidOrders(in.MaxUnpaidOrders, false),
+		config1.WithMaxTypedCouponsPerOrder(in.MaxTypedCouponsPerOrder, false),
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
-			"CreateSimulateConfig",
+			"CreateAppConfig",
 			"In", in,
 			"Error", err,
 		)
-		return &npool.CreateSimulateConfigResponse{}, status.Error(codes.InvalidArgument, err.Error())
+		return &npool.CreateAppConfigResponse{}, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	info, err := handler.CreateSimulateConfig(ctx)
+	info, err := handler.CreateAppConfig(ctx)
 	if err != nil {
 		logger.Sugar().Errorw(
-			"CreateSimulateConfig",
+			"CreateAppConfig",
 			"In", in,
 			"Error", err,
 		)
-		return &npool.CreateSimulateConfigResponse{}, status.Error(codes.Internal, err.Error())
+		return &npool.CreateAppConfigResponse{}, status.Error(codes.Internal, err.Error())
 	}
 
-	return &npool.CreateSimulateConfigResponse{
-		Info: info,
-	}, nil
-}
-
-func (s *Server) CreateAppSimulateConfig(ctx context.Context, in *npool.CreateAppSimulateConfigRequest) (*npool.CreateAppSimulateConfigResponse, error) {
-	handler, err := config1.NewHandler(
-		ctx,
-		config1.WithAppID(&in.TargetAppID, true),
-		config1.WithSendCouponMode(&in.SendCouponMode, true),
-		config1.WithSendCouponProbability(in.SendCouponProbability, false),
-		config1.WithCashableProfitProbability(in.CashableProfitProbability, false),
-		config1.WithEnabled(in.Enabled, false),
-	)
-	if err != nil {
-		logger.Sugar().Errorw(
-			"CreateAppSimulateConfig",
-			"In", in,
-			"Error", err,
-		)
-		return &npool.CreateAppSimulateConfigResponse{}, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	info, err := handler.CreateSimulateConfig(ctx)
-	if err != nil {
-		logger.Sugar().Errorw(
-			"CreateAppSimulateConfig",
-			"In", in,
-			"Error", err,
-		)
-		return &npool.CreateAppSimulateConfigResponse{}, status.Error(codes.Internal, err.Error())
-	}
-
-	return &npool.CreateAppSimulateConfigResponse{
+	return &npool.CreateAppConfigResponse{
 		Info: info,
 	}, nil
 }
