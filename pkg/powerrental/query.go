@@ -10,9 +10,8 @@ import (
 	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	coinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin"
-	appfeemwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/fee"
-	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
 	topmostmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/topmost"
+	apppowerrentalmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/powerrental"
 	allocatedcouponmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	ordercoupongwpb "github.com/NpoolPlatform/message/npool/order/gw/v1/order/coupon"
 	paymentgwpb "github.com/NpoolPlatform/message/npool/order/gw/v1/payment"
@@ -28,22 +27,21 @@ import (
 
 type queryHandler struct {
 	*Handler
-	fees             []*powerrentalordermwpb.PowerRentalOrder
-	infos            []*npool.PowerRentalOrder
-	apps             map[string]*appmwpb.App
-	users            map[string]*usermwpb.User
-	appFees          map[string]*appfeemwpb.Fee
-	parentAppGoods   map[string]*appgoodmwpb.Good
-	topMosts         map[string]*topmostmwpb.TopMost
-	allocatedCoupons map[string]*allocatedcouponmwpb.Coupon
-	coins            map[string]*coinmwpb.Coin
-	paymentAccounts  map[string]*paymentaccountmwpb.Account
+	powerRentalOrders []*powerrentalordermwpb.PowerRentalOrder
+	infos             []*npool.PowerRentalOrder
+	apps              map[string]*appmwpb.App
+	users             map[string]*usermwpb.User
+	topMosts          map[string]*topmostmwpb.TopMost
+	allocatedCoupons  map[string]*allocatedcouponmwpb.Coupon
+	coins             map[string]*coinmwpb.Coin
+	paymentAccounts   map[string]*paymentaccountmwpb.Account
+	appPowerRentals   map[string]*apppowerrentalmwpb.PowerRental
 }
 
 func (h *queryHandler) getApps(ctx context.Context) (err error) {
 	h.apps, err = ordergwcommon.GetApps(ctx, func() (appIDs []string) {
-		for _, fee := range h.fees {
-			appIDs = append(appIDs, fee.AppID)
+		for _, powerRentalOrder := range h.powerRentalOrders {
+			appIDs = append(appIDs, powerRentalOrder.AppID)
 		}
 		return
 	}())
@@ -52,18 +50,18 @@ func (h *queryHandler) getApps(ctx context.Context) (err error) {
 
 func (h *queryHandler) getUsers(ctx context.Context) (err error) {
 	h.users, err = ordergwcommon.GetUsers(ctx, func() (userIDs []string) {
-		for _, fee := range h.fees {
-			userIDs = append(userIDs, fee.UserID)
+		for _, powerRentalOrder := range h.powerRentalOrders {
+			userIDs = append(userIDs, powerRentalOrder.UserID)
 		}
 		return
 	}())
 	return err
 }
 
-func (h *queryHandler) getAppFees(ctx context.Context) (err error) {
-	h.appFees, err = ordergwcommon.GetAppFees(ctx, func() (appGoodIDs []string) {
-		for _, fee := range h.fees {
-			appGoodIDs = append(appGoodIDs, fee.AppGoodID)
+func (h *queryHandler) getAppPowerRentals(ctx context.Context) (err error) {
+	h.appPowerRentals, err = ordergwcommon.GetAppPowerRentals(ctx, func() (appGoodIDs []string) {
+		for _, powerRentalOrder := range h.powerRentalOrders {
+			appGoodIDs = append(appGoodIDs, powerRentalOrder.AppGoodID)
 		}
 		return
 	}())
@@ -72,11 +70,11 @@ func (h *queryHandler) getAppFees(ctx context.Context) (err error) {
 
 func (h *queryHandler) getTopMosts(ctx context.Context) (err error) {
 	h.topMosts, err = ordergwcommon.GetTopMosts(ctx, func() (topMostIDs []string) {
-		for _, fee := range h.fees {
-			if _, err := uuid.Parse(fee.PromotionID); err != nil {
+		for _, powerRentalOrder := range h.powerRentalOrders {
+			if _, err := uuid.Parse(powerRentalOrder.PromotionID); err != nil {
 				continue
 			}
-			topMostIDs = append(topMostIDs, fee.PromotionID)
+			topMostIDs = append(topMostIDs, powerRentalOrder.PromotionID)
 		}
 		return
 	}())
@@ -85,8 +83,8 @@ func (h *queryHandler) getTopMosts(ctx context.Context) (err error) {
 
 func (h *queryHandler) getAllocatedCoupons(ctx context.Context) (err error) {
 	h.allocatedCoupons, err = ordergwcommon.GetAllocatedCoupons(ctx, func() (allocatedCouponIDs []string) {
-		for _, fee := range h.fees {
-			for _, coupon := range fee.Coupons {
+		for _, powerRentalOrder := range h.powerRentalOrders {
+			for _, coupon := range powerRentalOrder.Coupons {
 				allocatedCouponIDs = append(allocatedCouponIDs, coupon.CouponID)
 			}
 		}
@@ -97,11 +95,11 @@ func (h *queryHandler) getAllocatedCoupons(ctx context.Context) (err error) {
 
 func (h *queryHandler) getCoins(ctx context.Context) (err error) {
 	h.coins, err = ordergwcommon.GetCoins(ctx, func() (coinTypeIDs []string) {
-		for _, fee := range h.fees {
-			for _, balance := range fee.PaymentBalances {
+		for _, powerRentalOrder := range h.powerRentalOrders {
+			for _, balance := range powerRentalOrder.PaymentBalances {
 				coinTypeIDs = append(coinTypeIDs, balance.CoinTypeID)
 			}
-			for _, transfer := range fee.PaymentTransfers {
+			for _, transfer := range powerRentalOrder.PaymentTransfers {
 				coinTypeIDs = append(coinTypeIDs, transfer.CoinTypeID)
 			}
 		}
@@ -112,8 +110,8 @@ func (h *queryHandler) getCoins(ctx context.Context) (err error) {
 
 func (h *queryHandler) getPaymentAccounts(ctx context.Context) (err error) {
 	h.paymentAccounts, err = ordergwcommon.GetPaymentAccounts(ctx, func() (accountIDs []string) {
-		for _, fee := range h.fees {
-			for _, transfer := range fee.PaymentTransfers {
+		for _, powerRentalOrder := range h.powerRentalOrders {
+			for _, transfer := range powerRentalOrder.PaymentTransfers {
 				accountIDs = append(accountIDs, transfer.CoinTypeID)
 			}
 		}
@@ -123,59 +121,75 @@ func (h *queryHandler) getPaymentAccounts(ctx context.Context) (err error) {
 }
 
 func (h *queryHandler) formalize() {
-	for _, fee := range h.fees {
+	for _, powerRentalOrder := range h.powerRentalOrders {
 		info := &npool.PowerRentalOrder{
-			ID:                fee.ID,
-			EntID:             fee.EntID,
-			AppID:             fee.AppID,
-			UserID:            fee.UserID,
-			GoodID:            fee.GoodID,
-			GoodType:          fee.GoodType,
-			AppGoodID:         fee.AppGoodID,
-			OrderID:           fee.OrderID,
-			OrderType:         fee.OrderType,
-			PaymentType:       fee.PaymentType,
-			CreateMethod:      fee.CreateMethod,
-			OrderState:        fee.OrderState,
-			GoodValueUSD:      fee.GoodValueUSD,
-			PaymentAmountUSD:  fee.PaymentAmountUSD,
-			DiscountAmountUSD: fee.DiscountAmountUSD,
-			PromotionID:       fee.PromotionID,
-			DurationSeconds:   fee.DurationSeconds,
-			CancelState:       fee.CancelState,
-			CanceledAt:        fee.CanceledAt,
-			PaidAt:            fee.PaidAt,
-			UserSetPaid:       fee.UserSetPaid,
-			UserSetCanceled:   fee.UserSetCanceled,
-			AdminSetCanceled:  fee.AdminSetCanceled,
-			PaymentState:      fee.PaymentState,
-			CreatedAt:         fee.CreatedAt,
-			UpdatedAt:         fee.UpdatedAt,
+			ID:             powerRentalOrder.ID,
+			EntID:          powerRentalOrder.EntID,
+			AppID:          powerRentalOrder.AppID,
+			UserID:         powerRentalOrder.UserID,
+			GoodID:         powerRentalOrder.GoodID,
+			GoodType:       powerRentalOrder.GoodType,
+			AppGoodID:      powerRentalOrder.AppGoodID,
+			OrderID:        powerRentalOrder.OrderID,
+			OrderType:      powerRentalOrder.OrderType,
+			PaymentType:    powerRentalOrder.PaymentType,
+			CreateMethod:   powerRentalOrder.CreateMethod,
+			Simulate:       powerRentalOrder.Simulate,
+			OrderState:     powerRentalOrder.OrderState,
+			StartMode:      powerRentalOrder.StartMode,
+			StartAt:        powerRentalOrder.StartAt,
+			LastBenefitAt:  powerRentalOrder.LastBenefitAt,
+			BenefitState:   powerRentalOrder.BenefitState,
+			AppGoodStockID: powerRentalOrder.AppGoodStockID,
+			// TODO: mining pool information
+			Units:             powerRentalOrder.Units,
+			GoodValueUSD:      powerRentalOrder.GoodValueUSD,
+			PaymentAmountUSD:  powerRentalOrder.PaymentAmountUSD,
+			DiscountAmountUSD: powerRentalOrder.DiscountAmountUSD,
+			PromotionID:       powerRentalOrder.PromotionID,
+			// TODO: topmost information
+			// TODO: duration display type / units / durations
+			DurationSeconds:   powerRentalOrder.DurationSeconds,
+			InvestmentType:    powerRentalOrder.InvestmentType,
+			CancelState:       powerRentalOrder.CancelState,
+			CanceledAt:        powerRentalOrder.CanceledAt,
+			EndAt:             powerRentalOrder.EndAt,
+			PaidAt:            powerRentalOrder.PaidAt,
+			UserSetPaid:       powerRentalOrder.UserSetPaid,
+			UserSetCanceled:   powerRentalOrder.UserSetCanceled,
+			AdminSetCanceled:  powerRentalOrder.AdminSetCanceled,
+			PaymentState:      powerRentalOrder.PaymentState,
+			OutOfGasSeconds:   powerRentalOrder.OutOfGasSeconds,
+			CompensateSeconds: powerRentalOrder.CompensateSeconds,
+			// TODO: fee durations
+			CreatedAt: powerRentalOrder.CreatedAt,
+			UpdatedAt: powerRentalOrder.UpdatedAt,
 		}
-		app, ok := h.apps[fee.AppID]
+		app, ok := h.apps[powerRentalOrder.AppID]
 		if ok {
 			info.AppName = app.Name
 		}
-		user, ok := h.users[fee.UserID]
+		user, ok := h.users[powerRentalOrder.UserID]
 		if ok {
 			info.EmailAddress = user.EmailAddress
 			info.PhoneNO = user.PhoneNO
 		}
-		appFee, ok := h.appFees[fee.AppGoodID]
+		appPowerRental, ok := h.appPowerRentals[powerRentalOrder.AppGoodID]
 		if ok {
-			info.GoodName = appFee.Name
-			info.AppGoodName = appFee.Name
-			info.DurationDisplayType = appFee.DurationDisplayType
+			info.GoodName = appPowerRental.GoodName
+			info.AppGoodName = appPowerRental.AppGoodName
+			info.DurationDisplayType = appPowerRental.DurationDisplayType
 			info.Durations, info.DurationUnit = ordergwcommon.GoodDurationDisplayType2Unit(
-				appFee.DurationDisplayType, info.DurationSeconds,
+				appPowerRental.DurationDisplayType, info.DurationSeconds,
 			)
+			info.BenefitType = appPowerRental.BenefitType
 		}
-		topMost, ok := h.topMosts[fee.PromotionID]
+		topMost, ok := h.topMosts[powerRentalOrder.PromotionID]
 		if ok {
 			info.TopMostTitle = topMost.Title
 			info.TopMostTargetUrl = topMost.TargetUrl
 		}
-		for _, coupon := range fee.Coupons {
+		for _, coupon := range powerRentalOrder.Coupons {
 			orderCoupon := &ordercoupongwpb.OrderCouponInfo{
 				AllocatedCouponID: coupon.CouponID,
 				CreatedAt:         coupon.CreatedAt,
@@ -188,7 +202,7 @@ func (h *queryHandler) formalize() {
 			}
 			info.Coupons = append(info.Coupons, orderCoupon)
 		}
-		for _, balance := range fee.PaymentBalances {
+		for _, balance := range powerRentalOrder.PaymentBalances {
 			paymentBalance := &paymentgwpb.PaymentBalanceInfo{
 				CoinTypeID:      balance.CoinTypeID,
 				Amount:          balance.Amount,
@@ -204,7 +218,7 @@ func (h *queryHandler) formalize() {
 			}
 			info.PaymentBalances = append(info.PaymentBalances, paymentBalance)
 		}
-		for _, transfer := range fee.PaymentTransfers {
+		for _, transfer := range powerRentalOrder.PaymentTransfers {
 			paymentTransfer := &paymentgwpb.PaymentTransferInfo{
 				CoinTypeID:      transfer.CoinTypeID,
 				Amount:          transfer.Amount,
@@ -238,12 +252,12 @@ func (h *Handler) GetPowerRentalOrder(ctx context.Context) (*npool.PowerRentalOr
 		return nil, wlog.WrapError(err)
 	}
 	if info == nil {
-		return nil, wlog.Errorf("invalid feeorder")
+		return nil, wlog.Errorf("invalid powerrentalorder")
 	}
 
 	handler := &queryHandler{
-		Handler: h,
-		fees:    []*powerrentalordermwpb.PowerRentalOrder{info},
+		Handler:           h,
+		powerRentalOrders: []*powerrentalordermwpb.PowerRentalOrder{info},
 	}
 
 	if err := handler.getApps(ctx); err != nil {
@@ -252,7 +266,7 @@ func (h *Handler) GetPowerRentalOrder(ctx context.Context) (*npool.PowerRentalOr
 	if err := handler.getUsers(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if err := handler.getAppFees(ctx); err != nil {
+	if err := handler.getAppPowerRentals(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.getTopMosts(ctx); err != nil {
@@ -293,8 +307,8 @@ func (h *Handler) GetPowerRentalOrders(ctx context.Context) ([]*npool.PowerRenta
 	}
 
 	handler := &queryHandler{
-		Handler: h,
-		fees:    infos,
+		Handler:           h,
+		powerRentalOrders: infos,
 	}
 
 	if err := handler.getApps(ctx); err != nil {
@@ -303,7 +317,7 @@ func (h *Handler) GetPowerRentalOrders(ctx context.Context) ([]*npool.PowerRenta
 	if err := handler.getUsers(ctx); err != nil {
 		return nil, 0, wlog.WrapError(err)
 	}
-	if err := handler.getAppFees(ctx); err != nil {
+	if err := handler.getAppPowerRentals(ctx); err != nil {
 		return nil, 0, wlog.WrapError(err)
 	}
 	if err := handler.getTopMosts(ctx); err != nil {
