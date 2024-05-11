@@ -147,8 +147,6 @@ func (h *queryHandler) formalize() {
 			PaymentAmountUSD:  powerRentalOrder.PaymentAmountUSD,
 			DiscountAmountUSD: powerRentalOrder.DiscountAmountUSD,
 			PromotionID:       powerRentalOrder.PromotionID,
-			// TODO: topmost information
-			// TODO: duration display type / units / durations
 			DurationSeconds:   powerRentalOrder.DurationSeconds,
 			InvestmentType:    powerRentalOrder.InvestmentType,
 			CancelState:       powerRentalOrder.CancelState,
