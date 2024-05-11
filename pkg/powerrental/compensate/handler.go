@@ -5,14 +5,20 @@ import (
 	"context"
 
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
+	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
+
+	"github.com/google/uuid"
 )
 
 type Handler struct {
+	EntID *string
 	ordercommon.OrderCheckHandler
-	Offset int32
-	Limit  int32
+	CompensateFromID *string
+	CompensateType   *types.CompensateType
+	Offset           int32
+	Limit            int32
 }
 
 func NewHandler(ctx context.Context, options ...func(context.Context, *Handler) error) (*Handler, error) {
@@ -85,6 +91,42 @@ func WithOrderID(orderID *string, must bool) func(context.Context, *Handler) err
 			return wlog.WrapError(err)
 		}
 		h.OrderID = orderID
+		return nil
+	}
+}
+
+func WithCompensateFromID(compensateFromID *string, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if compensateFromID == nil {
+			if must {
+				return wlog.Errorf("invalid compensateFromid")
+			}
+			return nil
+		}
+		if _, err := uuid.Parse(*compensateFromID); err != nil {
+			return wlog.WrapError(err)
+		}
+		h.CompensateFromID = compensateFromID
+		return nil
+	}
+}
+
+func WithCompensateType(e *types.CompensateType, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if e != nil {
+			if must {
+				return wlog.Errorf("invalid compensatetype")
+			}
+			return nil
+		}
+		switch *e {
+		case types.CompensateType_CompensateMalfunction:
+		case types.CompensateType_CompensateWalfare:
+		case types.CompensateType_CompensateStarterDelay:
+		default:
+			return wlog.Errorf("invalid compensatetype")
+		}
+		h.CompensateType = e
 		return nil
 	}
 }
