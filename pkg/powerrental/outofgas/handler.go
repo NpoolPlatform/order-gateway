@@ -1,3 +1,4 @@
+//nolint:dupl
 package outofgas
 
 import (
@@ -11,6 +12,7 @@ import (
 )
 
 type Handler struct {
+	ID    *uint32
 	EntID *string
 	ordercommon.OrderCheckHandler
 	Offset int32
@@ -25,6 +27,19 @@ func NewHandler(ctx context.Context, options ...func(context.Context, *Handler) 
 		}
 	}
 	return handler, nil
+}
+
+func WithID(id *uint32, must bool) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		if id == nil {
+			if must {
+				return wlog.Errorf("invalid id")
+			}
+			return nil
+		}
+		h.ID = id
+		return nil
+	}
 }
 
 func WithEntID(id *string, must bool) func(context.Context, *Handler) error {
@@ -43,82 +58,50 @@ func WithEntID(id *string, must bool) func(context.Context, *Handler) error {
 	}
 }
 
-func WithAppID(id *string, must bool) func(context.Context, *Handler) error {
+func WithAppID(appID *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
-		if id == nil {
+		if appID == nil {
 			if must {
 				return wlog.Errorf("invalid appid")
 			}
 			return nil
 		}
-		if err := h.CheckAppWithAppID(ctx, *id); err != nil {
+		if err := h.CheckAppWithAppID(ctx, *appID); err != nil {
 			return wlog.WrapError(err)
 		}
-		h.AppID = id
+		h.AppID = appID
 		return nil
 	}
 }
 
-func WithUserID(id *string, must bool) func(context.Context, *Handler) error {
+func WithUserID(userID *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
-		if id == nil {
+		if userID == nil {
 			if must {
 				return wlog.Errorf("invalid userid")
 			}
 			return nil
 		}
-		if err := h.CheckUserWithUserID(ctx, *id); err != nil {
+		if err := h.CheckUserWithUserID(ctx, *userID); err != nil {
 			return wlog.WrapError(err)
 		}
-		h.UserID = id
+		h.UserID = userID
 		return nil
 	}
 }
 
-func WithGoodID(id *string, must bool) func(context.Context, *Handler) error {
+func WithOrderID(orderID *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
-		if id == nil {
-			if must {
-				return wlog.Errorf("invalid goodid")
-			}
-			return nil
-		}
-		if err := h.CheckGoodWithGoodID(ctx, *id); err != nil {
-			return wlog.WrapError(err)
-		}
-		h.GoodID = id
-		return nil
-	}
-}
-
-func WithAppGoodID(id *string, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if id == nil {
-			if must {
-				return wlog.Errorf("invalid appgoodid")
-			}
-			return nil
-		}
-		if err := h.CheckAppGoodWithAppGoodID(ctx, *id); err != nil {
-			return wlog.WrapError(err)
-		}
-		h.AppGoodID = id
-		return nil
-	}
-}
-
-func WithOrderID(id *string, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if id == nil {
+		if orderID == nil {
 			if must {
 				return wlog.Errorf("invalid orderid")
 			}
 			return nil
 		}
-		if err := h.CheckOrderWithOrderID(ctx, *id); err != nil {
+		if err := h.CheckOrderWithOrderID(ctx, *orderID); err != nil {
 			return wlog.WrapError(err)
 		}
-		h.OrderID = id
+		h.OrderID = orderID
 		return nil
 	}
 }

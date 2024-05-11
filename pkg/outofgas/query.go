@@ -3,6 +3,7 @@ package outofgas
 import (
 	"context"
 
+	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	appmwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/app"
 	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
@@ -30,7 +31,7 @@ func (h *queryHandler) getApps(ctx context.Context) (err error) {
 		}
 		return
 	}())
-	return err
+	return wlog.WrapError(err)
 }
 
 func (h *queryHandler) getUsers(ctx context.Context) (err error) {
@@ -40,7 +41,7 @@ func (h *queryHandler) getUsers(ctx context.Context) (err error) {
 		}
 		return
 	}())
-	return err
+	return wlog.WrapError(err)
 }
 
 func (h *queryHandler) getAppGoods(ctx context.Context) (err error) {
@@ -50,7 +51,7 @@ func (h *queryHandler) getAppGoods(ctx context.Context) (err error) {
 		}
 		return
 	}())
-	return err
+	return wlog.WrapError(err)
 }
 
 func (h *queryHandler) formalize() {
@@ -89,6 +90,33 @@ func (h *queryHandler) formalize() {
 	}
 }
 
+func (h *Handler) GetOutOfGas(ctx context.Context) (*npool.OutOfGas, error) {
+	info, err := outofgasmwcli.GetOutOfGas(ctx, *h.EntID)
+	if err != nil {
+		return nil, wlog.WrapError(err)
+	}
+	if info == nil {
+		return nil, wlog.Errorf("invalid outofgas")
+	}
+
+	handler := &queryHandler{
+		Handler:    h,
+		outOfGases: []*outofgasmwpb.OutOfGas{info},
+	}
+	if err := handler.getApps(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+	if err := handler.getUsers(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+	if err := handler.getAppGoods(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+
+	handler.formalize()
+	return handler.infos[0], nil
+}
+
 func (h *Handler) GetOutOfGases(ctx context.Context) ([]*npool.OutOfGas, uint32, error) {
 	conds := &outofgasmwpb.Conds{}
 	if h.AppID != nil {
@@ -109,7 +137,7 @@ func (h *Handler) GetOutOfGases(ctx context.Context) ([]*npool.OutOfGas, uint32,
 
 	infos, total, err := outofgasmwcli.GetOutOfGases(ctx, conds, h.Offset, h.Limit)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, wlog.WrapError(err)
 	}
 
 	handler := &queryHandler{
@@ -117,13 +145,13 @@ func (h *Handler) GetOutOfGases(ctx context.Context) ([]*npool.OutOfGas, uint32,
 		outOfGases: infos,
 	}
 	if err := handler.getApps(ctx); err != nil {
-		return nil, 0, err
+		return nil, 0, wlog.WrapError(err)
 	}
 	if err := handler.getUsers(ctx); err != nil {
-		return nil, 0, err
+		return nil, 0, wlog.WrapError(err)
 	}
 	if err := handler.getAppGoods(ctx); err != nil {
-		return nil, 0, err
+		return nil, 0, wlog.WrapError(err)
 	}
 
 	handler.formalize()

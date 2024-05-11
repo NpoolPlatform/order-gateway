@@ -1,11 +1,11 @@
 //nolint:dupl
-package compensate
+package outofgas
 
 import (
 	"context"
 
-	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/powerrental/compensate"
-	compensate1 "github.com/NpoolPlatform/order-gateway/pkg/powerrental/compensate"
+	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/powerrental/outofgas"
+	outofgas1 "github.com/NpoolPlatform/order-gateway/pkg/powerrental/outofgas"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -14,13 +14,13 @@ import (
 )
 
 func (s *Server) AdminDeleteCompensate(ctx context.Context, in *npool.AdminDeleteCompensateRequest) (*npool.AdminDeleteCompensateResponse, error) {
-	handler, err := compensate1.NewHandler(
+	handler, err := outofgas1.NewHandler(
 		ctx,
-		compensate1.WithAppID(&in.TargetAppID, true),
-		compensate1.WithUserID(&in.TargetUserID, true),
-		compensate1.WithID(&in.ID, true),
-		compensate1.WithEntID(&in.EntID, true),
-		compensate1.WithOrderID(&in.OrderID, true),
+		outofgas1.WithAppID(&in.TargetAppID, true),
+		outofgas1.WithUserID(&in.TargetUserID, true),
+		outofgas1.WithID(&in.ID, true),
+		outofgas1.WithEntID(&in.EntID, true),
+		outofgas1.WithOrderID(&in.OrderID, true),
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
