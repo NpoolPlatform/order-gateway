@@ -6,6 +6,7 @@ import (
 
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/fee"
+	ordercommon "github.com/NpoolPlatform/order-gateway/api/order/common"
 	feeorder1 "github.com/NpoolPlatform/order-gateway/pkg/fee"
 
 	"google.golang.org/grpc/codes"
@@ -15,15 +16,12 @@ import (
 )
 
 func (s *Server) AdminCreateFeeOrder(ctx context.Context, in *npool.AdminCreateFeeOrderRequest) (*npool.AdminCreateFeeOrderResponse, error) {
-	switch in.OrderType {
-	case types.OrderType_Offline:
-	case types.OrderType_Airdrop:
-	default:
+	if err := ordercommon.ValidateAdminCreateOrderType(in.GetOrderType()); err != nil {
 		logger.Sugar().Errorw(
 			"AdminCreateUserFeeOrder",
 			"In", in,
 		)
-		return &npool.AdminCreateFeeOrderResponse{}, status.Error(codes.InvalidArgument, "invalid ordertype")
+		return &npool.AdminCreateFeeOrderResponse{}, status.Error(codes.InvalidArgument, err.Error())
 	}
 	handler, err := feeorder1.NewHandler(
 		ctx,
