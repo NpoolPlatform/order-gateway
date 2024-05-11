@@ -79,24 +79,24 @@ func (h *queryHandler) formalize(ctx context.Context) { //nolint
 }
 
 func (h *Handler) GetOrders(ctx context.Context) ([]*npool.Order, uint32, error) {
-	conds := &ordermwpb.Conds{
-		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+	conds := &ordermwpb.Conds{}
+	if h.AppID != nil {
+		conds.AppID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID}
 	}
-
 	if h.UserID != nil {
 		conds.UserID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID}
 	}
-	ords, total, err := ordercli.GetOrders(ctx, conds, h.Offset, h.Limit)
+	orders, total, err := ordercli.GetOrders(ctx, conds, h.Offset, h.Limit)
 	if err != nil {
 		return nil, 0, wlog.WrapError(err)
 	}
-	if len(ords) == 0 {
+	if len(orders) == 0 {
 		return nil, 0, nil
 	}
 
 	handler := &queryHandler{
 		Handler:  h,
-		orders:   ords,
+		orders:   orders,
 		infos:    []*npool.Order{},
 		users:    map[string]*usermwpb.User{},
 		appGoods: map[string]*appgoodmwpb.Good{},
