@@ -13,7 +13,7 @@ import (
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 )
 
-func (s *Server) AdminDeleteCompensate(ctx context.Context, in *npool.AdminDeleteCompensateRequest) (*npool.AdminDeleteCompensateResponse, error) {
+func (s *Server) AdminDeleteOutOfGas(ctx context.Context, in *npool.AdminDeleteOutOfGasRequest) (*npool.AdminDeleteOutOfGasResponse, error) {
 	handler, err := outofgas1.NewHandler(
 		ctx,
 		outofgas1.WithAppID(&in.TargetAppID, true),
@@ -24,24 +24,24 @@ func (s *Server) AdminDeleteCompensate(ctx context.Context, in *npool.AdminDelet
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
-			"AdminDeleteCompensate",
+			"AdminDeleteOutOfGas",
 			"In", in,
 			"Error", err,
 		)
-		return &npool.AdminDeleteCompensateResponse{}, status.Error(codes.InvalidArgument, err.Error())
+		return &npool.AdminDeleteOutOfGasResponse{}, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	info, err := handler.DeleteCompensate(ctx)
+	info, err := handler.DeleteOutOfGas(ctx)
 	if err != nil {
 		logger.Sugar().Errorw(
-			"AdminDeleteCompensate",
+			"AdminDeleteOutOfGas",
 			"In", in,
 			"Error", err,
 		)
-		return &npool.AdminDeleteCompensateResponse{}, status.Error(codes.Internal, err.Error())
+		return &npool.AdminDeleteOutOfGasResponse{}, status.Error(codes.Internal, err.Error())
 	}
 
-	return &npool.AdminDeleteCompensateResponse{
+	return &npool.AdminDeleteOutOfGasResponse{
 		Info: info,
 	}, nil
 }
