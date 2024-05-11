@@ -8,7 +8,6 @@ import (
 	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
 	logger "github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
-	appfeemwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/fee"
 	apppowerrentalmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/powerrental"
 	goodcoinmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/coin"
 	goodmwsvcname "github.com/NpoolPlatform/good-middleware/pkg/servicename"
@@ -93,19 +92,9 @@ func (h *baseCreateHandler) validateRequiredAppGoods() error {
 	return nil
 }
 
-func (h *baseCreateHandler) getAppFees(ctx context.Context) error {
-	appFees, _, err := appfeemwcli.GetFees(ctx, &appfeemwpb.Conds{
-		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.OrderCheckHandler.AppID},
-		AppGoodIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: h.Handler.FeeAppGoodIDs},
-	}, 0, int32(len(h.Handler.FeeAppGoodIDs)))
-	if err != nil {
-		return wlog.WrapError(err)
-	}
-	h.appFees = map[string]*appfeemwpb.Fee{}
-	for _, appFee := range appFees {
-		h.appFees[appFee.AppGoodID] = appFee
-	}
-	return nil
+func (h *baseCreateHandler) getAppFees(ctx context.Context) (err error) {
+	h.appFees, err = ordergwcommon.GetAppFees(ctx, h.Handler.FeeAppGoodIDs)
+	return err
 }
 
 func (h *baseCreateHandler) getAppPowerRental(ctx context.Context) (err error) {

@@ -10,9 +10,11 @@ import (
 	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	coinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/coin"
+	appfeemwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/fee"
 	topmostmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/topmost"
 	apppowerrentalmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/powerrental"
 	allocatedcouponmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
+	feeordergwpb "github.com/NpoolPlatform/message/npool/order/gw/v1/fee"
 	ordercoupongwpb "github.com/NpoolPlatform/message/npool/order/gw/v1/order/coupon"
 	paymentgwpb "github.com/NpoolPlatform/message/npool/order/gw/v1/payment"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/powerrental"
@@ -23,13 +25,12 @@ import (
 	"github.com/google/uuid"
 )
 
-// TODO: expand all field
-
 type queryHandler struct {
 	*Handler
 	powerRentalOrders []*powerrentalordermwpb.PowerRentalOrder
 	infos             []*npool.PowerRentalOrder
 	apps              map[string]*appmwpb.App
+	appFees           map[string]*appfeemwpb.Fee
 	users             map[string]*usermwpb.User
 	topMosts          map[string]*topmostmwpb.TopMost
 	allocatedCoupons  map[string]*allocatedcouponmwpb.Coupon
@@ -62,6 +63,18 @@ func (h *queryHandler) getAppPowerRentals(ctx context.Context) (err error) {
 	h.appPowerRentals, err = ordergwcommon.GetAppPowerRentals(ctx, func() (appGoodIDs []string) {
 		for _, powerRentalOrder := range h.powerRentalOrders {
 			appGoodIDs = append(appGoodIDs, powerRentalOrder.AppGoodID)
+		}
+		return
+	}())
+	return err
+}
+
+func (h *queryHandler) getAppFees(ctx context.Context) (err error) {
+	h.appFees, err = ordergwcommon.GetAppFees(ctx, func() (appGoodIDs []string) {
+		for _, powerRentalOrder := range h.powerRentalOrders {
+			for _, feeDuration := range powerRentalOrder.FeeDurations {
+				appGoodIDs = append(appGoodIDs, feeDuration.AppGoodID)
+			}
 		}
 		return
 	}())
@@ -237,6 +250,17 @@ func (h *queryHandler) formalize() {
 			}
 			info.PaymentTransfers = append(info.PaymentTransfers, paymentTransfer)
 		}
+		for _, feeDuration := range powerRentalOrder.FeeDurations {
+			appFee, ok := h.appFees[feeDuration.AppGoodID]
+			if !ok {
+				continue
+			}
+			info.FeeDurations = append(info.FeeDurations, &feeordergwpb.FeeDuration{
+				AppGoodID:            feeDuration.AppGoodID,
+				AppGoodName:          appFee.Name,
+				TotalDurationSeconds: feeDuration.TotalDurationSeconds,
+			})
+		}
 		h.infos = append(h.infos, info)
 	}
 }
@@ -265,6 +289,9 @@ func (h *Handler) GetPowerRentalOrder(ctx context.Context) (*npool.PowerRentalOr
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.getAppPowerRentals(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+	if err := handler.getAppFees(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.getTopMosts(ctx); err != nil {
@@ -316,6 +343,9 @@ func (h *Handler) GetPowerRentalOrders(ctx context.Context) ([]*npool.PowerRenta
 		return nil, 0, wlog.WrapError(err)
 	}
 	if err := handler.getAppPowerRentals(ctx); err != nil {
+		return nil, 0, wlog.WrapError(err)
+	}
+	if err := handler.getAppFees(ctx); err != nil {
 		return nil, 0, wlog.WrapError(err)
 	}
 	if err := handler.getTopMosts(ctx); err != nil {

@@ -7,7 +7,6 @@ import (
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
 	logger "github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
-	appfeemwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/fee"
 	goodcoinmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/coin"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
@@ -111,19 +110,9 @@ func (h *baseCreateHandler) validateRequiredAppGoods() error {
 	return nil
 }
 
-func (h *baseCreateHandler) getAppFees(ctx context.Context) error {
-	appFees, _, err := appfeemwcli.GetFees(ctx, &appfeemwpb.Conds{
-		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.OrderCheckHandler.AppID},
-		AppGoodIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: h.Handler.AppGoodIDs},
-	}, 0, int32(len(h.Handler.AppGoodIDs)))
-	if err != nil {
-		return wlog.WrapError(err)
-	}
-	h.appFees = map[string]*appfeemwpb.Fee{}
-	for _, appFee := range appFees {
-		h.appFees[appFee.AppGoodID] = appFee
-	}
-	return nil
+func (h *baseCreateHandler) getAppFees(ctx context.Context) (err error) {
+	h.appFees, err = ordergwcommon.GetAppFees(ctx, h.Handler.AppGoodIDs)
+	return err
 }
 
 func (h *baseCreateHandler) calculateFeeOrderValueUSD(appGoodID string) (value decimal.Decimal, err error) {
