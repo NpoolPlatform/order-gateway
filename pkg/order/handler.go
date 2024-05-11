@@ -3,45 +3,16 @@ package order
 
 import (
 	"context"
-	"fmt"
 
-	appmwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/app"
-	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
-	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
-	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
-	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
-	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/order"
-	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
+	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
+	ordergwcommon "github.com/NpoolPlatform/order-gateway/pkg/common"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
-	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
-
-	"github.com/google/uuid"
-	"github.com/shopspring/decimal"
 )
 
 type Handler struct {
-	ID               *uint32
-	EntID            *string
-	AppID            *string
-	UserID           *string
-	AppGoodID        *string
-	Units            *string
-	Duration         *uint32
-	PaymentCoinID    *string
-	ParentOrderID    *string
-	BalanceAmount    *string
-	OrderType        *ordertypes.OrderType
-	CouponIDs        []string
-	InvestmentType   *ordertypes.InvestmentType
-	UserSetCanceled  *bool
-	AdminSetCanceled *bool
-	PaymentID        *string
-	Simulate         *bool
-	Offset           int32
-	Limit            int32
-	Orders           []*npool.CreateOrdersRequest_OrderReq
-	EntIDs           []string
-	IDs              []uint32
+	ordergwcommon.UserCheckHandler
+	Offset int32
+	Limit  int32
 }
 
 func NewHandler(ctx context.Context, options ...func(context.Context, *Handler) error) (*Handler, error) {
@@ -54,50 +25,16 @@ func NewHandler(ctx context.Context, options ...func(context.Context, *Handler) 
 	return handler, nil
 }
 
-func WithID(id *uint32, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if id == nil {
-			if must {
-				return fmt.Errorf("invalid id")
-			}
-			return nil
-		}
-
-		h.ID = id
-		return nil
-	}
-}
-
-func WithEntID(id *string, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if id == nil {
-			if must {
-				return fmt.Errorf("invalid entid")
-			}
-			return nil
-		}
-		if _, err := uuid.Parse(*id); err != nil {
-			return err
-		}
-		h.EntID = id
-		return nil
-	}
-}
-
 func WithAppID(appID *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if appID == nil {
 			if must {
-				return fmt.Errorf("invalid appid")
+				return wlog.Errorf("invalid appid")
 			}
 			return nil
 		}
-		exist, err := appmwcli.ExistApp(ctx, *appID)
-		if err != nil {
-			return err
-		}
-		if !exist {
-			return fmt.Errorf("invalid app")
+		if err := h.CheckAppWithAppID(ctx, *appID); err != nil {
+			return wlog.WrapError(err)
 		}
 		h.AppID = appID
 		return nil
@@ -108,284 +45,14 @@ func WithUserID(userID *string, must bool) func(context.Context, *Handler) error
 	return func(ctx context.Context, h *Handler) error {
 		if userID == nil {
 			if must {
-				return fmt.Errorf("invalid userid")
+				return wlog.Errorf("invalid userid")
 			}
 			return nil
 		}
-		_, err := uuid.Parse(*userID)
-		if err != nil {
-			return err
+		if err := h.CheckUserWithUserID(ctx, *userID); err != nil {
+			return wlog.WrapError(err)
 		}
 		h.UserID = userID
-		return nil
-	}
-}
-
-func WithAppGoodID(id *string, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if id == nil {
-			if must {
-				return fmt.Errorf("invalid appgoodid")
-			}
-			return nil
-		}
-		exist, err := appgoodmwcli.ExistGood(ctx, *id)
-		if err != nil {
-			return err
-		}
-		if !exist {
-			return fmt.Errorf("invalid appgood")
-		}
-		h.AppGoodID = id
-		return nil
-	}
-}
-
-func WithPaymentCoinID(id *string, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if id == nil {
-			if must {
-				return fmt.Errorf("invalid paymentcoinid")
-			}
-			return nil
-		}
-		_, err := uuid.Parse(*id)
-		if err != nil {
-			return err
-		}
-		h.PaymentCoinID = id
-		return nil
-	}
-}
-
-func WithParentOrderID(id *string, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if id == nil {
-			if must {
-				return fmt.Errorf("invalid parentorderid")
-			}
-			return nil
-		}
-		_, err := uuid.Parse(*id)
-		if err != nil {
-			return err
-		}
-		exist, err := ordermwcli.ExistOrder(ctx, *id)
-		if err != nil {
-			return err
-		}
-		if !exist {
-			return fmt.Errorf("invalid parentorder")
-		}
-		h.ParentOrderID = id
-		return nil
-	}
-}
-
-func WithUnits(amount *string, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if amount == nil {
-			if must {
-				return fmt.Errorf("invalid amount")
-			}
-			return nil
-		}
-		_amount, err := decimal.NewFromString(*amount)
-		if err != nil {
-			return err
-		}
-		if _amount.Cmp(decimal.NewFromInt32(0)) <= 0 {
-			return fmt.Errorf("invalid units")
-		}
-		h.Units = amount
-		return nil
-	}
-}
-
-func WithDuration(n *uint32, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		h.Duration = n
-		return nil
-	}
-}
-
-func WithBalanceAmount(amount *string, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if amount == nil {
-			if must {
-				return fmt.Errorf("invalid balanceamount")
-			}
-			return nil
-		}
-		_amount, err := decimal.NewFromString(*amount)
-		if err != nil {
-			return err
-		}
-		if _amount.Cmp(decimal.NewFromInt32(0)) <= 0 {
-			return fmt.Errorf("invalid balanceamount")
-		}
-		h.BalanceAmount = amount
-		return nil
-	}
-}
-
-func WithCouponIDs(couponIDs []string, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if len(couponIDs) == 0 {
-			if must {
-				return fmt.Errorf("invalid couponids")
-			}
-			return nil
-		}
-		for _, id := range couponIDs {
-			if _, err := uuid.Parse(id); err != nil {
-				return err
-			}
-		}
-		exist, err := ordermwcli.ExistOrderConds(ctx, &ordermwpb.Conds{
-			CouponIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: couponIDs},
-		})
-		if err != nil {
-			return err
-		}
-		if exist {
-			return fmt.Errorf("invalid couponids")
-		}
-		h.CouponIDs = couponIDs
-		return nil
-	}
-}
-
-func WithInvestmentType(investmentType *ordertypes.InvestmentType, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if investmentType == nil {
-			if must {
-				return fmt.Errorf("invalid investmenttype")
-			}
-			return nil
-		}
-		switch *investmentType {
-		case ordertypes.InvestmentType_FullPayment:
-		case ordertypes.InvestmentType_UnionMining:
-		default:
-			return fmt.Errorf("invalid investmenttype")
-		}
-		h.InvestmentType = investmentType
-		return nil
-	}
-}
-
-func WithUserSetCanceled(value *bool, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if value == nil {
-			if must {
-				return fmt.Errorf("invalid canceled")
-			}
-			return nil
-		}
-		h.UserSetCanceled = value
-		return nil
-	}
-}
-
-func WithAdminSetCanceled(value *bool, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if value == nil {
-			if must {
-				return fmt.Errorf("invalid canceled")
-			}
-			return nil
-		}
-		h.AdminSetCanceled = value
-		return nil
-	}
-}
-
-func WithSimulate(value *bool, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if value == nil {
-			if must {
-				return fmt.Errorf("invalid simulate")
-			}
-			return nil
-		}
-		h.Simulate = value
-		return nil
-	}
-}
-
-func WithPaymentID(id *string, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if id == nil {
-			if must {
-				return fmt.Errorf("invalid paymentid")
-			}
-			return nil
-		}
-		_, err := uuid.Parse(*id)
-		if err != nil {
-			return err
-		}
-		h.PaymentID = id
-		return nil
-	}
-}
-
-func WithOrderType(orderType *ordertypes.OrderType, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		if orderType == nil {
-			if must {
-				return fmt.Errorf("invalid ordertype")
-			}
-			return nil
-		}
-		switch *orderType {
-		case ordertypes.OrderType_Airdrop:
-		case ordertypes.OrderType_Offline:
-		case ordertypes.OrderType_Normal:
-		default:
-			return fmt.Errorf("invalid order type")
-		}
-		h.OrderType = orderType
-		return nil
-	}
-}
-
-func WithOrders(orders []*npool.CreateOrdersRequest_OrderReq, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		for _, order := range orders {
-			if _, err := uuid.Parse(order.AppGoodID); err != nil {
-				return err
-			}
-			if order.Parent && order.Units == nil {
-				return fmt.Errorf("invalid parent units")
-			}
-			if order.Units != nil {
-				units, err := decimal.NewFromString(*order.Units)
-				if err != nil {
-					return err
-				}
-				if units.Cmp(decimal.NewFromInt(0)) <= 0 {
-					return fmt.Errorf("invalid units")
-				}
-			}
-			if order.Duration != nil && *order.Duration <= 0 {
-				return fmt.Errorf("invalid duration")
-			}
-		}
-		h.Orders = orders
-		return nil
-	}
-}
-
-func WithSimulateOrders(orders []*npool.CreateOrdersRequest_OrderReq, must bool) func(context.Context, *Handler) error {
-	return func(ctx context.Context, h *Handler) error {
-		for _, order := range orders {
-			if _, err := uuid.Parse(order.AppGoodID); err != nil {
-				return err
-			}
-		}
-		h.Orders = orders
 		return nil
 	}
 }
