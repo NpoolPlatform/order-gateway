@@ -54,7 +54,7 @@ func (h *baseCreateHandler) getAppGoods(ctx context.Context) error {
 
 func (h *baseCreateHandler) getGoodCoins(ctx context.Context) error {
 	offset := int32(0)
-	limit := int32(constant.DefaultRowLimit)
+	limit := constant.DefaultRowLimit
 
 	for {
 		goodCoins, _, err := goodcoinmwcli.GetGoodCoins(ctx, &goodcoinmwpb.Conds{

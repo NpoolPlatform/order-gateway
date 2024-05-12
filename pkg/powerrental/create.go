@@ -14,6 +14,7 @@ type createHandler struct {
 	*baseCreateHandler
 }
 
+//nolint:funlen,gocyclo
 func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRentalOrder, error) {
 	handler := &createHandler{
 		baseCreateHandler: &baseCreateHandler{
@@ -25,6 +26,7 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 				AllocatedCouponCheckHandler: h.AllocatedCouponCheckHandler,
 				PaymentTransferCoinTypeID:   h.PaymentTransferCoinTypeID,
 				PaymentBalanceReqs:          h.Balances,
+				AllocatedCouponIDs:          h.CouponIDs,
 				Simulate:                    h.Simulate != nil && *h.Simulate,
 			},
 			appGoodStockLockID: func() *string { s := uuid.NewString(); return &s }(),

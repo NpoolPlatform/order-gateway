@@ -213,9 +213,10 @@ func (h *OrderOpHandler) ValidateCouponScope(ctx context.Context, parentAppGoodI
 			if parentAppGoodID != nil && *parentAppGoodID == appGoodID {
 				continue
 			}
+			_appGoodID := appGoodID
 			reqs = append(reqs, &appgoodscopemwpb.ScopeReq{
 				AppID:       h.AppGoodCheckHandler.AppID,
-				AppGoodID:   &appGoodID,
+				AppGoodID:   &_appGoodID,
 				GoodID:      &appGood.GoodID,
 				CouponID:    &allocatedCoupon.CouponID,
 				CouponScope: &allocatedCoupon.CouponScope,
@@ -278,7 +279,7 @@ func (h *OrderOpHandler) ValidateMaxUnpaidOrders(ctx context.Context) error {
 
 func (h *OrderOpHandler) GetRequiredAppGoods(ctx context.Context, mainAppGoodID string) error {
 	offset := int32(0)
-	limit := int32(constant.DefaultRowLimit)
+	limit := constant.DefaultRowLimit
 	h.RequiredAppGoods = map[string]map[string]*requiredappgoodmwpb.Required{}
 
 	for {
@@ -307,7 +308,7 @@ func (h *OrderOpHandler) GetRequiredAppGoods(ctx context.Context, mainAppGoodID 
 
 func (h *OrderOpHandler) GetTopMostAppGoods(ctx context.Context) error {
 	offset := int32(0)
-	limit := int32(constant.DefaultRowLimit)
+	limit := constant.DefaultRowLimit
 	h.TopMostAppGoods = map[string]*topmostgoodmwpb.TopMostGood{}
 
 	for {
@@ -353,7 +354,7 @@ func (h *OrderOpHandler) CalculateDeductAmountUSD() error {
 			if err != nil {
 				return wlog.WrapError(err)
 			}
-			discount = discount.Div(decimal.NewFromInt(100))
+			discount = discount.Div(decimal.NewFromInt(100)) //nolint
 			h.DeductAmountUSD = h.DeductAmountUSD.Add(h.TotalGoodValueUSD.Mul(discount))
 		case inspiretypes.CouponType_FixAmount:
 			amount, err := decimal.NewFromString(allocatedCoupon.Denomination)
@@ -530,7 +531,7 @@ func (h *OrderOpHandler) peekExistPaymentAccount(ctx context.Context) (*paymenta
 		Locked:      &basetypes.BoolVal{Op: cruder.EQ, Value: false},
 		Blocked:     &basetypes.BoolVal{Op: cruder.EQ, Value: false},
 		AvailableAt: &basetypes.Uint32Val{Op: cruder.LTE, Value: uint32(time.Now().Unix())},
-	}, 0, 5)
+	}, 0, 5) //nolint
 	if err != nil {
 		return nil, err
 	}
@@ -617,11 +618,11 @@ func (h *OrderOpHandler) GetPaymentTransferStartAmount(ctx context.Context) erro
 		return wlog.Errorf("invalid balance")
 	}
 	h.PaymentTransferStartAmount, err = decimal.NewFromString(balance.BalanceStr)
-	return nil
+	return err
 }
 
 func (h *OrderOpHandler) PrepareLedgerLockID() {
-	if len(h.PaymentBalanceReqs) <= 0 {
+	if len(h.PaymentBalanceReqs) == 0 {
 		return
 	}
 	h.BalanceLockID = func() *string { s := uuid.NewString(); return &s }()

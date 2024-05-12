@@ -12,6 +12,7 @@ type createsHandler struct {
 	*baseCreateHandler
 }
 
+//nolint:funlen,gocyclo
 func (h *Handler) CreateFeeOrders(ctx context.Context) ([]*npool.FeeOrder, error) {
 	handler := &createsHandler{
 		baseCreateHandler: &baseCreateHandler{
@@ -23,6 +24,7 @@ func (h *Handler) CreateFeeOrders(ctx context.Context) ([]*npool.FeeOrder, error
 				AppGoodIDs:                  h.AppGoodIDs,
 				PaymentTransferCoinTypeID:   h.PaymentTransferCoinTypeID,
 				PaymentBalanceReqs:          h.Balances,
+				AllocatedCouponIDs:          h.CouponIDs,
 			},
 		},
 	}

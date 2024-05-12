@@ -69,7 +69,7 @@ func (h *baseCreateHandler) getAppGoods(ctx context.Context) error {
 
 func (h *baseCreateHandler) getParentGoodCoins(ctx context.Context) error {
 	offset := int32(0)
-	limit := int32(constant.DefaultRowLimit)
+	limit := constant.DefaultRowLimit
 
 	for {
 		goodCoins, _, err := goodcoinmwcli.GetGoodCoins(ctx, &goodcoinmwpb.Conds{
@@ -99,7 +99,7 @@ func (h *baseCreateHandler) validateRequiredAppGoods() error {
 			return wlog.Errorf("miss requiredappgood")
 		}
 	}
-	for appGoodID, _ := range h.AppGoods {
+	for appGoodID := range h.AppGoods {
 		if appGoodID == h.parentAppGood.EntID {
 			continue
 		}

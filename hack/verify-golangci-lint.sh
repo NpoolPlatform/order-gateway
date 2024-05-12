@@ -24,4 +24,4 @@ fi
 
 golangci-lint version
 golangci-lint linters
-golangci-lint run "$@"
+golangci-lint run "$@" --fix

@@ -130,6 +130,7 @@ func (h *queryHandler) getPaymentAccounts(ctx context.Context) (err error) {
 	return err
 }
 
+//nolint:funlen
 func (h *queryHandler) formalize() {
 	for _, fee := range h.fees {
 		info := &npool.FeeOrder{
@@ -282,6 +283,9 @@ func (h *Handler) GetFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	if err := handler.getPaymentAccounts(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+	if err := handler.getAllocatedCoupons(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
 
 	handler.formalize()
 	if len(handler.infos) == 0 {
@@ -334,6 +338,9 @@ func (h *Handler) GetFeeOrders(ctx context.Context) ([]*npool.FeeOrder, uint32, 
 		return nil, 0, wlog.WrapError(err)
 	}
 	if err := handler.getPaymentAccounts(ctx); err != nil {
+		return nil, 0, wlog.WrapError(err)
+	}
+	if err := handler.getAllocatedCoupons(ctx); err != nil {
 		return nil, 0, wlog.WrapError(err)
 	}
 

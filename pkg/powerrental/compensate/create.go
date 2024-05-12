@@ -42,7 +42,6 @@ func (h *createHandler) getCompensateType(ctx context.Context) error {
 	default:
 		return wlog.Errorf("invalid compensatetype")
 	}
-	return nil
 }
 
 func (h *Handler) CreateCompensate(ctx context.Context) error {
