@@ -17,14 +17,16 @@ func (h *Handler) CreateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	handler := &createHandler{
 		baseCreateHandler: &baseCreateHandler{
 			Handler: h,
-			OrderOpHandler: &ordercommon.OrderOpHandler{
-				AppGoodCheckHandler:         h.AppGoodCheckHandler,
-				CoinCheckHandler:            h.CoinCheckHandler,
-				AllocatedCouponCheckHandler: h.AllocatedCouponCheckHandler,
-				AppGoodIDs:                  h.AppGoodIDs,
-				PaymentTransferCoinTypeID:   h.PaymentTransferCoinTypeID,
-				PaymentBalanceReqs:          h.Balances,
-				AllocatedCouponIDs:          h.CouponIDs,
+			DtmHandler: &ordercommon.DtmHandler{
+				OrderOpHandler: &ordercommon.OrderOpHandler{
+					AppGoodCheckHandler:         h.AppGoodCheckHandler,
+					CoinCheckHandler:            h.CoinCheckHandler,
+					AllocatedCouponCheckHandler: h.AllocatedCouponCheckHandler,
+					AppGoodIDs:                  h.AppGoodIDs,
+					PaymentTransferCoinTypeID:   h.PaymentTransferCoinTypeID,
+					PaymentBalanceReqs:          h.Balances,
+					AllocatedCouponIDs:          h.CouponIDs,
+				},
 			},
 		},
 	}

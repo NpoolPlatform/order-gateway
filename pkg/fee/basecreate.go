@@ -2,10 +2,7 @@ package fee
 
 import (
 	"context"
-	"time"
 
-	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
-	logger "github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	goodcoinmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/coin"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
@@ -23,6 +20,8 @@ import (
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
 	powerrentalordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/powerrental"
 	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
+
+	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
 	"github.com/dtm-labs/dtm/client/dtmcli/dtmimp"
 
 	"github.com/google/uuid"
@@ -31,7 +30,7 @@ import (
 
 type baseCreateHandler struct {
 	*Handler
-	*ordercommon.OrderOpHandler
+	*ordercommon.DtmHandler
 	parentOrder     *powerrentalordermwpb.PowerRentalOrder
 	parentAppGood   *appgoodmwpb.Good
 	parentGoodCoins []*goodcoinmwpb.GoodCoin
@@ -195,7 +194,7 @@ func (h *baseCreateHandler) constructFeeOrderReq(appGoodID string) error {
 		if h.PaymentTransferReq != nil {
 			req.PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}
 		}
-		h.OrderID = req.OrderID
+		h.Handler.OrderID = req.OrderID
 	}
 	h.OrderIDs = append(h.OrderIDs, *req.OrderID)
 	h.feeOrderReqs = append(h.feeOrderReqs, req)
@@ -220,22 +219,6 @@ func (h *baseCreateHandler) formalizePayment() {
 	h.feeOrderReqs[0].PaymentAmountUSD = func() *string { s := h.PaymentAmountUSD.String(); return &s }()
 	h.feeOrderReqs[0].DiscountAmountUSD = func() *string { s := h.DeductAmountUSD.String(); return &s }()
 	h.feeOrderReqs[0].LedgerLockID = h.BalanceLockID
-}
-
-func (h *baseCreateHandler) dtmDo(ctx context.Context, dispose *dtmcli.SagaDispose) error {
-	start := time.Now()
-	_ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	err := dtmcli.WithSaga(_ctx, dispose)
-	dtmElapsed := time.Since(start)
-	logger.Sugar().Infow(
-		"CreateFeeOrders",
-		"OrderID", *h.feeOrderReqs[0].OrderID,
-		"Start", start,
-		"DtmElapsed", dtmElapsed,
-		"Error", err,
-	)
-	return wlog.WrapError(err)
 }
 
 func (h *baseCreateHandler) notifyCouponUsed() {
@@ -263,5 +246,5 @@ func (h *baseCreateHandler) createFeeOrders(ctx context.Context) error {
 	h.WithLockPaymentTransferAccount(sagaDispose)
 	h.withCreateFeeOrders(sagaDispose)
 	defer h.notifyCouponUsed()
-	return h.dtmDo(ctx, sagaDispose)
+	return h.DtmDo(ctx, sagaDispose)
 }

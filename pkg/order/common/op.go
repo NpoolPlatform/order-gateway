@@ -796,9 +796,11 @@ func (h *OrderOpHandler) PrepareCommissionLockIDs() {
 func (h *OrderOpHandler) WithCreateOrderCommissionLocks(dispose *dtmcli.SagaDispose) {
 	reqs := func() (_reqs []*orderlockmwpb.OrderLockReq) {
 		for userID, commissionLockID := range h.CommissionLockIDs {
+			_userID := userID
+			_commissionLockID := commissionLockID
 			_reqs = append(_reqs, &orderlockmwpb.OrderLockReq{
-				EntID:    &commissionLockID,
-				UserID:   &userID,
+				EntID:    &_commissionLockID,
+				UserID:   &_userID,
 				OrderID:  h.OrderID,
 				LockType: types.OrderLockType_LockCommission.Enum(),
 			})

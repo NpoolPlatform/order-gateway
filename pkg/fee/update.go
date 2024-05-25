@@ -14,6 +14,7 @@ type updateHandler struct {
 	*baseUpdateHandler
 }
 
+//nolint:gocyclo
 func (h *Handler) UpdateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	if err := h.CheckOrder(ctx); err != nil {
 		return nil, wlog.WrapError(err)
@@ -22,18 +23,47 @@ func (h *Handler) UpdateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	handler := &updateHandler{
 		baseUpdateHandler: &baseUpdateHandler{
 			Handler: h,
-			OrderOpHandler: &ordercommon.OrderOpHandler{
-				AppGoodCheckHandler:         h.AppGoodCheckHandler,
-				CoinCheckHandler:            h.CoinCheckHandler,
-				AllocatedCouponCheckHandler: h.AllocatedCouponCheckHandler,
-				PaymentTransferCoinTypeID:   h.PaymentTransferCoinTypeID,
-				PaymentBalanceReqs:          h.Balances,
+			DtmHandler: &ordercommon.DtmHandler{
+				OrderOpHandler: &ordercommon.OrderOpHandler{
+					AppGoodCheckHandler:         h.AppGoodCheckHandler,
+					CoinCheckHandler:            h.CoinCheckHandler,
+					AllocatedCouponCheckHandler: h.AllocatedCouponCheckHandler,
+					PaymentTransferCoinTypeID:   h.PaymentTransferCoinTypeID,
+					PaymentBalanceReqs:          h.Balances,
+					OrderID:                     h.OrderID,
+					AdminSetCanceled:            h.AdminSetCanceled,
+					UserSetCanceled:             h.UserSetCanceled,
+				},
 			},
 		},
 	}
 
 	if err := handler.getFeeOrder(ctx); err != nil {
 		return nil, wlog.WrapError(err)
+	}
+	if h.PaymentTransferCoinTypeID == nil || len(h.Balances) == 0 {
+		if err := handler.PaymentUpdatable(); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+	}
+	if h.UserSetCanceled != nil || h.AdminSetCanceled != nil {
+		if err := handler.validateCancelParam(); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+		if err := handler.UserCancelable(); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+		if err := handler.getAppFee(ctx); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+		handler.GoodCancelMode = handler.appFee.CancelMode
+		if err := handler.GoodCancelable(); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+		if err := handler.GetOrderCommissions(ctx); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+		handler.PrepareCommissionLockIDs()
 	}
 	if err := handler.GetAppCoins(ctx, nil); err != nil {
 		return nil, wlog.WrapError(err)
