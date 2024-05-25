@@ -18,12 +18,15 @@ import (
 	topmostgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good/topmost/good"
 	allocatedcouponmwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/allocated"
 	appgoodscopemwcli "github.com/NpoolPlatform/inspire-middleware/pkg/client/coupon/app/scope"
+	ledgerstatementmwcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/ledger/statement"
 	ledgermwsvcname "github.com/NpoolPlatform/ledger-middleware/pkg/servicename"
 	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	paymentaccountmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
 	appmwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/app"
 	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
+	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
 	inspiretypes "github.com/NpoolPlatform/message/npool/basetypes/inspire/v1"
+	ledgertypes "github.com/NpoolPlatform/message/npool/basetypes/ledger/v1"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	appcoinmwpb "github.com/NpoolPlatform/message/npool/chain/mw/v1/app/coin"
@@ -34,8 +37,10 @@ import (
 	allocatedcouponmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
 	appgoodscopemwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/app/scope"
 	ledgermwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger"
+	ledgerstatementmwpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/ledger/statement"
 	orderappconfigmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/app/config"
 	feeordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/fee"
+	orderlockmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order/lock"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
 	powerrentalmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/powerrental"
 	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
@@ -44,6 +49,7 @@ import (
 	orderappconfigmwcli "github.com/NpoolPlatform/order-middleware/pkg/client/app/config"
 	feeordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/fee"
 	powerrentalmwcli "github.com/NpoolPlatform/order-middleware/pkg/client/powerrental"
+	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
 	sphinxproxycli "github.com/NpoolPlatform/sphinx-proxy/pkg/client"
 
 	"github.com/google/uuid"
@@ -72,6 +78,14 @@ type OrderOpHandler struct {
 	PaymentTransferStartAmount decimal.Decimal
 	BalanceLockID              *string
 	PaymentID                  *string
+
+	OrderID                    *string
+	OrderState                 types.OrderState
+	AdminSetCanceled           *bool
+	UserSetCanceled            *bool
+	GoodCancelMode             goodtypes.CancelMode
+	CommissionLedgerStatements []*ledgerstatementmwpb.Statement
+	CommissionLockIDs          map[string]string
 
 	DeductAmountUSD   decimal.Decimal
 	PaymentAmountUSD  decimal.Decimal
@@ -673,4 +687,154 @@ func (h *OrderOpHandler) WithLockPaymentTransferAccount(dispose *dtmcli.SagaDisp
 			LockedBy: basetypes.AccountLockedBy_Payment,
 		},
 	)
+}
+
+func (h *OrderOpHandler) PaymentUpdatable() error {
+	switch h.OrderState {
+	case types.OrderState_OrderStateCreated:
+	case types.OrderState_OrderStateWaitPayment:
+	default:
+		return wlog.Errorf("permission denied")
+	}
+	return nil
+}
+
+func (h *OrderOpHandler) ValidateCancelParam() error {
+	if h.UserSetCanceled != nil && !*h.UserSetCanceled {
+		return wlog.Errorf("permission denied")
+	}
+	if h.AdminSetCanceled != nil && !*h.AdminSetCanceled {
+		return wlog.Errorf("permission denied")
+	}
+	return nil
+}
+
+func (h *OrderOpHandler) UserCancelable() error {
+	switch h.OrderType {
+	case types.OrderType_Normal:
+		switch h.OrderState {
+		case types.OrderState_OrderStateWaitPayment:
+			if h.AdminSetCanceled != nil {
+				return wlog.Errorf("permission denied")
+			}
+		case types.OrderState_OrderStatePaid:
+		case types.OrderState_OrderStateInService:
+		default:
+			return wlog.Errorf("permission denied")
+		}
+	case types.OrderType_Offline:
+		fallthrough //nolint
+	case types.OrderType_Airdrop:
+		if h.UserSetCanceled != nil {
+			return wlog.Errorf("permission denied")
+		}
+		switch h.OrderState {
+		case types.OrderState_OrderStatePaid:
+		case types.OrderState_OrderStateInService:
+		default:
+			return wlog.Errorf("permission denied")
+		}
+	default:
+		return wlog.Errorf("permission denied")
+	}
+	return nil
+}
+
+func (h *OrderOpHandler) GoodCancelable() error {
+	switch h.GoodCancelMode {
+	case goodtypes.CancelMode_Uncancellable:
+		return wlog.Errorf("permission denied")
+	case goodtypes.CancelMode_CancellableBeforeStart:
+		switch h.OrderState {
+		case types.OrderState_OrderStatePaid:
+		default:
+			return wlog.Errorf("permission denied")
+		}
+	case goodtypes.CancelMode_CancellableBeforeBenefit:
+		switch h.OrderState {
+		case types.OrderState_OrderStatePaid:
+		case types.OrderState_OrderStateInService:
+			// This should be checked by upper layer
+		default:
+			return wlog.Errorf("permission denied")
+		}
+	default:
+		return wlog.Errorf("invalid cancelmode")
+	}
+	return nil
+}
+
+func (h *OrderOpHandler) GetOrderCommissions(ctx context.Context) error {
+	offset := int32(0)
+	limit := constant.DefaultRowLimit
+	for {
+		infos, _, err := ledgerstatementmwcli.GetStatements(ctx, &ledgerstatementmwpb.Conds{
+			AppID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.AllocatedCouponCheckHandler.AppID},
+			IOType:    &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(ledgertypes.IOType_Incoming)},
+			IOSubType: &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(ledgertypes.IOSubType_Commission)},
+			IOExtra:   &basetypes.StringVal{Op: cruder.LIKE, Value: *h.OrderID},
+		}, offset, limit)
+		if err != nil {
+			return wlog.WrapError(err)
+		}
+		if len(infos) == 0 {
+			return nil
+		}
+		h.CommissionLedgerStatements = append(h.CommissionLedgerStatements, infos...)
+	}
+}
+
+func (h *OrderOpHandler) PrepareCommissionLockIDs() {
+	for _, statement := range h.CommissionLedgerStatements {
+		if _, ok := h.CommissionLockIDs[statement.UserID]; ok {
+			continue
+		}
+		h.CommissionLockIDs[statement.UserID] = uuid.NewString()
+	}
+}
+
+func (h *OrderOpHandler) WithCreateOrderCommissionLocks(dispose *dtmcli.SagaDispose) {
+	reqs := func() (_reqs []*orderlockmwpb.OrderLockReq) {
+		for userID, commissionLockID := range h.CommissionLockIDs {
+			_reqs = append(_reqs, &orderlockmwpb.OrderLockReq{
+				EntID:    &commissionLockID,
+				UserID:   &userID,
+				OrderID:  h.OrderID,
+				LockType: types.OrderLockType_LockCommission.Enum(),
+			})
+		}
+		return
+	}()
+	dispose.Add(
+		ordermwsvcname.ServiceDomain,
+		"order.middleware.order1.orderlock.v1.Middleware/CreateOrderLocks",
+		"order.middleware.order1.orderlock.v1.Middleware/DeleteOrderLocks",
+		&orderlockmwpb.CreateOrderLocksRequest{
+			Infos: reqs,
+		},
+	)
+}
+
+func (h *OrderOpHandler) WithLockCommissions(dispose *dtmcli.SagaDispose) {
+	balances := map[string][]*ledgermwpb.LockBalancesRequest_XBalance{}
+	for _, statement := range h.CommissionLedgerStatements {
+		balances[statement.UserID] = append(balances[statement.UserID], &ledgermwpb.LockBalancesRequest_XBalance{
+			CoinTypeID: statement.CoinTypeID,
+			Amount:     statement.Amount,
+		})
+	}
+	for userID, userBalances := range balances {
+		dispose.Add(
+			ledgermwsvcname.ServiceDomain,
+			"ledger.middleware.ledger.v2.Middleware/LockBalances",
+			"ledger.middleware.ledger.v2.Middleware/UnlockBalances",
+			&ledgermwpb.LockBalancesRequest{
+				AppID:    *h.AllocatedCouponCheckHandler.AppID,
+				UserID:   userID,
+				LockID:   h.CommissionLockIDs[userID],
+				Rollback: true,
+				Balances: userBalances,
+			},
+		)
+	}
 }

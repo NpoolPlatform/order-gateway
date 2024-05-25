@@ -31,6 +31,9 @@ func (h *Handler) UpdatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 				AllocatedCouponCheckHandler: h.AllocatedCouponCheckHandler,
 				PaymentTransferCoinTypeID:   h.PaymentTransferCoinTypeID,
 				PaymentBalanceReqs:          h.Balances,
+				OrderID:                     h.OrderID,
+				AdminSetCanceled:            h.AdminSetCanceled,
+				UserSetCanceled:             h.UserSetCanceled,
 			},
 		},
 	}
@@ -39,7 +42,7 @@ func (h *Handler) UpdatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 		return nil, wlog.WrapError(err)
 	}
 	if h.PaymentTransferCoinTypeID == nil || len(h.Balances) == 0 {
-		if err := handler.paymentUpdatable(); err != nil {
+		if err := handler.PaymentUpdatable(); err != nil {
 			return nil, wlog.WrapError(err)
 		}
 	}
@@ -47,7 +50,7 @@ func (h *Handler) UpdatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 		if err := handler.validateCancelParam(); err != nil {
 			return nil, wlog.WrapError(err)
 		}
-		if err := handler.userCancelable(); err != nil {
+		if err := handler.UserCancelable(); err != nil {
 			return nil, wlog.WrapError(err)
 		}
 		if err := handler.getGoodBenefitTime(ctx); err != nil {
@@ -56,14 +59,15 @@ func (h *Handler) UpdatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 		if err := handler.getAppPowerRental(ctx); err != nil {
 			return nil, wlog.WrapError(err)
 		}
+		handler.GoodCancelMode = handler.appPowerRental.CancelMode
 		if err := handler.goodCancelable(); err != nil {
 			return nil, wlog.WrapError(err)
 		}
 		if !handler.powerRentalOrder.Simulate {
-			if err := handler.getCommissions(ctx); err != nil {
+			if err := handler.GetOrderCommissions(ctx); err != nil {
 				return nil, wlog.WrapError(err)
 			}
-			handler.prepareCommissionLockIDs()
+			handler.PrepareCommissionLockIDs()
 		}
 	}
 	if err := handler.GetAppCoins(ctx, nil); err != nil {
