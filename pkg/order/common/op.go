@@ -635,7 +635,7 @@ func (h *OrderOpHandler) PreparePaymentID() {
 	h.PaymentID = func() *string { s := uuid.NewString(); return &s }()
 }
 
-func (h *OrderOpHandler) LockBalances(dispose *dtmcli.SagaDispose) {
+func (h *OrderOpHandler) WithLockBalances(dispose *dtmcli.SagaDispose) {
 	if len(h.PaymentBalanceReqs) == 0 {
 		return
 	}
@@ -660,7 +660,7 @@ func (h *OrderOpHandler) LockBalances(dispose *dtmcli.SagaDispose) {
 	)
 }
 
-func (h *OrderOpHandler) LockPaymentTransferAccount(dispose *dtmcli.SagaDispose) {
+func (h *OrderOpHandler) WithLockPaymentTransferAccount(dispose *dtmcli.SagaDispose) {
 	if h.PaymentTransferAccount == nil {
 		return
 	}

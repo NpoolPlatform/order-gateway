@@ -18,7 +18,9 @@ type createHandler struct {
 func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRentalOrder, error) {
 	handler := &createHandler{
 		baseCreateHandler: &baseCreateHandler{
-			Handler: h,
+			dtmHandler: &dtmHandler{
+				Handler: h,
+			},
 			OrderOpHandler: &ordercommon.OrderOpHandler{
 				AppGoodCheckHandler:         h.AppGoodCheckHandler,
 				CoinCheckHandler:            h.CoinCheckHandler,

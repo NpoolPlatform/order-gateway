@@ -6,7 +6,6 @@ import (
 
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
 	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
-	logger "github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	apppowerrentalmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/powerrental"
 	goodcoinmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/coin"
@@ -33,7 +32,7 @@ import (
 )
 
 type baseCreateHandler struct {
-	*Handler
+	*dtmHandler
 	*ordercommon.OrderOpHandler
 	appPowerRental      *apppowerrentalmwpb.PowerRental
 	goodCoins           []*goodcoinmwpb.GoodCoin
@@ -303,27 +302,11 @@ func (h *baseCreateHandler) formalizePayment() {
 	h.powerRentalOrderReq.LedgerLockID = h.BalanceLockID
 }
 
-func (h *baseCreateHandler) dtmDo(ctx context.Context, dispose *dtmcli.SagaDispose) error {
-	start := time.Now()
-	_ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	err := dtmcli.WithSaga(_ctx, dispose)
-	dtmElapsed := time.Since(start)
-	logger.Sugar().Infow(
-		"CreatePowerRentalOrderWithFees",
-		"OrderID", *h.OrderID,
-		"Start", start,
-		"DtmElapsed", dtmElapsed,
-		"Error", err,
-	)
-	return wlog.WrapError(err)
-}
-
 func (h *baseCreateHandler) notifyCouponUsed() {
 
 }
 
-func (h *baseCreateHandler) _createPowerRentalOrderWithFees(dispose *dtmcli.SagaDispose) {
+func (h *baseCreateHandler) withCreatePowerRentalOrderWithFees(dispose *dtmcli.SagaDispose) {
 	dispose.Add(
 		ordermwsvcname.ServiceDomain,
 		"order.middleware.powerrental.v1.Middleware/CreatePowerRentalOrderWithFees",
@@ -335,7 +318,7 @@ func (h *baseCreateHandler) _createPowerRentalOrderWithFees(dispose *dtmcli.Saga
 	)
 }
 
-func (h *baseCreateHandler) lockStock(dispose *dtmcli.SagaDispose) {
+func (h *baseCreateHandler) withLockStock(dispose *dtmcli.SagaDispose) {
 	dispose.Add(
 		goodmwsvcname.ServiceDomain,
 		"good.middleware.app.good1.stock.v1.Middleware/Lock",
@@ -366,11 +349,11 @@ func (h *baseCreateHandler) createPowerRentalOrder(ctx context.Context) error {
 		if h.AppGoodStockID == nil {
 			return wlog.Errorf("invalid appgoodstockid")
 		}
-		h.lockStock(sagaDispose)
-		h.LockBalances(sagaDispose)
-		h.LockPaymentTransferAccount(sagaDispose)
+		h.withLockStock(sagaDispose)
+		h.WithLockBalances(sagaDispose)
+		h.WithLockPaymentTransferAccount(sagaDispose)
 	}
-	h._createPowerRentalOrderWithFees(sagaDispose)
+	h.withCreatePowerRentalOrderWithFees(sagaDispose)
 	defer h.notifyCouponUsed()
 	return h.dtmDo(ctx, sagaDispose)
 }

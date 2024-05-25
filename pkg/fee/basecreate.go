@@ -242,7 +242,7 @@ func (h *baseCreateHandler) notifyCouponUsed() {
 
 }
 
-func (h *baseCreateHandler) _createFeeOrders(dispose *dtmcli.SagaDispose) {
+func (h *baseCreateHandler) withCreateFeeOrders(dispose *dtmcli.SagaDispose) {
 	dispose.Add(
 		ordermwsvcname.ServiceDomain,
 		"order.middleware.fee.v1.Middleware/CreateFeeOrders",
@@ -259,9 +259,9 @@ func (h *baseCreateHandler) createFeeOrders(ctx context.Context) error {
 		RequestTimeout: 10,
 		TimeoutToFail:  10,
 	})
-	h.LockBalances(sagaDispose)
-	h.LockPaymentTransferAccount(sagaDispose)
-	h._createFeeOrders(sagaDispose)
+	h.WithLockBalances(sagaDispose)
+	h.WithLockPaymentTransferAccount(sagaDispose)
+	h.withCreateFeeOrders(sagaDispose)
 	defer h.notifyCouponUsed()
 	return h.dtmDo(ctx, sagaDispose)
 }

@@ -14,6 +14,7 @@ type updateHandler struct {
 	*baseUpdateHandler
 }
 
+//nolint:gocyclo
 func (h *Handler) UpdatePowerRentalOrder(ctx context.Context) (*npool.PowerRentalOrder, error) {
 	if err := h.CheckOrder(ctx); err != nil {
 		return nil, wlog.WrapError(err)
@@ -21,7 +22,9 @@ func (h *Handler) UpdatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 
 	handler := &updateHandler{
 		baseUpdateHandler: &baseUpdateHandler{
-			Handler: h,
+			dtmHandler: &dtmHandler{
+				Handler: h,
+			},
 			OrderOpHandler: &ordercommon.OrderOpHandler{
 				AppGoodCheckHandler:         h.AppGoodCheckHandler,
 				CoinCheckHandler:            h.CoinCheckHandler,
@@ -34,6 +37,34 @@ func (h *Handler) UpdatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 
 	if err := handler.getPowerRentalOrder(ctx); err != nil {
 		return nil, wlog.WrapError(err)
+	}
+	if h.PaymentTransferCoinTypeID == nil || len(h.Balances) == 0 {
+		if err := handler.paymentUpdatable(); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+	}
+	if h.UserSetCanceled != nil || h.AdminSetCanceled != nil {
+		if err := handler.validateCancelParam(); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+		if err := handler.userCancelable(); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+		if err := handler.getGoodBenefitTime(ctx); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+		if err := handler.getAppPowerRental(ctx); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+		if err := handler.goodCancelable(); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+		if !handler.powerRentalOrder.Simulate {
+			if err := handler.getCommissions(ctx); err != nil {
+				return nil, wlog.WrapError(err)
+			}
+			handler.prepareCommissionLockIDs()
+		}
 	}
 	if err := handler.GetAppCoins(ctx, nil); err != nil {
 		return nil, wlog.WrapError(err)
