@@ -286,6 +286,7 @@ func (h *baseCreateHandler) constructPowerRentalOrderReq() error {
 		req.PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}
 	}
 	h.OrderID = req.OrderID
+	h.dtmHandler.OrderID = req.OrderID
 	h.OrderIDs = append(h.OrderIDs, *req.OrderID)
 	h.powerRentalOrderReq = req
 	return nil

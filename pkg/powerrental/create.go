@@ -22,6 +22,7 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 				Handler: h,
 			},
 			OrderOpHandler: &ordercommon.OrderOpHandler{
+				OrderType:                   *h.OrderType,
 				AppGoodCheckHandler:         h.AppGoodCheckHandler,
 				CoinCheckHandler:            h.CoinCheckHandler,
 				AppGoodIDs:                  append(h.FeeAppGoodIDs, *h.AppGoodID),

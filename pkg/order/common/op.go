@@ -431,6 +431,13 @@ func (h *OrderOpHandler) getCoinUSDCurrency(coinTypeID string) (cur decimal.Deci
 }
 
 func (h *OrderOpHandler) ConstructOrderPayment() error {
+	switch h.OrderType {
+	case types.OrderType_Offline:
+		fallthrough //nolint
+	case types.OrderType_Airdrop:
+		return nil
+	}
+
 	remainAmountUSD := h.PaymentAmountUSD
 
 	for _, balance := range h.PaymentBalanceReqs {
@@ -458,7 +465,7 @@ func (h *OrderOpHandler) ConstructOrderPayment() error {
 		}
 	}
 	if h.PaymentTransferCoinTypeID == nil {
-		return wlog.Errorf("invalid paymentbalances")
+		return wlog.Errorf("invalid paymenttransfercointypeid")
 	}
 	if h.PaymentTransferAccount == nil {
 		return wlog.Errorf("invalid paymenttransferaccount")
