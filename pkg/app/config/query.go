@@ -19,10 +19,13 @@ func (h *Handler) GetAppConfigs(ctx context.Context) ([]*appconfigmwpb.AppConfig
 }
 
 func (h *Handler) GetAppConfig(ctx context.Context) (*appconfigmwpb.AppConfig, error) {
-	info, err := appconfigmwcli.GetAppConfigOnly(ctx, &appconfigmwpb.Conds{
+	conds := &appconfigmwpb.Conds{
 		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
-		EntID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.EntID},
-	})
+	}
+	if h.EntID != nil {
+		conds.EntID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.EntID}
+	}
+	info, err := appconfigmwcli.GetAppConfigOnly(ctx, conds)
 	if err != nil {
 		return nil, err
 	}
