@@ -327,6 +327,9 @@ func (h *Handler) GetPowerRentalOrders(ctx context.Context) ([]*npool.PowerRenta
 	if h.AppGoodID != nil {
 		conds.AppGoodID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID}
 	}
+	if h.GoodID != nil {
+		conds.GoodID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.GoodID}
+	}
 	if len(h.OrderIDs) > 0 {
 		conds.OrderIDs = &basetypes.StringSliceVal{Op: cruder.IN, Value: h.OrderIDs}
 	}
