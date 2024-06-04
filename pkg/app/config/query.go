@@ -11,7 +11,11 @@ import (
 )
 
 func (h *Handler) GetAppConfigs(ctx context.Context) ([]*appconfigmwpb.AppConfig, uint32, error) {
-	return appconfigmwcli.GetAppConfigs(ctx, &appconfigmwpb.Conds{}, h.Offset, h.Limit)
+	conds := &appconfigmwpb.Conds{}
+	if h.AppID != nil {
+		conds.AppID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID}
+	}
+	return appconfigmwcli.GetAppConfigs(ctx, conds, h.Offset, h.Limit)
 }
 
 func (h *Handler) GetAppConfig(ctx context.Context) (*appconfigmwpb.AppConfig, error) {
