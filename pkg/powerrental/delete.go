@@ -9,6 +9,12 @@ import (
 )
 
 func (h *Handler) DeletePowerRentalOrder(ctx context.Context) (*npool.PowerRentalOrder, error) {
+	handler := &checkHandler{
+		Handler: h,
+	}
+	if err := handler.checkPowerRentalOrder(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
 	info, err := h.GetPowerRentalOrder(ctx)
 	if err != nil {
 		return nil, wlog.WrapError(err)
