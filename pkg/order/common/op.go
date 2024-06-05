@@ -753,12 +753,14 @@ func (h *OrderOpHandler) GoodCancelable() error {
 		return wlog.Errorf("permission denied")
 	case goodtypes.CancelMode_CancellableBeforeStart:
 		switch h.OrderState {
+		case types.OrderState_OrderStateWaitPayment:
 		case types.OrderState_OrderStatePaid:
 		default:
 			return wlog.Errorf("permission denied")
 		}
 	case goodtypes.CancelMode_CancellableBeforeBenefit:
 		switch h.OrderState {
+		case types.OrderState_OrderStateWaitPayment:
 		case types.OrderState_OrderStatePaid:
 		case types.OrderState_OrderStateInService:
 			// This should be checked by upper layer

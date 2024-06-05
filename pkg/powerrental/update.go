@@ -42,6 +42,7 @@ func (h *Handler) UpdatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 		return nil, wlog.WrapError(err)
 	}
 	handler.OrderOpHandler.OrderType = handler.powerRentalOrder.OrderType
+	handler.OrderOpHandler.OrderState = handler.powerRentalOrder.OrderState
 	if h.PaymentTransferCoinTypeID != nil || len(h.Balances) > 0 {
 		if err := handler.PaymentUpdatable(); err != nil {
 			return nil, wlog.WrapError(err)
