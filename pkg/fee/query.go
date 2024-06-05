@@ -313,6 +313,9 @@ func (h *Handler) GetFeeOrders(ctx context.Context) ([]*npool.FeeOrder, uint32, 
 	if err != nil {
 		return nil, 0, wlog.WrapError(err)
 	}
+	if len(infos) == 0 {
+		return nil, total, nil
+	}
 
 	handler := &queryHandler{
 		Handler: h,
