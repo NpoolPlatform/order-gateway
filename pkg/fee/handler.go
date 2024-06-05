@@ -125,6 +125,7 @@ func WithGoodID(id *string, must bool) func(context.Context, *Handler) error {
 		if err := h.OrderCheckHandler.CheckGoodWithGoodID(ctx, *id); err != nil {
 			return wlog.WrapError(err)
 		}
+		h.GoodID = id
 		h.OrderCheckHandler.GoodID = id
 		return nil
 	}

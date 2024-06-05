@@ -2,7 +2,6 @@ package common
 
 import (
 	"context"
-	"fmt"
 
 	usermwcli "github.com/NpoolPlatform/appuser-middleware/pkg/client/user"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
@@ -20,7 +19,6 @@ func GetUsers(ctx context.Context, userIDs []string) (map[string]*usermwpb.User,
 		}
 	}
 
-	fmt.Printf("UserIDs %v\n", userIDs)
 	users, _, err := usermwcli.GetUsers(ctx, &usermwpb.Conds{
 		EntIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: userIDs},
 	}, 0, int32(len(userIDs)))

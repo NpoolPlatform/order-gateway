@@ -303,6 +303,9 @@ func (h *Handler) GetFeeOrders(ctx context.Context) ([]*npool.FeeOrder, uint32, 
 	if h.OrderCheckHandler.UserID != nil {
 		conds.UserID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.OrderCheckHandler.UserID}
 	}
+	if h.GoodID != nil {
+		conds.GoodID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.GoodID}
+	}
 	if h.AppGoodID != nil {
 		conds.AppGoodID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodID}
 	}
