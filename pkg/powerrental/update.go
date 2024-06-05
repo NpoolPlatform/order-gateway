@@ -90,14 +90,16 @@ func (h *Handler) UpdatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 		return nil, wlog.WrapError(err)
 	}
 	handler.constructPowerRentalOrderReq()
-	if err := handler.ConstructOrderPayment(); err != nil {
-		return nil, wlog.WrapError(err)
+	if h.PaymentTransferCoinTypeID != nil || len(h.Balances) > 0 {
+		if err := handler.ConstructOrderPayment(); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+		if err := handler.ResolvePaymentType(); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+		handler.PrepareLedgerLockID()
+		handler.formalizePayment()
 	}
-	if err := handler.ResolvePaymentType(); err != nil {
-		return nil, wlog.WrapError(err)
-	}
-	handler.PrepareLedgerLockID()
-	handler.formalizePayment()
 
 	if err := handler.updatePowerRentalOrder(ctx); err != nil {
 		return nil, wlog.WrapError(err)
