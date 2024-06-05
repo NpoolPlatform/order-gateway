@@ -337,6 +337,9 @@ func (h *Handler) GetPowerRentalOrders(ctx context.Context) ([]*npool.PowerRenta
 	if err != nil {
 		return nil, 0, wlog.WrapError(err)
 	}
+	if len(infos) == 0 {
+		return nil, total, nil
+	}
 
 	handler := &queryHandler{
 		Handler:           h,
