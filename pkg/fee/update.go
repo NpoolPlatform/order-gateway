@@ -41,6 +41,8 @@ func (h *Handler) UpdateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	if err := handler.getFeeOrder(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+	handler.OrderOpHandler.OrderType = handler.feeOrder.OrderType
+	handler.OrderOpHandler.OrderState = handler.feeOrder.OrderState
 	if h.PaymentTransferCoinTypeID == nil || len(h.Balances) == 0 {
 		if err := handler.PaymentUpdatable(); err != nil {
 			return nil, wlog.WrapError(err)
