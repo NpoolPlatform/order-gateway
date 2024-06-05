@@ -9,6 +9,12 @@ import (
 )
 
 func (h *Handler) DeleteFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
+	handler := &checkHandler{
+		Handler: h,
+	}
+	if err := handler.checkFeeOrder(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
 	info, err := h.GetFeeOrder(ctx)
 	if err != nil {
 		return nil, wlog.WrapError(err)
