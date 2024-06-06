@@ -10,6 +10,12 @@ import (
 )
 
 func (h *Handler) DeleteCompensate(ctx context.Context) (*compensategwpb.Compensate, error) {
+	handler := &checkHandler{
+		Handler: h,
+	}
+	if err := handler.checkCompensate(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
 	h1, err := compensate1.NewHandler(
 		ctx,
 		compensate1.WithEntID(h.EntID, true),
