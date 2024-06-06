@@ -94,7 +94,10 @@ func (h *queryHandler) formalize() {
 func (h *Handler) GetCompensate(ctx context.Context) (*npool.Compensate, error) {
 	info, err := compensatemwcli.GetCompensate(ctx, *h.EntID)
 	if err != nil {
-		return nil, err
+		return nil, wlog.WrapError(err)
+	}
+	if info == nil {
+		return nil, wlog.WrapError(err)
 	}
 
 	handler := &queryHandler{
@@ -102,13 +105,13 @@ func (h *Handler) GetCompensate(ctx context.Context) (*npool.Compensate, error) 
 		compensates: []*compensatemwpb.Compensate{info},
 	}
 	if err := handler.getApps(ctx); err != nil {
-		return nil, err
+		return nil, wlog.WrapError(err)
 	}
 	if err := handler.getUsers(ctx); err != nil {
-		return nil, err
+		return nil, wlog.WrapError(err)
 	}
 	if err := handler.getAppGoods(ctx); err != nil {
-		return nil, err
+		return nil, wlog.WrapError(err)
 	}
 
 	handler.formalize()
@@ -139,6 +142,9 @@ func (h *Handler) GetCompensates(ctx context.Context) ([]*npool.Compensate, uint
 	infos, total, err := compensatemwcli.GetCompensates(ctx, conds, h.Offset, h.Limit)
 	if err != nil {
 		return nil, 0, wlog.WrapError(err)
+	}
+	if len(infos) == 0 {
+		return nil, total, nil
 	}
 
 	handler := &queryHandler{
