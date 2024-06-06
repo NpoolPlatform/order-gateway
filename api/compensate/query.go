@@ -51,7 +51,7 @@ func (s *Server) GetMyCompensates(ctx context.Context, in *npool.GetMyCompensate
 		ctx,
 		compensate1.WithAppID(&in.AppID, true),
 		compensate1.WithUserID(&in.UserID, true),
-		compensate1.WithAppGoodID(in.OrderID, false),
+		compensate1.WithOrderID(in.OrderID, false),
 		compensate1.WithOffset(in.Offset),
 		compensate1.WithLimit(in.Limit),
 	)
