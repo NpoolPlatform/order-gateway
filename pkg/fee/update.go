@@ -85,14 +85,16 @@ func (h *Handler) UpdateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 		return nil, wlog.WrapError(err)
 	}
 	handler.constructFeeOrderReq()
-	if err := handler.ConstructOrderPayment(); err != nil {
-		return nil, wlog.WrapError(err)
+	if h.PaymentTransferCoinTypeID != nil || len(h.Balances) > 0 {
+		if err := handler.ConstructOrderPayment(); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+		if err := handler.ResolvePaymentType(); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+		handler.PrepareLedgerLockID()
+		handler.formalizePayment()
 	}
-	if err := handler.ResolvePaymentType(); err != nil {
-		return nil, wlog.WrapError(err)
-	}
-	handler.PrepareLedgerLockID()
-	handler.formalizePayment()
 
 	if err := handler.updateFeeOrder(ctx); err != nil {
 		return nil, wlog.WrapError(err)
