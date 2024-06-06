@@ -2,6 +2,7 @@ package fee
 
 import (
 	"context"
+	"fmt"
 
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/fee"
@@ -19,6 +20,7 @@ func (h *Handler) CreateFeeOrders(ctx context.Context) ([]*npool.FeeOrder, error
 			Handler: h,
 			DtmHandler: &ordercommon.DtmHandler{
 				OrderOpHandler: &ordercommon.OrderOpHandler{
+					OrderType:                   *h.OrderType,
 					AppGoodCheckHandler:         h.AppGoodCheckHandler,
 					CoinCheckHandler:            h.CoinCheckHandler,
 					AllocatedCouponCheckHandler: h.AllocatedCouponCheckHandler,
@@ -30,7 +32,6 @@ func (h *Handler) CreateFeeOrders(ctx context.Context) ([]*npool.FeeOrder, error
 			},
 		},
 	}
-
 	if err := handler.getParentOrder(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}

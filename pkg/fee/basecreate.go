@@ -195,6 +195,7 @@ func (h *baseCreateHandler) constructFeeOrderReq(appGoodID string) error {
 			req.PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}
 		}
 		h.Handler.OrderID = req.OrderID
+		h.DtmHandler.OrderID = req.OrderID
 	}
 	h.OrderIDs = append(h.OrderIDs, *req.OrderID)
 	h.feeOrderReqs = append(h.feeOrderReqs, req)
