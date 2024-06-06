@@ -30,7 +30,6 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 				PaymentTransferCoinTypeID:   h.PaymentTransferCoinTypeID,
 				PaymentBalanceReqs:          h.Balances,
 				AllocatedCouponIDs:          h.CouponIDs,
-				Simulate:                    h.Simulate != nil && *h.Simulate,
 			},
 			appGoodStockLockID: func() *string { s := uuid.NewString(); return &s }(),
 		},
@@ -87,6 +86,9 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.getAppFees(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+	if err := handler.checkEnableSimulateOrder(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.AcquirePaymentTransferAccount(ctx); err != nil {

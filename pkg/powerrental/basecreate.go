@@ -117,6 +117,13 @@ func (h *baseCreateHandler) calculateFeeOrderValueUSD(appGoodID string) (value d
 	return unitValue.Mul(quantityUnits).Mul(decimal.NewFromInt(int64(durationUnits))), nil
 }
 
+func (h *baseCreateHandler) checkEnableSimulateOrder() error {
+	if h.Simulate != nil && *h.Simulate && h.OrderConfig != nil && h.OrderConfig.EnableSimulateOrder {
+		return nil
+	}
+	return wlog.Errorf("permission denied")
+}
+
 func (h *baseCreateHandler) calculatePowerRentalOrderValueUSD() (value decimal.Decimal, err error) {
 	unitValue, err := decimal.NewFromString(h.appPowerRental.UnitPrice)
 	if err != nil {
@@ -346,7 +353,7 @@ func (h *baseCreateHandler) createPowerRentalOrder(ctx context.Context) error {
 		RequestTimeout: 10,
 		TimeoutToFail:  10,
 	})
-	if !h.OrderOpHandler.Simulate {
+	if h.Simulate == nil || !*h.Simulate {
 		if h.AppGoodStockID == nil {
 			return wlog.Errorf("invalid appgoodstockid")
 		}
