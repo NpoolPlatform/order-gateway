@@ -41,6 +41,9 @@ func (h *Handler) CreateFeeOrders(ctx context.Context) ([]*npool.FeeOrder, error
 	if err := handler.GetApp(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+	if err := handler.GetAppConfig(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
 	if err := handler.GetUser(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
