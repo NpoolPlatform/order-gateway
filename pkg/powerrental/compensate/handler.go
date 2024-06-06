@@ -142,7 +142,7 @@ func WithCompensateFromID(compensateFromID *string, must bool) func(context.Cont
 
 func WithCompensateType(e *types.CompensateType, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
-		if e != nil {
+		if e == nil {
 			if must {
 				return wlog.Errorf("invalid compensatetype")
 			}
