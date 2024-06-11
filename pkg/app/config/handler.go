@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	ordergwcommon "github.com/NpoolPlatform/order-gateway/pkg/common"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
@@ -34,7 +35,7 @@ func NewHandler(ctx context.Context, options ...func(context.Context, *Handler) 
 	handler := &Handler{}
 	for _, opt := range options {
 		if err := opt(ctx, handler); err != nil {
-			return nil, err
+			return nil, wlog.WrapError(err)
 		}
 	}
 	return handler, nil
@@ -63,7 +64,7 @@ func WithEntID(id *string, must bool) func(context.Context, *Handler) error {
 		}
 		_, err := uuid.Parse(*id)
 		if err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		h.EntID = id
 		return nil
@@ -79,7 +80,7 @@ func WithAppID(id *string, must bool) func(context.Context, *Handler) error {
 			return nil
 		}
 		if err := h.CheckAppWithAppID(ctx, *id); err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		h.AppID = id
 		return nil
@@ -103,7 +104,7 @@ func WithSimulateOrderUnits(amount *string, must bool) func(context.Context, *Ha
 		}
 		_amount, err := decimal.NewFromString(*amount)
 		if err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		if _amount.Cmp(decimal.NewFromInt32(0)) <= 0 {
 			return fmt.Errorf("invalid simulateorderunits")
@@ -172,7 +173,7 @@ func WithSimulateOrderCouponProbability(amount *string, must bool) func(context.
 		}
 		_amount, err := decimal.NewFromString(*amount)
 		if err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		if _amount.Cmp(decimal.NewFromInt(0)) < 0 {
 			return fmt.Errorf("invalid simulateordercouponprobability")
@@ -217,7 +218,7 @@ func WithSimulateOrderCashableProfitProbability(amount *string, must bool) func(
 		}
 		_amount, err := decimal.NewFromString(*amount)
 		if err != nil {
-			return err
+			return wlog.WrapError(err)
 		}
 		if _amount.Cmp(decimal.NewFromInt(0)) < 0 {
 			return fmt.Errorf("invalid simulateordercashableprofitprobability")

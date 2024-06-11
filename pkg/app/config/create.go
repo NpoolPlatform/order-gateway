@@ -3,16 +3,12 @@ package appconfig
 import (
 	"context"
 
+	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	appconfigmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/app/config"
 	appconfigmwcli "github.com/NpoolPlatform/order-middleware/pkg/client/app/config"
-
-	"github.com/google/uuid"
 )
 
 func (h *Handler) CreateAppConfig(ctx context.Context) (*appconfigmwpb.AppConfig, error) {
-	if h.EntID == nil {
-		h.EntID = func() *string { s := uuid.NewString(); return &s }()
-	}
 	if err := appconfigmwcli.CreateAppConfig(ctx, &appconfigmwpb.AppConfigReq{
 		AppID:                                  h.AppID,
 		EnableSimulateOrder:                    h.EnableSimulateOrder,
@@ -22,7 +18,7 @@ func (h *Handler) CreateAppConfig(ctx context.Context) (*appconfigmwpb.AppConfig
 		MaxUnpaidOrders:                        h.MaxUnpaidOrders,
 		MaxTypedCouponsPerOrder:                h.MaxTypedCouponsPerOrder,
 	}); err != nil {
-		return nil, err
+		return nil, wlog.WrapError(err)
 	}
 	return h.GetAppConfig(ctx)
 }

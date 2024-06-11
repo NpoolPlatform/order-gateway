@@ -2,8 +2,8 @@ package appconfig
 
 import (
 	"context"
-	"fmt"
 
+	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	appconfigmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/app/config"
@@ -21,10 +21,10 @@ func (h *checkHandler) checkAppConfig(ctx context.Context) error {
 		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
 	})
 	if err != nil {
-		return err
+		return wlog.WrapError(err)
 	}
 	if !exist {
-		return fmt.Errorf("invalid appconfig")
+		return wlog.Errorf("invalid appconfig")
 	}
 	return nil
 }
