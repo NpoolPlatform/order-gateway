@@ -70,8 +70,8 @@ github.com/NpoolPlatform/libent-cruder v0.0.0-20240514082633-598d5fc7b1e3 h1:/KS
 github.com/NpoolPlatform/libent-cruder v0.0.0-20240514082633-598d5fc7b1e3/go.mod h1:EXCihQpRNNyWaPu1IphiZFLTyyUK/CJMZdW4My7y48Q=
 github.com/NpoolPlatform/message v0.0.0-20240605033505-4a3fd29ebfa0 h1:2+9NXpH+Nt44lgcBpvFZnSkcbiKQHk2pbXy12/QDRM0=
 github.com/NpoolPlatform/message v0.0.0-20240605033505-4a3fd29ebfa0/go.mod h1:PxJpF0vSSOke+NJskbRBRQ2fK2K3SRe8zaEja+GxSHk=
-github.com/NpoolPlatform/order-middleware v0.0.0-20240606074357-e7f62f039823 h1:R2QEIjft8HfT4vRzBScYU4sMLeAs7K+v3+hRjs0w/2g=
-github.com/NpoolPlatform/order-middleware v0.0.0-20240606074357-e7f62f039823/go.mod h1:q2rwK7pfUdr/rtCraUQTSeUjchYpjWrlD61kKx0jmbI=
+github.com/NpoolPlatform/order-middleware v0.0.0-20240611023012-d559bb79db49 h1:7n+UBCwFQJqUqw1NifBJL70Gm5dAz5g3Nus+WBN+QsI=
+github.com/NpoolPlatform/order-middleware v0.0.0-20240611023012-d559bb79db49/go.mod h1:q2rwK7pfUdr/rtCraUQTSeUjchYpjWrlD61kKx0jmbI=
 github.com/NpoolPlatform/sphinx-proxy v0.0.0-20231201062049-852b1487d4a9 h1:TljSgLyyHCAi/8cCOCf8WyOenmnbDJvqku627x4udyo=
 github.com/NpoolPlatform/sphinx-proxy v0.0.0-20231201062049-852b1487d4a9/go.mod h1:y0Y9hx/W34b69VxVG0sXtB6qY6h+QLtoas6RsEdox98=
 github.com/OneOfOne/xxhash v1.2.2 h1:KMrpdQIwFcEqXDklaen+P1axHaj9BSKzvpUUfnHldSE=
