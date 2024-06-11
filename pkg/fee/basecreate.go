@@ -2,6 +2,7 @@ package fee
 
 import (
 	"context"
+	"time"
 
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	goodcoinmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/coin"
@@ -112,6 +113,19 @@ func (h *baseCreateHandler) validateRequiredAppGoods() error {
 func (h *baseCreateHandler) getAppFees(ctx context.Context) (err error) {
 	h.appFees, err = ordergwcommon.GetAppFees(ctx, h.Handler.AppGoodIDs)
 	return err
+}
+
+func (h *baseCreateHandler) formalizeDurationSeconds() error {
+	for _, appFee := range h.appFees {
+		if *h.Handler.DurationSeconds < appFee.MinOrderDurationSeconds {
+			return wlog.Errorf("invalid durationseconds")
+		}
+	}
+	now := uint32(time.Now().Unix())
+	if *h.Handler.DurationSeconds > h.parentOrder.EndAt-now {
+		*h.Handler.DurationSeconds = h.parentOrder.EndAt - now
+	}
+	return nil
 }
 
 func (h *baseCreateHandler) calculateFeeOrderValueUSD(appGoodID string) (value decimal.Decimal, err error) {

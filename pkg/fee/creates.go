@@ -92,6 +92,9 @@ func (h *Handler) CreateFeeOrders(ctx context.Context) ([]*npool.FeeOrder, error
 	if err := handler.getAppFees(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+	if err := handler.formalizeDurationSeconds(); err != nil {
+		return nil, wlog.WrapError(err)
+	}
 	if err := handler.AcquirePaymentTransferAccount(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
