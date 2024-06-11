@@ -4,6 +4,7 @@ import (
 	"context"
 
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
+	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/fee"
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
 )
@@ -59,8 +60,11 @@ func (h *Handler) CreateFeeOrders(ctx context.Context) ([]*npool.FeeOrder, error
 	if err := handler.ValidateCouponCount(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if err := handler.ValidateMaxUnpaidOrders(ctx); err != nil {
-		return nil, wlog.WrapError(err)
+	if *h.OrderType != types.OrderType_Offline &&
+		*h.OrderType != types.OrderType_Airdrop {
+		if err := handler.ValidateMaxUnpaidOrders(ctx); err != nil {
+			return nil, wlog.WrapError(err)
+		}
 	}
 	if err := handler.getParentGoodCoins(ctx); err != nil {
 		return nil, wlog.WrapError(err)

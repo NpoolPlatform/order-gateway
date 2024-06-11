@@ -4,6 +4,7 @@ import (
 	"context"
 
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
+	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	npool "github.com/NpoolPlatform/message/npool/order/gw/v1/powerrental"
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
 
@@ -62,8 +63,12 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	if err := handler.ValidateCouponCount(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if err := handler.ValidateMaxUnpaidOrders(ctx); err != nil {
-		return nil, wlog.WrapError(err)
+	if (h.Simulate == nil || !*h.Simulate) &&
+		*h.OrderType != types.OrderType_Offline &&
+		*h.OrderType != types.OrderType_Airdrop {
+		if err := handler.ValidateMaxUnpaidOrders(ctx); err != nil {
+			return nil, wlog.WrapError(err)
+		}
 	}
 	if err := handler.getAppPowerRental(ctx); err != nil {
 		return nil, wlog.WrapError(err)
