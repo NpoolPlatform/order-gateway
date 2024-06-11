@@ -49,7 +49,7 @@ func (h *baseUpdateHandler) constructFeeOrderReq() {
 		ID:               &h.feeOrder.ID,
 		EntID:            &h.feeOrder.EntID,
 		OrderID:          &h.feeOrder.OrderID,
-		PaymentType:      &h.PaymentType,
+		PaymentType:      h.PaymentType,
 		LedgerLockID:     h.BalanceLockID,
 		PaymentID:        h.PaymentID,
 		UserSetPaid:      h.UserSetPaid,
@@ -76,7 +76,7 @@ func (h *baseUpdateHandler) withUpdateFeeOrder(dispose *dtmcli.SagaDispose) {
 }
 
 func (h *baseUpdateHandler) formalizePayment() {
-	h.feeOrderReq.PaymentType = &h.PaymentType
+	h.feeOrderReq.PaymentType = h.PaymentType
 	h.feeOrderReq.PaymentBalances = h.PaymentBalanceReqs
 	if h.PaymentTransferReq != nil {
 		h.feeOrderReq.PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}

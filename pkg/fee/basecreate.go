@@ -160,7 +160,7 @@ func (h *baseCreateHandler) constructFeeOrderReq(appGoodID string) error {
 	paymentType := h.PaymentType
 	if len(h.feeOrderReqs) > 0 {
 		paymentAmountUSD = decimal.NewFromInt(0)
-		paymentType = types.PaymentType_PayWithOtherOrder
+		paymentType = types.PaymentType_PayWithOtherOrder.Enum()
 	}
 	var promotionID *string
 	topMostAppGood, ok := h.TopMostAppGoods[appFee.AppGoodID]
@@ -177,7 +177,7 @@ func (h *baseCreateHandler) constructFeeOrderReq(appGoodID string) error {
 		OrderID:       func() *string { s := uuid.NewString(); return &s }(),
 		ParentOrderID: &h.parentOrder.OrderID,
 		OrderType:     h.Handler.OrderType,
-		PaymentType:   &paymentType,
+		PaymentType:   paymentType,
 		CreateMethod:  h.CreateMethod, // Admin or Purchase
 
 		GoodValueUSD:      func() *string { s := goodValueUSD.String(); return &s }(),
@@ -212,7 +212,7 @@ func (h *baseCreateHandler) constructFeeOrderReqs() error {
 }
 
 func (h *baseCreateHandler) formalizePayment() {
-	h.feeOrderReqs[0].PaymentType = &h.PaymentType
+	h.feeOrderReqs[0].PaymentType = h.PaymentType
 	h.feeOrderReqs[0].PaymentBalances = h.PaymentBalanceReqs
 	if h.PaymentTransferReq != nil {
 		h.feeOrderReqs[0].PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}

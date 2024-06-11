@@ -177,7 +177,7 @@ func (h *baseCreateHandler) constructFeeOrderReq(appGoodID string) error {
 		AppGoodID:    &appFee.AppGoodID,
 		OrderID:      func() *string { s := uuid.NewString(); return &s }(),
 		OrderType:    h.Handler.OrderType,
-		PaymentType:  func() *types.PaymentType { e := types.PaymentType_PayWithOtherOrder; return &e }(),
+		PaymentType:  func() *types.PaymentType { e := types.PaymentType_PayWithParentOrder; return &e }(),
 		CreateMethod: h.CreateMethod, // Admin or Purchase
 
 		GoodValueUSD:      func() *string { s := goodValueUSD.String(); return &s }(),
@@ -267,7 +267,6 @@ func (h *baseCreateHandler) constructPowerRentalOrderReq() error {
 		AppGoodID:    &h.appPowerRental.AppGoodID,
 		OrderID:      func() *string { s := uuid.NewString(); return &s }(),
 		OrderType:    h.Handler.OrderType,
-		PaymentType:  func() *types.PaymentType { e := types.PaymentType_PayWithOtherOrder; return &e }(),
 		CreateMethod: h.CreateMethod, // Admin or Purchase
 		Simulate:     h.Handler.Simulate,
 
@@ -300,7 +299,7 @@ func (h *baseCreateHandler) constructPowerRentalOrderReq() error {
 }
 
 func (h *baseCreateHandler) formalizePayment() {
-	h.powerRentalOrderReq.PaymentType = &h.PaymentType
+	h.powerRentalOrderReq.PaymentType = h.PaymentType
 	h.powerRentalOrderReq.PaymentBalances = h.PaymentBalanceReqs
 	if h.PaymentTransferReq != nil {
 		h.powerRentalOrderReq.PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}

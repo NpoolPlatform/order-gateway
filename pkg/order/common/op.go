@@ -72,7 +72,7 @@ type OrderOpHandler struct {
 
 	PaymentBalanceReqs         []*paymentmwpb.PaymentBalanceReq
 	PaymentTransferReq         *paymentmwpb.PaymentTransferReq
-	PaymentType                types.PaymentType
+	PaymentType                *types.PaymentType
 	PaymentTransferAccount     *paymentaccountmwpb.Account
 	PaymentTransferStartAmount decimal.Decimal
 	BalanceLockID              *string
@@ -510,17 +510,17 @@ func (h *OrderOpHandler) ResolvePaymentType() error {
 		default:
 			return wlog.Errorf("invalid paymenttype")
 		}
-		h.PaymentType = types.PaymentType_PayWithNoPayment
+		h.PaymentType = types.PaymentType_PayWithNoPayment.Enum()
 	}
 	if h.PaymentTransferReq == nil {
-		h.PaymentType = types.PaymentType_PayWithBalanceOnly
+		h.PaymentType = types.PaymentType_PayWithBalanceOnly.Enum()
 		return nil
 	}
 	if len(h.PaymentBalanceReqs) == 0 {
-		h.PaymentType = types.PaymentType_PayWithTransferOnly
+		h.PaymentType = types.PaymentType_PayWithTransferOnly.Enum()
 		return nil
 	}
-	h.PaymentType = types.PaymentType_PayWithTransferAndBalance
+	h.PaymentType = types.PaymentType_PayWithTransferAndBalance.Enum()
 	return nil
 }
 

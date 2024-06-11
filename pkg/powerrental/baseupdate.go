@@ -91,7 +91,7 @@ func (h *baseUpdateHandler) constructPowerRentalOrderReq() {
 		ID:               &h.powerRentalOrder.ID,
 		EntID:            &h.powerRentalOrder.EntID,
 		OrderID:          &h.powerRentalOrder.OrderID,
-		PaymentType:      &h.PaymentType,
+		PaymentType:      h.PaymentType,
 		LedgerLockID:     h.BalanceLockID,
 		PaymentID:        h.PaymentID,
 		UserSetPaid:      h.UserSetPaid,
@@ -118,7 +118,7 @@ func (h *baseUpdateHandler) withUpdatePowerRentalOrder(dispose *dtmcli.SagaDispo
 }
 
 func (h *baseUpdateHandler) formalizePayment() {
-	h.powerRentalOrderReq.PaymentType = &h.PaymentType
+	h.powerRentalOrderReq.PaymentType = h.PaymentType
 	h.powerRentalOrderReq.PaymentBalances = h.PaymentBalanceReqs
 	if h.PaymentTransferReq != nil {
 		h.powerRentalOrderReq.PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}
