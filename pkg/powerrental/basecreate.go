@@ -104,7 +104,7 @@ func (h *baseCreateHandler) getAppPowerRental(ctx context.Context) (err error) {
 	if err != nil {
 		return wlog.WrapError(err)
 	}
-	if h.appPowerRental == nil {
+	if h.appPowerRental == nil || !h.appPowerRental.AppGoodOnline || !h.appPowerRental.AppGoodPurchasable {
 		return wlog.Errorf("invalid apppowerrental")
 	}
 	return nil
