@@ -5,9 +5,13 @@ import (
 
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	malfunctionmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/malfunction"
+	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
+	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	malfunctionmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/malfunction"
+	ordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/order"
 	powerrentalcompensatemwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/powerrental/compensate"
+	ordermwcli "github.com/NpoolPlatform/order-middleware/pkg/client/order"
 	powerrentalcompensatemwcli "github.com/NpoolPlatform/order-middleware/pkg/client/powerrental/compensate"
 
 	"github.com/google/uuid"
@@ -16,11 +20,25 @@ import (
 type createHandler struct {
 	*Handler
 	goodMalfunction   *malfunctionmwpb.Malfunction
+	order             *ordermwpb.Order
 	compensateSeconds uint32
 }
 
+func (h *createHandler) getOrder(ctx context.Context) (err error) {
+	h.order, err = ordermwcli.GetOrder(ctx, *h.OrderID)
+	return wlog.WrapError(err)
+}
+
 func (h *createHandler) getGoodMalfunction(ctx context.Context) (err error) {
-	h.goodMalfunction, err = malfunctionmwcli.GetMalfunction(ctx, *h.CompensateFromID)
+	conds := &malfunctionmwpb.Conds{
+		EntID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.CompensateFromID},
+	}
+	if h.GoodID != nil {
+		conds.GoodID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.GoodID}
+	} else {
+		conds.GoodID = &basetypes.StringVal{Op: cruder.EQ, Value: h.order.GoodID}
+	}
+	h.goodMalfunction, err = malfunctionmwcli.GetMalfunctionOnly(ctx, conds)
 	if err != nil {
 		return err
 	}
@@ -47,6 +65,14 @@ func (h *createHandler) getCompensateType(ctx context.Context) error {
 func (h *Handler) CreateCompensate(ctx context.Context) error {
 	handler := &createHandler{
 		Handler: h,
+	}
+	if h.OrderID == nil && h.GoodID == nil {
+		return wlog.Errorf("invalid ordergood")
+	}
+	if h.OrderID != nil {
+		if err := handler.getOrder(ctx); err != nil {
+			return wlog.WrapError(err)
+		}
 	}
 	if err := handler.getCompensateType(ctx); err != nil {
 		return wlog.WrapError(err)
