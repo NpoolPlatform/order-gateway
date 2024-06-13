@@ -101,6 +101,21 @@ func (h *baseCreateHandler) getAppPowerRental(ctx context.Context) (err error) {
 	return wlog.WrapError(err)
 }
 
+func (h *baseCreateHandler) validateOrderDuration() error {
+	if h.appPowerRental.FixedDuration {
+		h.Handler.DurationSeconds = &h.appPowerRental.MinOrderDurationSeconds
+		return nil
+	}
+	if h.Handler.DurationSeconds == nil {
+		return wlog.Errorf("invalid durationseconds")
+	}
+	if *h.Handler.DurationSeconds < h.appPowerRental.MinOrderDurationSeconds ||
+		*h.Handler.DurationSeconds > h.appPowerRental.MaxOrderDurationSeconds {
+		return wlog.Errorf("invalid durationseconds")
+	}
+	return nil
+}
+
 func (h *baseCreateHandler) calculateFeeOrderValueUSD(appGoodID string) (value decimal.Decimal, err error) {
 	appFee, ok := h.appFees[appGoodID]
 	if !ok {
