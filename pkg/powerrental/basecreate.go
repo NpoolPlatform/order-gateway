@@ -156,6 +156,9 @@ func (h *baseCreateHandler) calculateFeeOrderValueUSD(appGoodID string) (value d
 		return value, wlog.WrapError(err)
 	}
 	quantityUnits := *h.Handler.Units
+	if h.Handler.FeeDurationSeconds == nil {
+		return decimal.NewFromInt(0), wlog.Errorf("invalid feedurationseconds")
+	}
 	durationUnits, _ := ordergwcommon.GoodDurationDisplayType2Unit(
 		appFee.DurationDisplayType, *h.Handler.FeeDurationSeconds,
 	)
