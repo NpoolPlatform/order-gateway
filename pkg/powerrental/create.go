@@ -84,6 +84,9 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	if err := handler.validateOrderDuration(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+	if err := handler.validateOrderUnits(); err != nil {
+		return nil, wlog.WrapError(err)
+	}
 	if err := handler.getGoodCoins(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}

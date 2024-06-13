@@ -146,6 +146,31 @@ func (h *baseCreateHandler) validateOrderDuration() error {
 	return nil
 }
 
+func (h *baseCreateHandler) validateOrderUnits() error {
+	minOrderAmount, err := decimal.NewFromString(h.appPowerRental.MinOrderAmount)
+	if err != nil {
+		return wlog.WrapError(err)
+	}
+	if h.Units.LessThan(minOrderAmount) {
+		return wlog.Errorf("invalid orderunits")
+	}
+	maxOrderAmount, err := decimal.NewFromString(h.appPowerRental.MaxOrderAmount)
+	if err != nil {
+		return wlog.WrapError(err)
+	}
+	if h.Units.GreaterThan(maxOrderAmount) {
+		return wlog.Errorf("invalid orderunits")
+	}
+	maxUserAmount, err := decimal.NewFromString(h.appPowerRental.MaxUserAmount)
+	if err != nil {
+		return wlog.WrapError(err)
+	}
+	if h.Units.GreaterThan(maxUserAmount) {
+		return wlog.Errorf("invalid orderunits")
+	}
+	return nil
+}
+
 func (h *baseCreateHandler) calculateFeeOrderValueUSD(appGoodID string) (value decimal.Decimal, err error) {
 	appFee, ok := h.appFees[appGoodID]
 	if !ok {
