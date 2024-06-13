@@ -12,6 +12,7 @@ import (
 	appcoinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/app/coin"
 	currencymwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin/currency"
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
+	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	appgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good"
 	requiredappgoodmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/good/required"
@@ -168,7 +169,11 @@ func (h *OrderOpHandler) GetCoinUSDCurrencies(ctx context.Context) error {
 		return wlog.WrapError(err)
 	}
 	h.coinUSDCurrencies = map[string]*currencymwpb.Currency{}
+	now := uint32(time.Now().Unix())
 	for _, info := range infos {
+		if now < info.CreatedAt+timedef.SecondsPerMinute*10 {
+			return wlog.Errorf("stale coincurrency")
+		}
 		h.coinUSDCurrencies[info.CoinTypeID] = info
 	}
 	return nil
@@ -183,7 +188,7 @@ func (h *OrderOpHandler) GetAppGoods(ctx context.Context) error {
 		return wlog.WrapError(err)
 	}
 	if len(appGoods) != len(h.AppGoodIDs) {
-		return wlog.Errorf("invalid appgoods %v | %v", h.AppGoodIDs, appGoods)
+		return wlog.Errorf("invalid appgoods")
 	}
 	h.AppGoods = map[string]*appgoodmwpb.Good{}
 	for _, appGood := range appGoods {
