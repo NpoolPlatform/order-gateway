@@ -228,7 +228,7 @@ func (h *OrderOpHandler) ValidateCouponScope(ctx context.Context, parentAppGoodI
 	reqs := []*appgoodscopemwpb.ScopeReq{}
 	for _, allocatedCoupon := range h.allocatedCoupons {
 		for appGoodID, appGood := range h.AppGoods {
-			if parentAppGoodID != nil && *parentAppGoodID == appGoodID {
+			if parentAppGoodID != nil && *parentAppGoodID != appGoodID {
 				continue
 			}
 			_appGoodID := appGoodID
@@ -241,7 +241,7 @@ func (h *OrderOpHandler) ValidateCouponScope(ctx context.Context, parentAppGoodI
 			})
 		}
 	}
-	return appgoodscopemwcli.VerifyCouponScopes(ctx, reqs)
+	return wlog.WrapError(appgoodscopemwcli.VerifyCouponScopes(ctx, reqs))
 }
 
 func (h *OrderOpHandler) ValidateCouponCount() error {
@@ -401,7 +401,7 @@ func (h *OrderOpHandler) getCoinUSDCurrency(coinTypeID string) (cur decimal.Deci
 	}
 	amount, err := decimal.NewFromString(currency.MarketValueLow)
 	if err != nil {
-		return cur, live, local, err
+		return cur, live, local, wlog.WrapError(err)
 	}
 
 	cur = amount
@@ -414,7 +414,7 @@ func (h *OrderOpHandler) getCoinUSDCurrency(coinTypeID string) (cur decimal.Deci
 
 	amount, err = decimal.NewFromString(appCoin.SettleValue)
 	if err != nil {
-		return cur, live, local, err
+		return cur, live, local, wlog.WrapError(err)
 	}
 	if amount.GreaterThan(decimal.NewFromInt(0)) {
 		cur = amount
@@ -422,7 +422,7 @@ func (h *OrderOpHandler) getCoinUSDCurrency(coinTypeID string) (cur decimal.Deci
 
 	amount, err = decimal.NewFromString(appCoin.MarketValue)
 	if err != nil {
-		return cur, live, local, err
+		return cur, live, local, wlog.WrapError(err)
 	}
 	if amount.GreaterThan(decimal.NewFromInt(0)) {
 		local = func() *string { s := amount.String(); return &s }()
@@ -535,7 +535,7 @@ func (h *OrderOpHandler) ResolvePaymentType() error {
 func (h *OrderOpHandler) recheckPaymentAccount(ctx context.Context, paymentAccountID string) (bool, error) {
 	account, err := paymentaccountmwcli.GetAccount(ctx, paymentAccountID)
 	if err != nil {
-		return false, err
+		return false, wlog.WrapError(err)
 	}
 	if account == nil {
 		return false, wlog.Errorf("invalid account")
@@ -558,7 +558,7 @@ func (h *OrderOpHandler) peekExistPaymentAccount(ctx context.Context) (*paymenta
 		AvailableAt: &basetypes.Uint32Val{Op: cruder.LTE, Value: uint32(time.Now().Unix())},
 	}, 0, 5) //nolint
 	if err != nil {
-		return nil, err
+		return nil, wlog.WrapError(err)
 	}
 	for _, account := range accounts {
 		if err := accountlock.Lock(account.AccountID); err != nil {
@@ -567,7 +567,7 @@ func (h *OrderOpHandler) peekExistPaymentAccount(ctx context.Context) (*paymenta
 		usable, err := h.recheckPaymentAccount(ctx, account.EntID)
 		if err != nil {
 			_ = accountlock.Unlock(account.AccountID)
-			return nil, err
+			return nil, wlog.WrapError(err)
 		}
 		if !usable {
 			_ = accountlock.Unlock(account.AccountID)
@@ -586,7 +586,7 @@ func (h *OrderOpHandler) peekNewPaymentAccount(ctx context.Context) (*paymentacc
 	for i := 0; i < 5; i++ {
 		address, err := sphinxproxycli.CreateAddress(ctx, paymentTransferCoin.CoinName)
 		if err != nil {
-			return nil, err
+			return nil, wlog.WrapError(err)
 		}
 		if address == nil || address.Address == "" {
 			return nil, wlog.Errorf("invalid address")
@@ -596,7 +596,7 @@ func (h *OrderOpHandler) peekNewPaymentAccount(ctx context.Context) (*paymentacc
 			Address:    &address.Address,
 		})
 		if err != nil {
-			return nil, err
+			return nil, wlog.WrapError(err)
 		}
 	}
 	return h.peekExistPaymentAccount(ctx)
