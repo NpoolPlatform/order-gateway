@@ -8,6 +8,7 @@ import (
 	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	apppowerrentalmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/powerrental"
+	apppowerrentalsimulatemwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/powerrental/simulate"
 	goodcoinmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/coin"
 	goodmwsvcname "github.com/NpoolPlatform/good-middleware/pkg/servicename"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
@@ -17,6 +18,7 @@ import (
 	appfeemwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/fee"
 	appgoodstockmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/stock"
 	apppowerrentalmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/powerrental"
+	apppowerrentalsimulatemwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/powerrental/simulate"
 	goodcoinmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/coin"
 	feeordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/fee"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
@@ -34,14 +36,15 @@ import (
 type baseCreateHandler struct {
 	*dtmHandler
 	*ordercommon.OrderOpHandler
-	appPowerRental      *apppowerrentalmwpb.PowerRental
-	goodCoins           []*goodcoinmwpb.GoodCoin
-	appFees             map[string]*appfeemwpb.Fee
-	powerRentalOrderReq *powerrentalordermwpb.PowerRentalOrderReq
-	feeOrderReqs        []*feeordermwpb.FeeOrderReq
-	appGoodStockLockID  *string
-	orderStartMode      types.OrderStartMode
-	orderStartAt        uint32
+	appPowerRental         *apppowerrentalmwpb.PowerRental
+	appPowerRentalSimulate *apppowerrentalsimulatemwpb.Simulate
+	goodCoins              []*goodcoinmwpb.GoodCoin
+	appFees                map[string]*appfeemwpb.Fee
+	powerRentalOrderReq    *powerrentalordermwpb.PowerRentalOrderReq
+	feeOrderReqs           []*feeordermwpb.FeeOrderReq
+	appGoodStockLockID     *string
+	orderStartMode         types.OrderStartMode
+	orderStartAt           uint32
 }
 
 func (h *baseCreateHandler) getAppGoods(ctx context.Context) error {
@@ -98,7 +101,34 @@ func (h *baseCreateHandler) getAppFees(ctx context.Context) (err error) {
 
 func (h *baseCreateHandler) getAppPowerRental(ctx context.Context) (err error) {
 	h.appPowerRental, err = apppowerrentalmwcli.GetPowerRental(ctx, *h.Handler.AppGoodID)
-	return wlog.WrapError(err)
+	if err != nil {
+		return wlog.WrapError(err)
+	}
+	if h.appPowerRental == nil {
+		return wlog.Errorf("invalid apppowerrental")
+	}
+	return nil
+}
+
+func (h *baseCreateHandler) getAppPowerRentalSimulate(ctx context.Context) (err error) {
+	h.appPowerRentalSimulate, err = apppowerrentalsimulatemwcli.GetSimulate(ctx, *h.Handler.AppGoodID)
+	if err != nil {
+		return wlog.WrapError(err)
+	}
+	if h.appPowerRentalSimulate == nil {
+		return wlog.Errorf("invalid apppowerrentalsimulate")
+	}
+	return nil
+}
+
+func (h *baseCreateHandler) formalizeSimulateOrder() error {
+	units, err := decimal.NewFromString(h.appPowerRentalSimulate.OrderUnits)
+	if err != nil {
+		return wlog.WrapError(err)
+	}
+	h.Units = &units
+	h.DurationSeconds = &h.appPowerRentalSimulate.OrderDurationSeconds
+	return nil
 }
 
 func (h *baseCreateHandler) validateOrderDuration() error {

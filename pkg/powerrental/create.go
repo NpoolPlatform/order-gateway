@@ -73,6 +73,14 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	if err := handler.getAppPowerRental(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+	if h.Simulate != nil && *h.Simulate {
+		if err := handler.getAppPowerRentalSimulate(ctx); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+		if err := handler.formalizeSimulateOrder(); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+	}
 	if err := handler.validateOrderDuration(); err != nil {
 		return nil, wlog.WrapError(err)
 	}

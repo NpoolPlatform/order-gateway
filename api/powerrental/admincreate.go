@@ -31,7 +31,7 @@ func (s *Server) AdminCreatePowerRentalOrder(ctx context.Context, in *npool.Admi
 		powerrental1.WithOrderType(&in.OrderType, true),
 		powerrental1.WithCreateMethod(func() *types.OrderCreateMethod { e := types.OrderCreateMethod_OrderCreatedByAdmin; return &e }(), true),
 		powerrental1.WithDurationSeconds(in.DurationSeconds, false),
-		powerrental1.WithUnits(&in.Units, true),
+		powerrental1.WithUnits(in.Units, true),
 		powerrental1.WithAppSpotUnits(in.AppSpotUnits, false),
 		powerrental1.WithAppGoodStockID(&in.AppGoodStockID, true),
 		powerrental1.WithInvestmentType(&in.InvestmentType, true),
