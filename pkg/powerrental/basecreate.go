@@ -191,7 +191,7 @@ func (h *baseCreateHandler) calculateFeeOrderValueUSD(appGoodID string) (value d
 }
 
 func (h *baseCreateHandler) checkEnableSimulateOrder() error {
-	if h.Simulate != nil && *h.Simulate && h.OrderConfig != nil && !h.OrderConfig.EnableSimulateOrder {
+	if h.OrderOpHandler.Simulate && h.OrderConfig != nil && !h.OrderConfig.EnableSimulateOrder {
 		return wlog.Errorf("permission denied")
 	}
 	return nil
@@ -425,7 +425,7 @@ func (h *baseCreateHandler) createPowerRentalOrder(ctx context.Context) error {
 		RequestTimeout: 10,
 		TimeoutToFail:  10,
 	})
-	if h.Simulate == nil || !*h.Simulate {
+	if !h.OrderOpHandler.Simulate {
 		if h.AppGoodStockID == nil {
 			return wlog.Errorf("invalid appgoodstockid")
 		}

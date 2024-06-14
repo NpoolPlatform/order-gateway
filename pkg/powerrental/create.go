@@ -31,6 +31,7 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 				PaymentTransferCoinTypeID:   h.PaymentTransferCoinTypeID,
 				PaymentBalanceReqs:          h.Balances,
 				AllocatedCouponIDs:          h.CouponIDs,
+				Simulate:                    h.Simulate != nil && *h.Simulate,
 			},
 			appGoodStockLockID: func() *string { s := uuid.NewString(); return &s }(),
 		},
@@ -63,7 +64,7 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	if err := handler.ValidateCouponCount(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if (h.Simulate == nil || !*h.Simulate) &&
+	if !handler.OrderOpHandler.Simulate &&
 		*h.OrderType != types.OrderType_Offline &&
 		*h.OrderType != types.OrderType_Airdrop {
 		if err := handler.ValidateMaxUnpaidOrders(ctx); err != nil {
@@ -73,7 +74,7 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	if err := handler.getAppPowerRental(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if h.Simulate != nil && *h.Simulate {
+	if handler.OrderOpHandler.Simulate {
 		if err := handler.getAppPowerRentalSimulate(ctx); err != nil {
 			return nil, wlog.WrapError(err)
 		}
@@ -126,20 +127,24 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	if err := handler.calculateTotalGoodValueUSD(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if err := handler.CalculateDeductAmountUSD(); err != nil {
-		return nil, wlog.WrapError(err)
-	}
-	handler.CalculatePaymentAmountUSD()
-	if err := handler.ConstructOrderPayment(); err != nil {
-		return nil, wlog.WrapError(err)
+	if !handler.OrderOpHandler.Simulate {
+		if err := handler.CalculateDeductAmountUSD(); err != nil {
+			return nil, wlog.WrapError(err)
+		}
+		handler.CalculatePaymentAmountUSD()
+		if err := handler.ConstructOrderPayment(); err != nil {
+			return nil, wlog.WrapError(err)
+		}
 	}
 	if err := handler.ResolvePaymentType(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	handler.PrepareLedgerLockID()
-	handler.formalizePayment()
-	if err := handler.ValidateCouponConstraint(); err != nil {
-		return nil, wlog.WrapError(err)
+	if !handler.OrderOpHandler.Simulate {
+		handler.PrepareLedgerLockID()
+		handler.formalizePayment()
+		if err := handler.ValidateCouponConstraint(); err != nil {
+			return nil, wlog.WrapError(err)
+		}
 	}
 
 	if err := handler.createPowerRentalOrder(ctx); err != nil {

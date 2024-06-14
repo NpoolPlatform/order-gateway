@@ -66,6 +66,7 @@ type OrderOpHandler struct {
 	AllocatedCouponIDs        []string
 	AppGoodIDs                []string
 	OrderType                 types.OrderType
+	Simulate                  bool
 
 	allocatedCoupons  map[string]*allocatedcouponmwpb.Coupon
 	coinUSDCurrencies map[string]*currencymwpb.Currency
@@ -441,6 +442,9 @@ func (h *OrderOpHandler) ConstructOrderPayment() error {
 	case types.OrderType_Airdrop:
 		return nil
 	}
+	if h.Simulate {
+		return nil
+	}
 
 	remainAmountUSD := h.PaymentAmountUSD
 
@@ -509,11 +513,13 @@ func (h *OrderOpHandler) ValidateCouponConstraint() error {
 
 func (h *OrderOpHandler) ResolvePaymentType() error {
 	if h.PaymentTransferReq == nil && len(h.PaymentBalanceReqs) == 0 {
-		switch h.OrderType {
-		case types.OrderType_Offline:
-		case types.OrderType_Airdrop:
-		default:
-			return wlog.Errorf("invalid paymenttype")
+		if !h.Simulate {
+			switch h.OrderType {
+			case types.OrderType_Offline:
+			case types.OrderType_Airdrop:
+			default:
+				return wlog.Errorf("invalid paymenttype")
+			}
 		}
 		h.PaymentType = types.PaymentType_PayWithNoPayment.Enum()
 	}
