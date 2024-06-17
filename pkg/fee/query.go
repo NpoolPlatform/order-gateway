@@ -295,7 +295,7 @@ func (h *Handler) GetFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 	return handler.infos[0], nil
 }
 
-func (h *Handler) GetFeeOrders(ctx context.Context) ([]*npool.FeeOrder, uint32, error) {
+func (h *Handler) GetFeeOrders(ctx context.Context) ([]*npool.FeeOrder, uint32, error) { //nolint:gocyclo
 	conds := &feeordermwpb.Conds{}
 	if h.OrderCheckHandler.AppID != nil {
 		conds.AppID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.OrderCheckHandler.AppID}
