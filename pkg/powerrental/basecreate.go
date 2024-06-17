@@ -66,11 +66,15 @@ func (h *baseCreateHandler) getGoodCoins(ctx context.Context) error {
 			return wlog.WrapError(err)
 		}
 		if len(goodCoins) == 0 {
-			return nil
+			break
 		}
 		h.goodCoins = append(h.goodCoins, goodCoins...)
 		offset += limit
 	}
+	if len(h.goodCoins) == 0 {
+		return wlog.Errorf("invalid goodcoins")
+	}
+	return nil
 }
 
 func (h *baseCreateHandler) validateRequiredAppGoods() error {
