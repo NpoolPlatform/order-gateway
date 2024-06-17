@@ -316,7 +316,7 @@ func (h *Handler) GetPowerRentalOrder(ctx context.Context) (*npool.PowerRentalOr
 	return handler.infos[0], nil
 }
 
-func (h *Handler) GetPowerRentalOrders(ctx context.Context) ([]*npool.PowerRentalOrder, uint32, error) {
+func (h *Handler) GetPowerRentalOrders(ctx context.Context) ([]*npool.PowerRentalOrder, uint32, error) { //nolint:gocyclo
 	conds := &powerrentalordermwpb.Conds{}
 	if h.OrderCheckHandler.AppID != nil {
 		conds.AppID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.OrderCheckHandler.AppID}
