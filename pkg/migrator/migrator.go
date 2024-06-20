@@ -111,7 +111,7 @@ func migrateAppConfigs(ctx context.Context, tx *ent.Tx) error {
 
 func migrateOrderLocks(ctx context.Context, tx *ent.Tx) error {
 	logger.Sugar().Warnw("exec migrateOrderLocks")
-	orderLocksSQL := "alter table test_locks modify app_id varchar(36);"
+	orderLocksSQL := "alter table order_locks modify app_id varchar(36);"
 	logger.Sugar().Warnw(
 		"exec orderLocksSQL",
 		"sql", orderLocksSQL,
@@ -122,7 +122,7 @@ func migrateOrderLocks(ctx context.Context, tx *ent.Tx) error {
 	}
 	_, err = rc.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("fail modify test_locks: %v", err)
+		return fmt.Errorf("fail modify order_locks: %v", err)
 	}
 	return nil
 }
