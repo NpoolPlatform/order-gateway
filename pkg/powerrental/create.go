@@ -105,6 +105,7 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	if err := handler.GetCoinUSDCurrencies(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+	handler.formalizeFeeAppGoodIDs()
 	if err := handler.getAppFees(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}

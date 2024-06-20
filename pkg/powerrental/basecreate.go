@@ -98,9 +98,25 @@ func (h *baseCreateHandler) validateRequiredAppGoods() error {
 	return nil
 }
 
+func (h *baseCreateHandler) formalizeFeeAppGoodIDs() {
+	if !h.appPowerRental.PackageWithRequireds {
+		return
+	}
+	requireds, ok := h.RequiredAppGoods[*h.Handler.AppGoodID]
+	if !ok {
+		return
+	}
+	for _, required := range requireds {
+		if !required.Must {
+			continue
+		}
+		h.Handler.FeeAppGoodIDs = append(h.Handler.FeeAppGoodIDs, required.RequiredAppGoodID)
+	}
+}
+
 func (h *baseCreateHandler) getAppFees(ctx context.Context) (err error) {
 	h.appFees, err = ordergwcommon.GetAppFees(ctx, h.Handler.FeeAppGoodIDs)
-	return err
+	return wlog.WrapError(err)
 }
 
 func (h *baseCreateHandler) getAppPowerRental(ctx context.Context) (err error) {
@@ -218,6 +234,9 @@ func (h *baseCreateHandler) calculateTotalGoodValueUSD() (err error) {
 	if err != nil {
 		return err
 	}
+	if h.appPowerRental.PackageWithRequireds {
+		return nil
+	}
 	for _, appFee := range h.appFees {
 		if appFee.SettlementType != goodtypes.GoodSettlementType_GoodSettledByPaymentAmount {
 			return wlog.Errorf("invalid appfee settlementtype")
@@ -257,12 +276,24 @@ func (h *baseCreateHandler) constructFeeOrderReq(appGoodID string) error {
 		PaymentType:  func() *types.PaymentType { e := types.PaymentType_PayWithParentOrder; return &e }(),
 		CreateMethod: h.CreateMethod, // Admin or Purchase
 
-		GoodValueUSD:      func() *string { s := goodValueUSD.String(); return &s }(),
+		GoodValueUSD: func() *string {
+			s := goodValueUSD.String()
+			if h.appPowerRental.PackageWithRequireds {
+				s = decimal.NewFromInt(0).String()
+			}
+			return &s
+		}(),
 		PaymentAmountUSD:  func() *string { s := decimal.NewFromInt(0).String(); return &s }(),
 		DiscountAmountUSD: func() *string { s := decimal.NewFromInt(0).String(); return &s }(),
 		PromotionID:       promotionID,
-		DurationSeconds:   h.Handler.FeeDurationSeconds,
-		PaymentID:         h.PaymentID,
+		DurationSeconds: func() *uint32 {
+			if h.appPowerRental.PackageWithRequireds {
+				return h.Handler.DurationSeconds
+			} else {
+				return h.Handler.FeeDurationSeconds
+			}
+		}(),
+		PaymentID: h.PaymentID,
 	}
 	h.OrderIDs = append(h.OrderIDs, *req.OrderID)
 	h.feeOrderReqs = append(h.feeOrderReqs, req)
