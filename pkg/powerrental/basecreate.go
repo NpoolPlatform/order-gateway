@@ -207,6 +207,7 @@ func (h *baseCreateHandler) calculateFeeOrderValueUSD(appGoodID string) (value d
 	durationUnits, _ := ordergwcommon.GoodDurationDisplayType2Unit(
 		appFee.DurationDisplayType, *h.Handler.FeeDurationSeconds,
 	)
+	*h.Handler.FeeDurationSeconds = ordergwcommon.GoodDurationDisplayType2Seconds(appFee.DurationDisplayType) * durationUnits
 	return unitValue.Mul(quantityUnits).Mul(decimal.NewFromInt(int64(durationUnits))), nil
 }
 
@@ -226,6 +227,7 @@ func (h *baseCreateHandler) calculatePowerRentalOrderValueUSD() (value decimal.D
 	durationUnits, _ := ordergwcommon.GoodDurationDisplayType2Unit(
 		h.appPowerRental.DurationDisplayType, *h.Handler.DurationSeconds,
 	)
+	*h.Handler.DurationSeconds = ordergwcommon.GoodDurationDisplayType2Seconds(h.appPowerRental.DurationDisplayType) * durationUnits
 	return unitValue.Mul(quantityUnits).Mul(decimal.NewFromInt(int64(durationUnits))), nil
 }
 
