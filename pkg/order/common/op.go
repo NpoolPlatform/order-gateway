@@ -784,6 +784,7 @@ func (h *OrderOpHandler) GoodCancelable() error {
 		default:
 			return wlog.Errorf("permission denied")
 		}
+	case goodtypes.CancelMode_CancellableBeforeUsed:
 	default:
 		return wlog.Errorf("invalid cancelmode")
 	}
