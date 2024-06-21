@@ -208,7 +208,10 @@ func (h *baseCreateHandler) calculateFeeOrderValueUSD(appGoodID string) (value d
 	}
 	quantityUnits := *h.Handler.Units
 	if h.Handler.FeeDurationSeconds == nil {
-		return decimal.NewFromInt(0), wlog.Errorf("invalid feedurationseconds")
+		if !h.appPowerRental.PackageWithRequireds {
+			return decimal.NewFromInt(0), wlog.Errorf("invalid feedurationseconds")
+		}
+		h.Handler.FeeDurationSeconds = h.Handler.DurationSeconds
 	}
 	durationUnits, _ := ordergwcommon.GoodDurationDisplayType2Unit(
 		appFee.DurationDisplayType, *h.Handler.FeeDurationSeconds,
