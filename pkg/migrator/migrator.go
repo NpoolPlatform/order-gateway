@@ -14,6 +14,18 @@ import (
 	servicename "github.com/NpoolPlatform/order-gateway/pkg/servicename"
 	"github.com/NpoolPlatform/order-middleware/pkg/db"
 	"github.com/NpoolPlatform/order-middleware/pkg/db/ent"
+	entappconfig "github.com/NpoolPlatform/order-middleware/pkg/db/ent/appconfig"
+	entfeeorder "github.com/NpoolPlatform/order-middleware/pkg/db/ent/feeorder"
+	entfeeorderstate "github.com/NpoolPlatform/order-middleware/pkg/db/ent/feeorderstate"
+	entorderbase "github.com/NpoolPlatform/order-middleware/pkg/db/ent/orderbase"
+	entordercoupon "github.com/NpoolPlatform/order-middleware/pkg/db/ent/ordercoupon"
+	entorderstatebase "github.com/NpoolPlatform/order-middleware/pkg/db/ent/orderstatebase"
+	entpaymentbalance "github.com/NpoolPlatform/order-middleware/pkg/db/ent/paymentbalance"
+	entpaymentbalancelock "github.com/NpoolPlatform/order-middleware/pkg/db/ent/paymentbalancelock"
+	entpaymentbase "github.com/NpoolPlatform/order-middleware/pkg/db/ent/paymentbase"
+	entpaymenttransfer "github.com/NpoolPlatform/order-middleware/pkg/db/ent/paymenttransfer"
+	entpowerrental "github.com/NpoolPlatform/order-middleware/pkg/db/ent/powerrental"
+	entpowerrentalstate "github.com/NpoolPlatform/order-middleware/pkg/db/ent/powerrentalstate"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
@@ -28,7 +40,7 @@ func lockKey() string {
 }
 
 func migrateAppConfigs(ctx context.Context, tx *ent.Tx) error {
-	fmt.Println("======================== exec migrateAppConfigs ==========================")
+	logger.Sugar().Warnw("exec migrateAppConfigs")
 	rows, err := tx.QueryContext(ctx, "select ent_id,app_id,enabled,send_coupon_mode,send_coupon_probability,cashable_profit_probability,created_at,updated_at from simulate_configs where deleted_at = 0") //nolint
 	if err != nil {
 		return err
@@ -61,52 +73,68 @@ func migrateAppConfigs(ctx context.Context, tx *ent.Tx) error {
 		if err != nil {
 			return err
 		}
-		// if _, err := tx.
-		// 	AppConfig.
-		// 	Create().
-		// 	SetAppID(sc.AppID).
-		// 	SetEnableSimulateOrder(sc.Enabled).
-		// 	SetSimulateOrderCouponMode(sc.SendCouponMode).
-		// 	SetSimulateOrderCouponProbability(sendCouponProbability).
-		// 	SetSimulateOrderCashableProfitProbability(cashableProfitProbability).
-		// 	SetCreatedAt(sc.CreatedAt).
-		// 	SetUpdatedAt(sc.UpdatedAt).
-		// 	Save(ctx); err != nil {
-		// 	return err
-		// }
-		fmt.Println("1 -------------------------migrateAppConfigs-----------------------------")
-		fmt.Println("sc.AppID: ", sc.AppID)
-		fmt.Println("sc.Enabled: ", sc.Enabled)
-		fmt.Println("sc.SendCouponMode: ", sc.SendCouponMode)
-		fmt.Println("sendCouponProbability: ", sendCouponProbability)
-		fmt.Println("cashableProfitProbability: ", cashableProfitProbability)
-		fmt.Println("sc.CreatedAt: ", sc.CreatedAt)
-		fmt.Println("sc.UpdatedAt: ", sc.UpdatedAt)
-		fmt.Println("11 -------------------------migrateAppConfigs-----------------------------")
+		appConfig, err := tx.
+			AppConfig.
+			Query().
+			Where(
+				entappconfig.AppID(sc.AppID),
+				entappconfig.DeletedAt(0),
+			).
+			Only(ctx)
+		if err != nil && !ent.IsNotFound(err) {
+			return err
+		}
+		if appConfig != nil {
+			logger.Sugar().Warnw(
+				"appid exist",
+				"appID", sc.AppID,
+			)
+			continue
+		}
+
+		if _, err := tx.
+			AppConfig.
+			Create().
+			SetAppID(sc.AppID).
+			SetEnableSimulateOrder(sc.Enabled).
+			SetSimulateOrderCouponMode(sc.SendCouponMode).
+			SetSimulateOrderCouponProbability(sendCouponProbability).
+			SetSimulateOrderCashableProfitProbability(cashableProfitProbability).
+			SetCreatedAt(sc.CreatedAt).
+			SetUpdatedAt(sc.UpdatedAt).
+			Save(ctx); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func migrateOrderLocks(ctx context.Context, tx *ent.Tx) error {
-	fmt.Println("======================== exec migrateOrderLocks ==========================")
-	sql := "alter table test_locks modify app_id varchar(36);"
-	fmt.Println("exec sql: ", sql)
-	// rc, err := tx.ExecContext(ctx, sql)
-	// if err != nil {
-	// 	return err
-	// }
-	// _, err = rc.RowsAffected()
-	// if err != nil {
-	// 	return fmt.Errorf("fail modify test_locks: %v", err)
-	// }
+	logger.Sugar().Warnw("exec migrateOrderLocks")
+	orderLocksSQL := "alter table order_locks modify app_id varchar(36);"
+	logger.Sugar().Warnw(
+		"exec orderLocksSQL",
+		"sql", orderLocksSQL,
+	)
+	rc, err := tx.ExecContext(ctx, orderLocksSQL)
+	if err != nil {
+		return err
+	}
+	_, err = rc.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("fail modify order_locks: %v", err)
+	}
 	return nil
 }
 
 //nolint:funlen,gocyclo
 func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
-	fmt.Println("======================== exec migratePowerRentals ==========================")
+	logger.Sugar().Warnw("exec migratePowerRentals")
 	selectOrderSql := fmt.Sprintf("select od.ent_id,od.app_id,od.user_id,od.good_id,od.app_good_id,od.parent_order_id,od.order_type,od.create_method,od.simulate,od.coupon_ids,od.payment_type,od.units_v1,od.good_value_usd,od.payment_amount,od.discount_amount,od.promotion_id,od.investment_type,od.duration,od.payment_id,od.payment_coin_type_id,od.balance_amount,od.coin_usd_currency,od.local_coin_usd_currency,od.live_coin_usd_currency,od.created_at as order_created_at,od.updated_at as order_updated_at,os.cancel_state,os.paid_at,os.user_set_paid,os.user_set_canceled,os.admin_set_canceled,os.payment_state,os.renew_state,os.renew_notify_at,os.order_state,os.start_mode,os.start_at,os.last_benefit_at,os.benefit_state,os.payment_finish_amount,os.created_at as order_state_created_at,os.updated_at as order_state_updated_at,pm.ent_id as payment_ent_id,pm.account_id,pm.start_amount,pm.created_at as payment_created_at,pm.updated_at as payment_updated_at,ol.ent_id as ledger_lock_id,ol.created_at as lock_created_at,ol.updated_at as lock_updated_at from orders as od inner join order_states os on od.ent_id=os.order_id and os.deleted_at=0 left join payments as pm on od.ent_id=pm.order_id and pm.deleted_at=0 left join order_locks as ol on od.ent_id=ol.order_id and ol.deleted_at=0 and ol.lock_type='LockBalance' where od.parent_order_id='%v' and od.deleted_at=0", uuid.Nil.String()) //nolint
-	fmt.Println("exec selectOrderSql: ", selectOrderSql)
+	logger.Sugar().Warnw(
+		"exec selectOrderSql",
+		"sql", selectOrderSql,
+	)
 	orderRows, err := tx.QueryContext(ctx, selectOrderSql)
 	if err != nil {
 		return err
@@ -214,8 +242,14 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 		orders[od.EntID] = od
 		appGoodIDMap[od.AppGoodID] = od.AppGoodID.String()
 	}
-	fmt.Println("2 len orders=========== ", len(orders))
-	fmt.Println("2 len appGoodIDs======= ", len(appGoodIDMap))
+	logger.Sugar().Warnw(
+		"len power rental orders",
+		"len orders", len(orders),
+	)
+	logger.Sugar().Warnw(
+		"len appGoodIDs",
+		"len appGoodIDs", len(appGoodIDMap),
+	)
 
 	appGoodIDs := ""
 	comm := ""
@@ -227,7 +261,10 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 	}
 
 	selectAppGoodStockSQL := fmt.Sprintf("select ent_id, app_good_id from good_manager.app_stocks where app_good_id in(%v) and deleted_at=0", appGoodIDs)
-	fmt.Println("exec selectAppGoodStockSQL: ", selectAppGoodStockSQL)
+	logger.Sugar().Warnw(
+		"exec selectAppGoodStockSQL",
+		"sql", selectAppGoodStockSQL,
+	)
 	appGoodStockRows, err := tx.QueryContext(ctx, selectAppGoodStockSQL)
 	if err != nil {
 		return err
@@ -249,149 +286,109 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 	defaultGoodType := "LegacyPowerRental"
 	defaultPaymentObseleteState := "PaymentObseleteNone"
 	for _, order := range orders {
-		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-		fmt.Println("============== order ================")
-		fmt.Println("EntID: ", order.EntID)
-		fmt.Println("AppID: ", order.AppID)
-		fmt.Println("UserID: ", order.UserID)
-		fmt.Println("GoodID: ", order.GoodID)
-		fmt.Println("AppGoodID: ", order.AppGoodID)
-		fmt.Println("ParentOrderID: ", order.ParentOrderID)
-		fmt.Println("OrderType: ", order.OrderType)
-		fmt.Println("CreateMethod: ", order.CreateMethod)
-		fmt.Println("Simulate: ", order.Simulate)
-		fmt.Println("CouponIDsStr: ", order.CouponIDsStr)
-		fmt.Println("CouponIDs: ", order.CouponIDs)
-		fmt.Println("PaymentType: ", order.PaymentType)
-		fmt.Println("UnitsV1: ", order.UnitsV1)
-		fmt.Println("GoodValueUsd: ", order.GoodValueUsd)
-		fmt.Println("PaymentAmount: ", order.PaymentAmount)
-		fmt.Println("DiscountAmount: ", order.DiscountAmount)
-		fmt.Println("PromotionID: ", order.PromotionID)
-		fmt.Println("InvestmentType: ", order.InvestmentType)
-		fmt.Println("Duration: ", order.Duration)
-		fmt.Println("PaymentID: ", order.PaymentID)
-		fmt.Println("PaymentCoinTypeID: ", order.PaymentCoinTypeID)
-		fmt.Println("BalanceAmount: ", order.BalanceAmount)
-		fmt.Println("CoinUsdCurrency: ", order.CoinUsdCurrency)
-		fmt.Println("LocalCoinUsdCurrency: ", order.LocalCoinUsdCurrency)
-		fmt.Println("LiveCoinUsdCurrency: ", order.LiveCoinUsdCurrency)
-		fmt.Println("OrderCreatedAt: ", order.OrderCreatedAt)
-		fmt.Println("OrderUpdatedAt: ", order.OrderUpdatedAt)
-		fmt.Println("CancelState: ", order.CancelState)
-		fmt.Println("PaidAt: ", order.PaidAt)
-		fmt.Println("UserSetPaid: ", order.UserSetPaid)
-		fmt.Println("UserSetCanceled: ", order.UserSetCanceled)
-		fmt.Println("AdminSetCanceled: ", order.AdminSetCanceled)
-		fmt.Println("PaymentState: ", order.PaymentState)
-		fmt.Println("RenewState: ", order.RenewState)
-		fmt.Println("RenewNotifyAt: ", order.RenewNotifyAt)
-		fmt.Println("OrderState: ", order.OrderState)
-		fmt.Println("StartMode: ", order.StartMode)
-		fmt.Println("StartAt: ", order.StartAt)
-		fmt.Println("LastBenefitAt: ", order.LastBenefitAt)
-		fmt.Println("BenefitState: ", order.BenefitState)
-		fmt.Println("PaymentFinishAmount: ", order.PaymentFinishAmount)
-		fmt.Println("OrderStateCreatedAt: ", order.OrderStateCreatedAt)
-		fmt.Println("OrderStateUpdatedAt: ", order.OrderStateUpdatedAt)
-		fmt.Println("PaymentEntID: ", order.PaymentEntID)
-		fmt.Println("AccountID: ", order.AccountID)
-		fmt.Println("StartAmountStr: ", order.StartAmountStr)
-		fmt.Println("StartAmount: ", order.StartAmount)
-		fmt.Println("PaymentCreatedAtInt: ", order.PaymentCreatedAtInt)
-		fmt.Println("PaymentCreatedAt: ", order.PaymentCreatedAt)
-		fmt.Println("PaymentUpdatedAtInt: ", order.PaymentUpdatedAtInt)
-		fmt.Println("PaymentUpdatedAt: ", order.PaymentUpdatedAt)
-		fmt.Println("LedgerLockID: ", order.LedgerLockID)
-		fmt.Println("LockCreatedAtInt: ", order.LockCreatedAtInt)
-		fmt.Println("LockCreatedAt: ", order.LockCreatedAt)
-		fmt.Println("LockUpdatedAtInt: ", order.LockUpdatedAtInt)
-		fmt.Println("LockUpdatedAt: ", order.LockUpdatedAt)
-		fmt.Println("============== order ================")
+		logger.Sugar().Warnw("exec order")
 		appGoodStockID, ok := appStockMap[order.AppGoodID]
 		if !ok {
-			fmt.Println("-------------------------------- not found app good stock id --------------------------------: appGoodID: ", order.AppGoodID)
+			logger.Sugar().Warnw(
+				"not found app good stock id",
+				"appGoodID",
+				order.AppGoodID,
+			)
 			continue
 		}
 		paymentID := order.PaymentID
 		if order.PaymentID != uuid.Nil {
-			// payment transter
-			// if _, err := tx.
-			// 	PaymentBase.
-			// 	Create().
-			// 	SetEntID(order.PaymentID).
-			// 	SetOrderID(order.EntID).
-			// 	SetObseleteState(defaultPaymentObseleteState).
-			// 	SetCreatedAt(order.PaymentCreatedAt).
-			// 	SetUpdatedAt(order.PaymentUpdatedAt).
-			// 	Save(ctx); err != nil {
-			// 	return err
-			// }
-			fmt.Println("2 -------- create payment base ---------")
-			fmt.Println("order.PaymentID: ", order.PaymentID)
-			fmt.Println("order.EntID: ", order.EntID)
-			fmt.Println("defaultPaymentObseleteState: ", defaultPaymentObseleteState)
-			fmt.Println("order.PaymentCreatedAt: ", order.PaymentCreatedAt)
-			fmt.Println("order.PaymentUpdatedAt: ", order.PaymentUpdatedAt)
-			fmt.Println("22 ------- create payment base ---------")
+			paymentBase, err := tx.
+				PaymentBase.
+				Query().
+				Where(
+					entpaymentbase.EntID(order.PaymentID),
+					entpaymentbase.DeletedAt(0),
+				).
+				Only(ctx)
+			if err != nil && !ent.IsNotFound(err) {
+				return err
+			}
+			if paymentBase == nil {
+				logger.Sugar().Warnw(
+					"paymentbase not exist",
+					"paymentID", order.PaymentID,
+				)
+				// payment transter
+				if _, err := tx.
+					PaymentBase.
+					Create().
+					SetEntID(order.PaymentID).
+					SetOrderID(order.EntID).
+					SetObseleteState(defaultPaymentObseleteState).
+					SetCreatedAt(order.PaymentCreatedAt).
+					SetUpdatedAt(order.PaymentUpdatedAt).
+					Save(ctx); err != nil {
+					return err
+				}
+			}
 
-			paymentAmount, err := decimal.NewFromString(order.PaymentAmount)
-			if err != nil {
-				return fmt.Errorf("invalid paymentAmount")
+			paymentTransfer, err := tx.
+				PaymentTransfer.
+				Query().
+				Where(
+					entpaymenttransfer.PaymentID(order.PaymentID),
+					entpaymenttransfer.DeletedAt(0),
+				).
+				Only(ctx)
+			if err != nil && !ent.IsNotFound(err) {
+				return err
 			}
-			startAmount, err := decimal.NewFromString(order.StartAmount)
-			if err != nil {
-				return fmt.Errorf("invalid startAmount")
+
+			if paymentTransfer == nil {
+				logger.Sugar().Warnw(
+					"payment transfer not exist",
+					"paymentID", order.PaymentID,
+				)
+				paymentAmount, err := decimal.NewFromString(order.PaymentAmount)
+				if err != nil {
+					return fmt.Errorf("invalid paymentAmount")
+				}
+				startAmount, err := decimal.NewFromString(order.StartAmount)
+				if err != nil {
+					return fmt.Errorf("invalid startAmount")
+				}
+				finishAmount, err := decimal.NewFromString(order.PaymentFinishAmount)
+				if err != nil {
+					return fmt.Errorf("invalid finishAmount")
+				}
+				coinUsdCurrency, err := decimal.NewFromString(order.CoinUsdCurrency)
+				if err != nil {
+					return fmt.Errorf("invalid coinUsdCurrency")
+				}
+				localCoinUsdCurrency, err := decimal.NewFromString(order.LocalCoinUsdCurrency)
+				if err != nil {
+					return fmt.Errorf("invalid localCoinUsdCurrency")
+				}
+				liveCoinUsdCurrency, err := decimal.NewFromString(order.LiveCoinUsdCurrency)
+				if err != nil {
+					return fmt.Errorf("invalid liveCoinUsdCurrency")
+				}
+				id := uuid.New()
+				if _, err := tx.
+					PaymentTransfer.
+					Create().
+					SetEntID(id).
+					SetPaymentID(order.PaymentID).
+					SetCoinTypeID(order.PaymentCoinTypeID).
+					SetAccountID(order.AccountID).
+					SetAmount(paymentAmount).
+					SetStartAmount(startAmount).
+					SetFinishAmount(finishAmount).
+					SetCoinUsdCurrency(coinUsdCurrency).
+					SetLocalCoinUsdCurrency(localCoinUsdCurrency).
+					SetLiveCoinUsdCurrency(liveCoinUsdCurrency).
+					SetCreatedAt(order.PaymentCreatedAt).
+					SetUpdatedAt(order.PaymentUpdatedAt).
+					Save(ctx); err != nil {
+					return err
+				}
 			}
-			finishAmount, err := decimal.NewFromString(order.PaymentFinishAmount)
-			if err != nil {
-				return fmt.Errorf("invalid finishAmount")
-			}
-			coinUsdCurrency, err := decimal.NewFromString(order.CoinUsdCurrency)
-			if err != nil {
-				return fmt.Errorf("invalid coinUsdCurrency")
-			}
-			localCoinUsdCurrency, err := decimal.NewFromString(order.LocalCoinUsdCurrency)
-			if err != nil {
-				return fmt.Errorf("invalid localCoinUsdCurrency")
-			}
-			liveCoinUsdCurrency, err := decimal.NewFromString(order.LiveCoinUsdCurrency)
-			if err != nil {
-				return fmt.Errorf("invalid liveCoinUsdCurrency")
-			}
-			id := uuid.New()
-			// if _, err := tx.
-			// 	PaymentTransfer.
-			// 	Create().
-			// 	SetEntID(id).
-			// 	SetPaymentID(order.PaymentID).
-			// 	SetCoinTypeID(order.PaymentCoinTypeID).
-			// 	SetAccountID(order.AccountID).
-			// 	SetAmount(paymentAmount).
-			// 	SetStartAmount(startAmount).
-			// 	SetFinishAmount(finishAmount).
-			// 	SetCoinUsdCurrency(coinUsdCurrency).
-			// 	SetLocalCoinUsdCurrency(localCoinUsdCurrency).
-			// 	SetLiveCoinUsdCurrency(liveCoinUsdCurrency).
-			// 	SetCreatedAt(order.PaymentCreatedAt).
-			// 	SetUpdatedAt(order.PaymentUpdatedAt).
-			// 	Save(ctx); err != nil {
-			// 	return err
-			// }
-			fmt.Println("2 -------- create payment transter ---------")
-			fmt.Println("id: ", id)
-			fmt.Println("order.PaymentID: ", order.PaymentID)
-			fmt.Println("order.PaymentCoinTypeID: ", order.PaymentCoinTypeID)
-			fmt.Println("order.AccountID: ", order.AccountID)
-			fmt.Println("paymentAmount: ", paymentAmount)
-			fmt.Println("startAmount: ", startAmount)
-			fmt.Println("finishAmount: ", finishAmount)
-			fmt.Println("coinUsdCurrency: ", coinUsdCurrency)
-			fmt.Println("localCoinUsdCurrency: ", localCoinUsdCurrency)
-			fmt.Println("liveCoinUsdCurrency: ", liveCoinUsdCurrency)
-			fmt.Println("order.PaymentCreatedAt: ", order.PaymentCreatedAt)
-			fmt.Println("order.PaymentUpdatedAt: ", order.PaymentUpdatedAt)
-			fmt.Println("22 ------- create payment transter ---------")
 		}
 
 		orderBalanceAmount, err := decimal.NewFromString(order.BalanceAmount)
@@ -402,284 +399,341 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 		if orderBalanceAmount.Cmp(decimal.NewFromInt(0)) > 0 {
 			// payment balance
 			if order.PaymentID == uuid.Nil {
-				paymentID = uuid.New()
-				fmt.Println("new paymentID: ", paymentID)
-				// if _, err := tx.
-				// 	PaymentBase.
-				// 	Create().
-				// 	SetEntID(paymentID).
-				// 	SetOrderID(order.EntID).
-				// 	SetObseleteState(defaultPaymentObseleteState).
-				// 	SetCreatedAt(order.PaymentCreatedAt).
-				// 	SetUpdatedAt(order.PaymentUpdatedAt).
-				// 	Save(ctx); err != nil {
-				// 	return err
-				// }
-				fmt.Println("2 -------- create payment base ---------")
-				fmt.Println("paymentID: ", paymentID)
-				fmt.Println("order.EntID: ", order.EntID)
-				fmt.Println("defaultPaymentObseleteState: ", defaultPaymentObseleteState)
-				fmt.Println("order.PaymentCreatedAt: ", order.PaymentCreatedAt)
-				fmt.Println("order.PaymentUpdatedAt: ", order.PaymentUpdatedAt)
-				fmt.Println("22 ------- create payment base ---------")
+				paymentBase, err := tx.
+					PaymentBase.
+					Query().
+					Where(
+						entpaymentbase.OrderID(order.EntID),
+						entpaymentbase.DeletedAt(0),
+					).
+					Only(ctx)
+				if err != nil && !ent.IsNotFound(err) {
+					return err
+				}
+				if paymentBase == nil {
+					logger.Sugar().Warnw(
+						"paymentbase not exist",
+						"paymentID", order.PaymentID,
+					)
+					paymentID = uuid.New()
+					logger.Sugar().Warnw(
+						"new paymentID",
+						"paymentID", paymentID,
+					)
+					if _, err := tx.
+						PaymentBase.
+						Create().
+						SetEntID(paymentID).
+						SetOrderID(order.EntID).
+						SetObseleteState(defaultPaymentObseleteState).
+						SetCreatedAt(order.PaymentCreatedAt).
+						SetUpdatedAt(order.PaymentUpdatedAt).
+						Save(ctx); err != nil {
+						return err
+					}
+				} else {
+					paymentID = paymentBase.EntID
+				}
 			}
 
-			coinUsdCurrency, err := decimal.NewFromString(order.CoinUsdCurrency)
-			if err != nil {
-				return fmt.Errorf("invalid coinusdcurrency")
+			paymentBalance, err := tx.
+				PaymentBalance.
+				Query().
+				Where(
+					entpaymentbalance.PaymentID(paymentID),
+					entpaymentbalance.DeletedAt(0),
+				).
+				Only(ctx)
+			if err != nil && !ent.IsNotFound(err) {
+				return err
 			}
-			localCoinUsdCurrency, err := decimal.NewFromString(order.LocalCoinUsdCurrency)
-			if err != nil {
-				return fmt.Errorf("invalid localcoinusdcurrency")
+			if paymentBalance == nil {
+				logger.Sugar().Warnw(
+					"payment balance not exist",
+					"paymentID", paymentID,
+				)
+				coinUsdCurrency, err := decimal.NewFromString(order.CoinUsdCurrency)
+				if err != nil {
+					return fmt.Errorf("invalid coinusdcurrency")
+				}
+				localCoinUsdCurrency, err := decimal.NewFromString(order.LocalCoinUsdCurrency)
+				if err != nil {
+					return fmt.Errorf("invalid localcoinusdcurrency")
+				}
+				liveCoinUsdCurrency, err := decimal.NewFromString(order.LiveCoinUsdCurrency)
+				if err != nil {
+					return fmt.Errorf("invalid livecoinusdcurrency")
+				}
+				id := uuid.New()
+				if _, err := tx.
+					PaymentBalance.
+					Create().
+					SetEntID(id).
+					SetPaymentID(paymentID).
+					SetCoinTypeID(order.PaymentCoinTypeID).
+					SetAmount(orderBalanceAmount).
+					SetCoinUsdCurrency(coinUsdCurrency).
+					SetLocalCoinUsdCurrency(localCoinUsdCurrency).
+					SetLiveCoinUsdCurrency(liveCoinUsdCurrency).
+					SetCreatedAt(order.OrderCreatedAt).
+					SetUpdatedAt(order.OrderUpdatedAt).
+					Save(ctx); err != nil {
+					return err
+				}
 			}
-			liveCoinUsdCurrency, err := decimal.NewFromString(order.LiveCoinUsdCurrency)
-			if err != nil {
-				return fmt.Errorf("invalid livecoinusdcurrency")
-			}
-			id := uuid.New()
-			// if _, err := tx.
-			// 	PaymentBalance.
-			// 	Create().
-			// 	SetEntID(id).
-			// 	SetPaymentID(paymentID).
-			// 	SetCoinTypeID(order.PaymentCoinTypeID).
-			// 	SetAmount(orderBalanceAmount).
-			// 	SetCoinUsdCurrency(coinUsdCurrency).
-			// 	SetLocalCoinUsdCurrency(localCoinUsdCurrency).
-			// 	SetLiveCoinUsdCurrency(liveCoinUsdCurrency).
-			// 	SetCreatedAt(order.OrderCreatedAt).
-			// 	SetUpdatedAt(order.OrderUpdatedAt).
-			// 	Save(ctx); err != nil {
-			// 	return err
-			// }
-			fmt.Println("2 -------- create payment balance ---------")
-			fmt.Println("id: ", id)
-			fmt.Println("order.PaymentID: ", paymentID)
-			fmt.Println("order.PaymentCoinTypeID: ", order.PaymentCoinTypeID)
-			fmt.Println("orderBalanceAmount: ", orderBalanceAmount)
-			fmt.Println("coinUsdCurrency: ", coinUsdCurrency)
-			fmt.Println("localCoinUsdCurrency: ", localCoinUsdCurrency)
-			fmt.Println("liveCoinUsdCurrency: ", liveCoinUsdCurrency)
-			fmt.Println("order.OrderCreatedAt: ", order.OrderCreatedAt)
-			fmt.Println("order.OrderUpdatedAt: ", order.OrderUpdatedAt)
-			fmt.Println("22 ------- create payment balance ---------")
 
 			if order.LedgerLockID != uuid.Nil {
-				id = uuid.New()
-				// if _, err := tx.
-				// 	PaymentBalanceLock.
-				// 	Create().
-				// 	SetEntID(id).
-				// 	SetPaymentID(paymentID).
-				// 	SetLedgerLockID(order.LedgerLockID).
-				// 	SetCreatedAt(order.LockCreatedAt).
-				// 	SetUpdatedAt(order.LockUpdatedAt).
-				// 	Save(ctx); err != nil {
-				// 	return err
-				// }
-				fmt.Println("2 -------- create payment balance lock ---------")
-				fmt.Println("id: ", id)
-				fmt.Println("order.PaymentID: ", paymentID)
-				fmt.Println("order.LedgerLockID: ", order.LedgerLockID)
-				fmt.Println("order.LockCreatedAt: ", order.LockCreatedAt)
-				fmt.Println("order.LockUpdatedAt: ", order.LockUpdatedAt)
-				fmt.Println("22 ------- create payment balance lock ---------")
+				paymentBalanceLock, err := tx.
+					PaymentBalanceLock.
+					Query().
+					Where(
+						entpaymentbalancelock.PaymentID(paymentID),
+						entpaymentbalancelock.LedgerLockID(order.LedgerLockID),
+						entpaymentbalancelock.DeletedAt(0),
+					).
+					Only(ctx)
+				if err != nil && !ent.IsNotFound(err) {
+					return err
+				}
+				if paymentBalanceLock == nil {
+					logger.Sugar().Warnw(
+						"payment balance lock not exist",
+						"paymentID", paymentID,
+						"ledgerLockID", order.LedgerLockID,
+					)
+					id := uuid.New()
+					if _, err := tx.
+						PaymentBalanceLock.
+						Create().
+						SetEntID(id).
+						SetPaymentID(paymentID).
+						SetLedgerLockID(order.LedgerLockID).
+						SetCreatedAt(order.LockCreatedAt).
+						SetUpdatedAt(order.LockUpdatedAt).
+						Save(ctx); err != nil {
+						return err
+					}
+				}
 			}
 		}
 
-		// if _, err := tx.
-		// 	OrderBase.
-		// 	Create().
-		// 	SetEntID(order.EntID).
-		// 	SetAppID(order.AppID).
-		// 	SetUserID(order.UserID).
-		// 	SetGoodID(order.GoodID).
-		// 	SetAppGoodID(order.AppGoodID).
-		// 	SetGoodType(defaultGoodType).
-		// 	SetParentOrderID(order.ParentOrderID).
-		// 	SetOrderType(order.OrderType).
-		// 	SetCreateMethod(order.CreateMethod).
-		// 	SetSimulate(order.Simulate).
-		// 	SetCreatedAt(order.OrderCreatedAt).
-		// 	SetUpdatedAt(order.OrderUpdatedAt).
-		// 	Save(ctx); err != nil {
-		// 	return err
-		// }
-		fmt.Println("2 -------- create order base ---------")
-		fmt.Println("order.EntID: ", order.EntID)
-		fmt.Println("order.AppID: ", order.AppID)
-		fmt.Println("order.UserID: ", order.UserID)
-		fmt.Println("order.GoodID: ", order.GoodID)
-		fmt.Println("order.AppGoodID: ", order.AppGoodID)
-		fmt.Println("defaultGoodType: ", defaultGoodType)
-		fmt.Println("order.ParentOrderID: ", order.ParentOrderID)
-		fmt.Println("order.OrderType: ", order.OrderType)
-		fmt.Println("order.CreateMethod: ", order.CreateMethod)
-		fmt.Println("order.Simulate: ", order.Simulate)
-		fmt.Println("order.OrderCreatedAt: ", order.OrderCreatedAt)
-		fmt.Println("order.OrderUpdatedAt: ", order.OrderUpdatedAt)
-		fmt.Println("22 ------- create order base ---------")
+		orderBase, err := tx.
+			OrderBase.
+			Query().
+			Where(
+				entorderbase.EntID(order.EntID),
+				entorderbase.DeletedAt(0),
+			).
+			Only(ctx)
+		if err != nil && !ent.IsNotFound(err) {
+			return err
+		}
+		if orderBase == nil {
+			logger.Sugar().Warnw(
+				"order base not exist",
+				"orderID", order.EntID,
+			)
+			if _, err := tx.
+				OrderBase.
+				Create().
+				SetEntID(order.EntID).
+				SetAppID(order.AppID).
+				SetUserID(order.UserID).
+				SetGoodID(order.GoodID).
+				SetAppGoodID(order.AppGoodID).
+				SetGoodType(defaultGoodType).
+				SetParentOrderID(order.ParentOrderID).
+				SetOrderType(order.OrderType).
+				SetCreateMethod(order.CreateMethod).
+				SetSimulate(order.Simulate).
+				SetCreatedAt(order.OrderCreatedAt).
+				SetUpdatedAt(order.OrderUpdatedAt).
+				Save(ctx); err != nil {
+				return err
+			}
+		}
 
-		id := uuid.New()
-		unit, err := decimal.NewFromString(order.UnitsV1)
-		if err != nil {
+		powerRental, err := tx.
+			PowerRental.
+			Query().
+			Where(
+				entpowerrental.OrderID(order.EntID),
+				entpowerrental.DeletedAt(0),
+			).
+			Only(ctx)
+		if err != nil && !ent.IsNotFound(err) {
 			return err
 		}
-		goodValueUsd, err := decimal.NewFromString(order.GoodValueUsd)
-		if err != nil {
-			return err
+		if powerRental == nil {
+			logger.Sugar().Warnw(
+				"power rental not exist",
+				"orderID", order.EntID,
+			)
+			id := uuid.New()
+			unit, err := decimal.NewFromString(order.UnitsV1)
+			if err != nil {
+				return err
+			}
+			goodValueUsd, err := decimal.NewFromString(order.GoodValueUsd)
+			if err != nil {
+				return err
+			}
+			paymentAmount, err := decimal.NewFromString(order.PaymentAmount)
+			if err != nil {
+				return err
+			}
+			discountAmount, err := decimal.NewFromString(order.DiscountAmount)
+			if err != nil {
+				return err
+			}
+			if _, err := tx.
+				PowerRental.
+				Create().
+				SetEntID(id).
+				SetOrderID(order.EntID).
+				SetAppGoodStockID(appGoodStockID).
+				SetUnits(unit).
+				SetGoodValueUsd(goodValueUsd).
+				SetPaymentAmountUsd(paymentAmount).
+				SetDiscountAmountUsd(discountAmount).
+				SetPromotionID(order.PromotionID).
+				SetInvestmentType(order.InvestmentType).
+				SetCreatedAt(order.OrderCreatedAt).
+				SetUpdatedAt(order.OrderUpdatedAt).
+				Save(ctx); err != nil {
+				return err
+			}
 		}
-		paymentAmount, err := decimal.NewFromString(order.PaymentAmount)
-		if err != nil {
-			return err
-		}
-		discountAmount, err := decimal.NewFromString(order.DiscountAmount)
-		if err != nil {
-			return err
-		}
-		// if _, err := tx.
-		// 	PowerRental.
-		// 	Create().
-		// 	SetEntID(id).
-		// 	SetOrderID(order.EntID).
-		// 	SetAppGoodStockID(appGoodStockID).
-		// 	SetUnits(unit).
-		// 	SetGoodValueUsd(goodValueUsd).
-		// 	SetPaymentAmountUsd(paymentAmount).
-		// 	SetDiscountAmountUsd(discountAmount).
-		// 	SetPromotionID(order.PromotionID).
-		// 	SetInvestmentType(order.InvestmentType).
-		// 	SetCreatedAt(order.OrderCreatedAt).
-		// 	SetUpdatedAt(order.OrderUpdatedAt).
-		// 	Save(ctx); err != nil {
-		// 	return err
-		// }
-		fmt.Println("2 -------- create power rental ---------")
-		fmt.Println("id: ", id)
-		fmt.Println("order.EntID: ", order.EntID)
-		fmt.Println("appGoodStockID: ", appGoodStockID)
-		fmt.Println("unit: ", unit)
-		fmt.Println("goodValueUsd: ", goodValueUsd)
-		fmt.Println("paymentAmount: ", paymentAmount)
-		fmt.Println("discountAmount: ", discountAmount)
-		fmt.Println("order.PromotionID: ", order.PromotionID)
-		fmt.Println("order.InvestmentType: ", order.InvestmentType)
-		fmt.Println("order.OrderCreatedAt: ", order.OrderCreatedAt)
-		fmt.Println("order.OrderUpdatedAt: ", order.OrderUpdatedAt)
-		fmt.Println("22 ------- create power rental ---------")
 
-		id = uuid.New()
-		// if _, err := tx.
-		// 	OrderStateBase.
-		// 	Create().
-		// 	SetEntID(id).
-		// 	SetOrderID(order.EntID).
-		// 	SetOrderState(order.OrderState).
-		// 	SetStartMode(order.StartMode).
-		// 	SetStartAt(order.StartAt).
-		// 	SetLastBenefitAt(order.LastBenefitAt).
-		// 	SetBenefitState(order.BenefitState).
-		// 	SetPaymentType(order.PaymentType).
-		// 	SetCreatedAt(order.OrderStateCreatedAt).
-		// 	SetUpdatedAt(order.OrderStateUpdatedAt).
-		// 	Save(ctx); err != nil {
-		// 	return err
-		// }
-		fmt.Println("2 -------- create order state base ---------")
-		fmt.Println("id: ", id)
-		fmt.Println("order.EntID: ", order.EntID)
-		fmt.Println("order.OrderState: ", order.OrderState)
-		fmt.Println("order.StartMode: ", order.StartMode)
-		fmt.Println("order.StartAt: ", order.StartAt)
-		fmt.Println("order.LastBenefitAt: ", order.LastBenefitAt)
-		fmt.Println("order.BenefitState: ", order.BenefitState)
-		fmt.Println("order.PaymentType: ", order.PaymentType)
-		fmt.Println("order.OrderStateCreatedAt: ", order.OrderStateCreatedAt)
-		fmt.Println("order.OrderStateUpdatedAt: ", order.OrderStateUpdatedAt)
-		fmt.Println("22 ------- create order state base ---------")
-
-		id = uuid.New()
-		canceledAt := uint32(0)
-		if order.CancelState == ordertypes.OrderState_OrderStateCanceled.String() {
-			canceledAt = order.OrderStateUpdatedAt
+		orderStateBase, err := tx.
+			OrderStateBase.
+			Query().
+			Where(
+				entorderstatebase.OrderID(order.EntID),
+				entorderstatebase.DeletedAt(0),
+			).
+			Only(ctx)
+		if err != nil && !ent.IsNotFound(err) {
+			return err
 		}
-		// if _, err := tx.
-		// 	PowerRentalState.
-		// 	Create().
-		// 	SetEntID(id).
-		// 	SetOrderID(order.EntID).
-		// 	SetCancelState(order.CancelState).
-		// 	SetCanceledAt(canceledAt).
-		// 	SetDurationSeconds(order.Duration).
-		// 	SetPaymentID(paymentID).
-		// 	SetPaidAt(order.PaidAt).
-		// 	SetUserSetPaid(order.UserSetPaid).
-		// 	SetUserSetCanceled(order.UserSetCanceled).
-		// 	SetAdminSetCanceled(order.AdminSetCanceled).
-		// 	SetPaymentState(order.PaymentState).
-		// 	SetOutofgasSeconds(uint32(0)).
-		// 	SetCompensateSeconds(uint32(0)).
-		// 	SetRenewState(order.RenewState).
-		// 	SetRenewNotifyAt(order.RenewNotifyAt).
-		// 	SetCreatedAt(order.OrderStateCreatedAt).
-		// 	SetUpdatedAt(order.OrderStateUpdatedAt).
-		// 	Save(ctx); err != nil {
-		// 	return err
-		// }
-		fmt.Println("2 -------- create power rental state ---------")
-		fmt.Println("id: ", id)
-		fmt.Println("order.EntID: ", order.EntID)
-		fmt.Println("order.CancelState: ", order.CancelState)
-		fmt.Println("canceledAt: ", canceledAt)
-		fmt.Println("order.Duration: ", order.Duration)
-		fmt.Println("paymentID: ", paymentID)
-		fmt.Println("order.PaidAt: ", order.PaidAt)
-		fmt.Println("order.UserSetPaid: ", order.UserSetPaid)
-		fmt.Println("order.UserSetCanceled: ", order.UserSetCanceled)
-		fmt.Println("order.AdminSetCanceled: ", order.AdminSetCanceled)
-		fmt.Println("order.PaymentState: ", order.PaymentState)
-		fmt.Println("OutofgasSeconds: ", uint32(0))
-		fmt.Println("CompensateSeconds: ", uint32(0))
-		fmt.Println("order.RenewState: ", order.RenewState)
-		fmt.Println("order.RenewNotifyAt: ", order.RenewNotifyAt)
-		fmt.Println("order.OrderStateCreatedAt: ", order.OrderStateCreatedAt)
-		fmt.Println("order.OrderStateUpdatedAt: ", order.OrderStateUpdatedAt)
-		fmt.Println("22 ------- create power rental state ---------")
+		if orderStateBase == nil {
+			logger.Sugar().Warnw(
+				"order state base not exist",
+				"orderID", order.EntID,
+			)
+			id := uuid.New()
+			if _, err := tx.
+				OrderStateBase.
+				Create().
+				SetEntID(id).
+				SetOrderID(order.EntID).
+				SetOrderState(order.OrderState).
+				SetStartMode(order.StartMode).
+				SetStartAt(order.StartAt).
+				SetLastBenefitAt(order.LastBenefitAt).
+				SetBenefitState(order.BenefitState).
+				SetPaymentType(order.PaymentType).
+				SetCreatedAt(order.OrderStateCreatedAt).
+				SetUpdatedAt(order.OrderStateUpdatedAt).
+				Save(ctx); err != nil {
+				return err
+			}
+		}
+
+		powerRentalState, err := tx.
+			PowerRentalState.
+			Query().
+			Where(
+				entpowerrentalstate.OrderID(order.EntID),
+				entpowerrentalstate.DeletedAt(0),
+			).
+			Only(ctx)
+		if err != nil && !ent.IsNotFound(err) {
+			return err
+		}
+		if powerRentalState == nil {
+			logger.Sugar().Warnw(
+				"power rental state not exist",
+				"orderID", order.EntID,
+			)
+			id := uuid.New()
+			canceledAt := uint32(0)
+			if order.CancelState == ordertypes.OrderState_OrderStateCanceled.String() {
+				canceledAt = order.OrderStateUpdatedAt
+			}
+			if _, err := tx.
+				PowerRentalState.
+				Create().
+				SetEntID(id).
+				SetOrderID(order.EntID).
+				SetCancelState(order.CancelState).
+				SetCanceledAt(canceledAt).
+				SetDurationSeconds(order.Duration).
+				SetPaymentID(paymentID).
+				SetPaidAt(order.PaidAt).
+				SetUserSetPaid(order.UserSetPaid).
+				SetUserSetCanceled(order.UserSetCanceled).
+				SetAdminSetCanceled(order.AdminSetCanceled).
+				SetPaymentState(order.PaymentState).
+				SetOutofgasSeconds(uint32(0)).
+				SetCompensateSeconds(uint32(0)).
+				SetRenewState(order.RenewState).
+				SetRenewNotifyAt(order.RenewNotifyAt).
+				SetCreatedAt(order.OrderStateCreatedAt).
+				SetUpdatedAt(order.OrderStateUpdatedAt).
+				Save(ctx); err != nil {
+				return err
+			}
+		}
 
 		couponIDs := []string{}
 		_ = json.Unmarshal([]byte(order.CouponIDs), &couponIDs)
 		for _, couponIDStr := range couponIDs {
 			couponID := uuid.MustParse(couponIDStr)
-			id = uuid.New()
-			// if _, err := tx.
-			// 	OrderCoupon.
-			// 	Create().
-			// 	SetEntID(id).
-			// 	SetOrderID(order.EntID).
-			// 	SetCouponID(couponID).
-			// 	SetCreatedAt(order.OrderStateCreatedAt).
-			// 	SetUpdatedAt(order.OrderStateUpdatedAt).
-			// 	Save(ctx); err != nil {
-			// 	return err
-			// }
-			fmt.Println("2 -------- create order coupon ---------")
-			fmt.Println("id: ", id)
-			fmt.Println("order.EntID: ", order.EntID)
-			fmt.Println("couponID: ", couponID)
-			fmt.Println("order.OrderStateCreatedAt: ", order.OrderStateCreatedAt)
-			fmt.Println("order.OrderStateUpdatedAt: ", order.OrderStateUpdatedAt)
-			fmt.Println("22 ------- create order coupon ---------")
+			orderCoupon, err := tx.
+				OrderCoupon.
+				Query().
+				Where(
+					entordercoupon.OrderID(order.EntID),
+					entordercoupon.CouponID(couponID),
+					entordercoupon.DeletedAt(0),
+				).
+				Only(ctx)
+			if err != nil && !ent.IsNotFound(err) {
+				return err
+			}
+			if orderCoupon == nil {
+				logger.Sugar().Warnw(
+					"order coupon not exist",
+					"orderID", order.EntID,
+					"couponID", couponID,
+				)
+				id := uuid.New()
+				if _, err := tx.
+					OrderCoupon.
+					Create().
+					SetEntID(id).
+					SetOrderID(order.EntID).
+					SetCouponID(couponID).
+					SetCreatedAt(order.OrderCreatedAt).
+					SetUpdatedAt(order.OrderUpdatedAt).
+					Save(ctx); err != nil {
+					return err
+				}
+			}
 		}
 	}
-
 	return nil
 }
 
 //nolint:funlen,gocyclo
 func migrateFees(ctx context.Context, tx *ent.Tx) error {
-	fmt.Println("======================== exec migrateFees ==========================")
+	logger.Sugar().Warnw("exec migrateFees")
 	selectOrderSql := fmt.Sprintf("select od.ent_id,od.app_id,od.user_id,od.good_id,od.app_good_id,od.parent_order_id,od.order_type,od.create_method,od.simulate,od.coupon_ids,od.payment_type,od.units_v1,od.good_value_usd,od.payment_amount,od.discount_amount,od.promotion_id,od.investment_type,od.duration,od.payment_id,od.payment_coin_type_id,od.balance_amount,od.coin_usd_currency,od.local_coin_usd_currency,od.live_coin_usd_currency,od.created_at as order_created_at,od.updated_at as order_updated_at,os.cancel_state,os.paid_at,os.user_set_paid,os.user_set_canceled,os.admin_set_canceled,os.payment_state,os.renew_state,os.renew_notify_at,os.order_state,os.start_mode,os.start_at,os.last_benefit_at,os.benefit_state,os.payment_finish_amount,os.created_at as order_state_created_at,os.updated_at as order_state_updated_at,pm.ent_id as payment_ent_id,pm.account_id,pm.start_amount,pm.created_at as payment_created_at,pm.updated_at as payment_updated_at,ol.ent_id as ledger_lock_id,ol.created_at as lock_created_at,ol.updated_at as lock_updated_at from orders as od inner join order_states os on od.ent_id=os.order_id and os.deleted_at=0 left join payments as pm on od.ent_id=pm.order_id and pm.deleted_at=0 left join order_locks as ol on od.ent_id=ol.order_id and ol.deleted_at=0 and ol.lock_type='LockBalance' where od.parent_order_id!='%v' and od.deleted_at=0", uuid.Nil.String()) //nolint
-	fmt.Println("exec selectOrderSql: ", selectOrderSql)
+	logger.Sugar().Warnw(
+		"exec selectOrderSql",
+		"sql", selectOrderSql,
+	)
 	orderRows, err := tx.QueryContext(ctx, selectOrderSql)
 	if err != nil {
 		return err
@@ -785,149 +839,108 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 		}
 		orders[od.EntID] = od
 	}
-	fmt.Println("3 len orders=========== ", len(orders))
+	logger.Sugar().Warnw(
+		"len fee orders",
+		"len orders", len(orders),
+	)
 
 	defaultGoodType := "LegacyPowerRental"
 	defaultPaymentObseleteState := "PaymentObseleteNone"
 	for _, order := range orders {
-		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-		fmt.Println("============== order ================")
-		fmt.Println("EntID: ", order.EntID)
-		fmt.Println("AppID: ", order.AppID)
-		fmt.Println("UserID: ", order.UserID)
-		fmt.Println("GoodID: ", order.GoodID)
-		fmt.Println("AppGoodID: ", order.AppGoodID)
-		fmt.Println("ParentOrderID: ", order.ParentOrderID)
-		fmt.Println("OrderType: ", order.OrderType)
-		fmt.Println("CreateMethod: ", order.CreateMethod)
-		fmt.Println("Simulate: ", order.Simulate)
-		fmt.Println("CouponIDsStr: ", order.CouponIDsStr)
-		fmt.Println("CouponIDs: ", order.CouponIDs)
-		fmt.Println("PaymentType: ", order.PaymentType)
-		fmt.Println("UnitsV1: ", order.UnitsV1)
-		fmt.Println("GoodValueUsd: ", order.GoodValueUsd)
-		fmt.Println("PaymentAmount: ", order.PaymentAmount)
-		fmt.Println("DiscountAmount: ", order.DiscountAmount)
-		fmt.Println("PromotionID: ", order.PromotionID)
-		fmt.Println("InvestmentType: ", order.InvestmentType)
-		fmt.Println("Duration: ", order.Duration)
-		fmt.Println("PaymentID: ", order.PaymentID)
-		fmt.Println("PaymentCoinTypeID: ", order.PaymentCoinTypeID)
-		fmt.Println("BalanceAmount: ", order.BalanceAmount)
-		fmt.Println("CoinUsdCurrency: ", order.CoinUsdCurrency)
-		fmt.Println("LocalCoinUsdCurrency: ", order.LocalCoinUsdCurrency)
-		fmt.Println("LiveCoinUsdCurrency: ", order.LiveCoinUsdCurrency)
-		fmt.Println("OrderCreatedAt: ", order.OrderCreatedAt)
-		fmt.Println("OrderUpdatedAt: ", order.OrderUpdatedAt)
-		fmt.Println("CancelState: ", order.CancelState)
-		fmt.Println("PaidAt: ", order.PaidAt)
-		fmt.Println("UserSetPaid: ", order.UserSetPaid)
-		fmt.Println("UserSetCanceled: ", order.UserSetCanceled)
-		fmt.Println("AdminSetCanceled: ", order.AdminSetCanceled)
-		fmt.Println("PaymentState: ", order.PaymentState)
-		fmt.Println("RenewState: ", order.RenewState)
-		fmt.Println("RenewNotifyAt: ", order.RenewNotifyAt)
-		fmt.Println("OrderState: ", order.OrderState)
-		fmt.Println("StartMode: ", order.StartMode)
-		fmt.Println("StartAt: ", order.StartAt)
-		fmt.Println("LastBenefitAt: ", order.LastBenefitAt)
-		fmt.Println("BenefitState: ", order.BenefitState)
-		fmt.Println("PaymentFinishAmount: ", order.PaymentFinishAmount)
-		fmt.Println("OrderStateCreatedAt: ", order.OrderStateCreatedAt)
-		fmt.Println("OrderStateUpdatedAt: ", order.OrderStateUpdatedAt)
-		fmt.Println("PaymentEntID: ", order.PaymentEntID)
-		fmt.Println("AccountID: ", order.AccountID)
-		fmt.Println("StartAmountStr: ", order.StartAmountStr)
-		fmt.Println("StartAmount: ", order.StartAmount)
-		fmt.Println("PaymentCreatedAtInt: ", order.PaymentCreatedAtInt)
-		fmt.Println("PaymentCreatedAt: ", order.PaymentCreatedAt)
-		fmt.Println("PaymentUpdatedAtInt: ", order.PaymentUpdatedAtInt)
-		fmt.Println("PaymentUpdatedAt: ", order.PaymentUpdatedAt)
-		fmt.Println("LedgerLockID: ", order.LedgerLockID)
-		fmt.Println("LockCreatedAtInt: ", order.LockCreatedAtInt)
-		fmt.Println("LockCreatedAt: ", order.LockCreatedAt)
-		fmt.Println("LockUpdatedAtInt: ", order.LockUpdatedAtInt)
-		fmt.Println("LockUpdatedAt: ", order.LockUpdatedAt)
-		fmt.Println("============== order ================")
+		logger.Sugar().Warnw("exec order")
 		paymentID := order.PaymentID
 		if order.PaymentID != uuid.Nil {
-			// payment transter
-			// if _, err := tx.
-			// 	PaymentBase.
-			// 	Create().
-			// 	SetEntID(order.PaymentID).
-			// 	SetOrderID(order.EntID).
-			// 	SetObseleteState(defaultPaymentObseleteState).
-			// 	SetCreatedAt(order.PaymentCreatedAt).
-			// 	SetUpdatedAt(order.PaymentUpdatedAt).
-			// 	Save(ctx); err != nil {
-			// 	return err
-			// }
-			fmt.Println("3 -------- create payment base ---------")
-			fmt.Println("order.PaymentID: ", order.PaymentID)
-			fmt.Println("order.EntID: ", order.EntID)
-			fmt.Println("defaultPaymentObseleteState: ", defaultPaymentObseleteState)
-			fmt.Println("order.PaymentCreatedAt: ", order.PaymentCreatedAt)
-			fmt.Println("order.PaymentUpdatedAt: ", order.PaymentUpdatedAt)
-			fmt.Println("33 ------- create payment base ---------")
+			paymentBase, err := tx.
+				PaymentBase.
+				Query().
+				Where(
+					entpaymentbase.EntID(order.PaymentID),
+					entpaymentbase.DeletedAt(0),
+				).
+				Only(ctx)
+			if err != nil && !ent.IsNotFound(err) {
+				return err
+			}
+			if paymentBase == nil {
+				logger.Sugar().Warnw(
+					"paymentbase not exist",
+					"paymentID", order.PaymentID,
+				)
+				// payment transter
+				if _, err := tx.
+					PaymentBase.
+					Create().
+					SetEntID(order.PaymentID).
+					SetOrderID(order.EntID).
+					SetObseleteState(defaultPaymentObseleteState).
+					SetCreatedAt(order.PaymentCreatedAt).
+					SetUpdatedAt(order.PaymentUpdatedAt).
+					Save(ctx); err != nil {
+					return err
+				}
+			}
 
-			paymentAmount, err := decimal.NewFromString(order.PaymentAmount)
-			if err != nil {
-				return fmt.Errorf("invalid paymentAmount")
+			paymentTransfer, err := tx.
+				PaymentTransfer.
+				Query().
+				Where(
+					entpaymenttransfer.PaymentID(order.PaymentID),
+					entpaymenttransfer.DeletedAt(0),
+				).
+				Only(ctx)
+			if err != nil && !ent.IsNotFound(err) {
+				return err
 			}
-			startAmount, err := decimal.NewFromString(order.StartAmount)
-			if err != nil {
-				return fmt.Errorf("invalid startAmount")
+
+			if paymentTransfer == nil {
+				logger.Sugar().Warnw(
+					"payment transfer not exist",
+					"paymentID:", order.PaymentID,
+				)
+				paymentAmount, err := decimal.NewFromString(order.PaymentAmount)
+				if err != nil {
+					return fmt.Errorf("invalid paymentAmount")
+				}
+				startAmount, err := decimal.NewFromString(order.StartAmount)
+				if err != nil {
+					return fmt.Errorf("invalid startAmount")
+				}
+				finishAmount, err := decimal.NewFromString(order.PaymentFinishAmount)
+				if err != nil {
+					return fmt.Errorf("invalid finishAmount")
+				}
+				coinUsdCurrency, err := decimal.NewFromString(order.CoinUsdCurrency)
+				if err != nil {
+					return fmt.Errorf("invalid coinUsdCurrency")
+				}
+				localCoinUsdCurrency, err := decimal.NewFromString(order.LocalCoinUsdCurrency)
+				if err != nil {
+					return fmt.Errorf("invalid localCoinUsdCurrency")
+				}
+				liveCoinUsdCurrency, err := decimal.NewFromString(order.LiveCoinUsdCurrency)
+				if err != nil {
+					return fmt.Errorf("invalid liveCoinUsdCurrency")
+				}
+				id := uuid.New()
+				if _, err := tx.
+					PaymentTransfer.
+					Create().
+					SetEntID(id).
+					SetPaymentID(order.PaymentID).
+					SetCoinTypeID(order.PaymentCoinTypeID).
+					SetAccountID(order.AccountID).
+					SetAmount(paymentAmount).
+					SetStartAmount(startAmount).
+					SetFinishAmount(finishAmount).
+					SetCoinUsdCurrency(coinUsdCurrency).
+					SetLocalCoinUsdCurrency(localCoinUsdCurrency).
+					SetLiveCoinUsdCurrency(liveCoinUsdCurrency).
+					SetCreatedAt(order.PaymentCreatedAt).
+					SetUpdatedAt(order.PaymentUpdatedAt).
+					Save(ctx); err != nil {
+					return err
+				}
 			}
-			finishAmount, err := decimal.NewFromString(order.PaymentFinishAmount)
-			if err != nil {
-				return fmt.Errorf("invalid finishAmount")
-			}
-			coinUsdCurrency, err := decimal.NewFromString(order.CoinUsdCurrency)
-			if err != nil {
-				return fmt.Errorf("invalid coinUsdCurrency")
-			}
-			localCoinUsdCurrency, err := decimal.NewFromString(order.LocalCoinUsdCurrency)
-			if err != nil {
-				return fmt.Errorf("invalid localCoinUsdCurrency")
-			}
-			liveCoinUsdCurrency, err := decimal.NewFromString(order.LiveCoinUsdCurrency)
-			if err != nil {
-				return fmt.Errorf("invalid liveCoinUsdCurrency")
-			}
-			id := uuid.New()
-			// if _, err := tx.
-			// 	PaymentTransfer.
-			// 	Create().
-			// 	SetEntID(id).
-			// 	SetPaymentID(order.PaymentID).
-			// 	SetCoinTypeID(order.PaymentCoinTypeID).
-			// 	SetAccountID(order.AccountID).
-			// 	SetAmount(paymentAmount).
-			// 	SetStartAmount(startAmount).
-			// 	SetFinishAmount(finishAmount).
-			// 	SetCoinUsdCurrency(coinUsdCurrency).
-			// 	SetLocalCoinUsdCurrency(localCoinUsdCurrency).
-			// 	SetLiveCoinUsdCurrency(liveCoinUsdCurrency).
-			// 	SetCreatedAt(order.PaymentCreatedAt).
-			// 	SetUpdatedAt(order.PaymentUpdatedAt).
-			// 	Save(ctx); err != nil {
-			// 	return err
-			// }
-			fmt.Println("3 -------- create payment transter ---------")
-			fmt.Println("id: ", id)
-			fmt.Println("order.PaymentID: ", order.PaymentID)
-			fmt.Println("order.PaymentCoinTypeID: ", order.PaymentCoinTypeID)
-			fmt.Println("order.AccountID: ", order.AccountID)
-			fmt.Println("paymentAmount: ", paymentAmount)
-			fmt.Println("startAmount: ", startAmount)
-			fmt.Println("finishAmount: ", finishAmount)
-			fmt.Println("coinUsdCurrency: ", coinUsdCurrency)
-			fmt.Println("localCoinUsdCurrency: ", localCoinUsdCurrency)
-			fmt.Println("liveCoinUsdCurrency: ", liveCoinUsdCurrency)
-			fmt.Println("order.PaymentCreatedAt: ", order.PaymentCreatedAt)
-			fmt.Println("order.PaymentUpdatedAt: ", order.PaymentUpdatedAt)
-			fmt.Println("33 ------- create payment transter ---------")
 		}
 
 		orderBalanceAmount, err := decimal.NewFromString(order.BalanceAmount)
@@ -938,255 +951,317 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 		if orderBalanceAmount.Cmp(decimal.NewFromInt(0)) > 0 {
 			// payment balance
 			if order.PaymentID == uuid.Nil {
-				paymentID = uuid.New()
-				fmt.Println("new paymentID: ", paymentID)
-				// if _, err := tx.
-				// 	PaymentBase.
-				// 	Create().
-				// 	SetEntID(paymentID).
-				// 	SetOrderID(order.EntID).
-				// 	SetObseleteState(defaultPaymentObseleteState).
-				// 	SetCreatedAt(order.PaymentCreatedAt).
-				// 	SetUpdatedAt(order.PaymentUpdatedAt).
-				// 	Save(ctx); err != nil {
-				// 	return err
-				// }
-				fmt.Println("3 -------- create payment base ---------")
-				fmt.Println("paymentID: ", paymentID)
-				fmt.Println("order.EntID: ", order.EntID)
-				fmt.Println("defaultPaymentObseleteState: ", defaultPaymentObseleteState)
-				fmt.Println("order.PaymentCreatedAt: ", order.PaymentCreatedAt)
-				fmt.Println("order.PaymentUpdatedAt: ", order.PaymentUpdatedAt)
-				fmt.Println("33 ------- create payment base ---------")
+				paymentBase, err := tx.
+					PaymentBase.
+					Query().
+					Where(
+						entpaymentbase.OrderID(order.EntID),
+						entpaymentbase.DeletedAt(0),
+					).
+					Only(ctx)
+				if err != nil && !ent.IsNotFound(err) {
+					return err
+				}
+				if paymentBase == nil {
+					logger.Sugar().Warnw(
+						"paymentbase not exist",
+						"paymentID", order.PaymentID,
+					)
+					paymentID = uuid.New()
+					logger.Sugar().Warnw(
+						"new paymentID",
+						"paymentID", paymentID,
+					)
+					if _, err := tx.
+						PaymentBase.
+						Create().
+						SetEntID(paymentID).
+						SetOrderID(order.EntID).
+						SetObseleteState(defaultPaymentObseleteState).
+						SetCreatedAt(order.PaymentCreatedAt).
+						SetUpdatedAt(order.PaymentUpdatedAt).
+						Save(ctx); err != nil {
+						return err
+					}
+				} else {
+					paymentID = paymentBase.EntID
+				}
 			}
 
-			coinUsdCurrency, err := decimal.NewFromString(order.CoinUsdCurrency)
-			if err != nil {
-				return fmt.Errorf("invalid coinusdcurrency")
+			paymentBalance, err := tx.
+				PaymentBalance.
+				Query().
+				Where(
+					entpaymentbalance.PaymentID(paymentID),
+					entpaymentbalance.DeletedAt(0),
+				).
+				Only(ctx)
+			if err != nil && !ent.IsNotFound(err) {
+				return err
 			}
-			localCoinUsdCurrency, err := decimal.NewFromString(order.LocalCoinUsdCurrency)
-			if err != nil {
-				return fmt.Errorf("invalid localcoinusdcurrency")
+			if paymentBalance == nil {
+				logger.Sugar().Warnw(
+					"payment balance not exist",
+					"paymentID", paymentID,
+				)
+				coinUsdCurrency, err := decimal.NewFromString(order.CoinUsdCurrency)
+				if err != nil {
+					return fmt.Errorf("invalid coinusdcurrency")
+				}
+				localCoinUsdCurrency, err := decimal.NewFromString(order.LocalCoinUsdCurrency)
+				if err != nil {
+					return fmt.Errorf("invalid localcoinusdcurrency")
+				}
+				liveCoinUsdCurrency, err := decimal.NewFromString(order.LiveCoinUsdCurrency)
+				if err != nil {
+					return fmt.Errorf("invalid livecoinusdcurrency")
+				}
+				id := uuid.New()
+				if _, err := tx.
+					PaymentBalance.
+					Create().
+					SetEntID(id).
+					SetPaymentID(paymentID).
+					SetCoinTypeID(order.PaymentCoinTypeID).
+					SetAmount(orderBalanceAmount).
+					SetCoinUsdCurrency(coinUsdCurrency).
+					SetLocalCoinUsdCurrency(localCoinUsdCurrency).
+					SetLiveCoinUsdCurrency(liveCoinUsdCurrency).
+					SetCreatedAt(order.OrderCreatedAt).
+					SetUpdatedAt(order.OrderUpdatedAt).
+					Save(ctx); err != nil {
+					return err
+				}
 			}
-			liveCoinUsdCurrency, err := decimal.NewFromString(order.LiveCoinUsdCurrency)
-			if err != nil {
-				return fmt.Errorf("invalid livecoinusdcurrency")
-			}
-			id := uuid.New()
-			// if _, err := tx.
-			// 	PaymentBalance.
-			// 	Create().
-			// 	SetEntID(id).
-			// 	SetPaymentID(paymentID).
-			// 	SetCoinTypeID(order.PaymentCoinTypeID).
-			// 	SetAmount(orderBalanceAmount).
-			// 	SetCoinUsdCurrency(coinUsdCurrency).
-			// 	SetLocalCoinUsdCurrency(localCoinUsdCurrency).
-			// 	SetLiveCoinUsdCurrency(liveCoinUsdCurrency).
-			// 	SetCreatedAt(order.OrderCreatedAt).
-			// 	SetUpdatedAt(order.OrderUpdatedAt).
-			// 	Save(ctx); err != nil {
-			// 	return err
-			// }
-			fmt.Println("3 -------- create payment balance ---------")
-			fmt.Println("id: ", id)
-			fmt.Println("order.PaymentID: ", paymentID)
-			fmt.Println("order.PaymentCoinTypeID: ", order.PaymentCoinTypeID)
-			fmt.Println("orderBalanceAmount: ", orderBalanceAmount)
-			fmt.Println("coinUsdCurrency: ", coinUsdCurrency)
-			fmt.Println("localCoinUsdCurrency: ", localCoinUsdCurrency)
-			fmt.Println("liveCoinUsdCurrency: ", liveCoinUsdCurrency)
-			fmt.Println("order.OrderCreatedAt: ", order.OrderCreatedAt)
-			fmt.Println("order.OrderUpdatedAt: ", order.OrderUpdatedAt)
-			fmt.Println("33 ------- create payment balance ---------")
 
 			if order.LedgerLockID != uuid.Nil {
-				id = uuid.New()
-				// if _, err := tx.
-				// 	PaymentBalanceLock.
-				// 	Create().
-				// 	SetEntID(id).
-				// 	SetPaymentID(paymentID).
-				// 	SetLedgerLockID(order.LedgerLockID).
-				// 	SetCreatedAt(order.LockCreatedAt).
-				// 	SetUpdatedAt(order.LockUpdatedAt).
-				// 	Save(ctx); err != nil {
-				// 	return err
-				// }
-				fmt.Println("3 -------- create payment balance lock ---------")
-				fmt.Println("id: ", id)
-				fmt.Println("order.PaymentID: ", paymentID)
-				fmt.Println("order.LedgerLockID: ", order.LedgerLockID)
-				fmt.Println("order.LockCreatedAt: ", order.LockCreatedAt)
-				fmt.Println("order.LockUpdatedAt: ", order.LockUpdatedAt)
-				fmt.Println("33 ------- create payment balance lock ---------")
+				paymentBalanceLock, err := tx.
+					PaymentBalanceLock.
+					Query().
+					Where(
+						entpaymentbalancelock.PaymentID(paymentID),
+						entpaymentbalancelock.LedgerLockID(order.LedgerLockID),
+						entpaymentbalancelock.DeletedAt(0),
+					).
+					Only(ctx)
+				if err != nil && !ent.IsNotFound(err) {
+					return err
+				}
+				if paymentBalanceLock == nil {
+					logger.Sugar().Warnw(
+						"payment balance lock not exist",
+						"paymentID", paymentID,
+						"ledgerLockID", order.LedgerLockID,
+					)
+					id := uuid.New()
+					if _, err := tx.
+						PaymentBalanceLock.
+						Create().
+						SetEntID(id).
+						SetPaymentID(paymentID).
+						SetLedgerLockID(order.LedgerLockID).
+						SetCreatedAt(order.LockCreatedAt).
+						SetUpdatedAt(order.LockUpdatedAt).
+						Save(ctx); err != nil {
+						return err
+					}
+				}
 			}
 		}
 
-		// if _, err := tx.
-		// 	OrderBase.
-		// 	Create().
-		// 	SetEntID(order.EntID).
-		// 	SetAppID(order.AppID).
-		// 	SetUserID(order.UserID).
-		// 	SetGoodID(order.GoodID).
-		// 	SetAppGoodID(order.AppGoodID).
-		// 	SetGoodType(defaultGoodType).
-		// 	SetParentOrderID(order.ParentOrderID).
-		// 	SetOrderType(order.OrderType).
-		// 	SetCreateMethod(order.CreateMethod).
-		// 	SetSimulate(order.Simulate).
-		// 	SetCreatedAt(order.OrderCreatedAt).
-		// 	SetUpdatedAt(order.OrderUpdatedAt).
-		// 	Save(ctx); err != nil {
-		// 	return err
-		// }
-		fmt.Println("3 -------- create order base ---------")
-		fmt.Println("order.EntID: ", order.EntID)
-		fmt.Println("order.AppID: ", order.AppID)
-		fmt.Println("order.UserID: ", order.UserID)
-		fmt.Println("order.GoodID: ", order.GoodID)
-		fmt.Println("order.AppGoodID: ", order.AppGoodID)
-		fmt.Println("defaultGoodType: ", defaultGoodType)
-		fmt.Println("order.ParentOrderID: ", order.ParentOrderID)
-		fmt.Println("order.OrderType: ", order.OrderType)
-		fmt.Println("order.CreateMethod: ", order.CreateMethod)
-		fmt.Println("order.Simulate: ", order.Simulate)
-		fmt.Println("order.OrderCreatedAt: ", order.OrderCreatedAt)
-		fmt.Println("order.OrderUpdatedAt: ", order.OrderUpdatedAt)
-		fmt.Println("33 ------- create order base ---------")
-
-		id := uuid.New()
-		goodValueUsd, err := decimal.NewFromString(order.GoodValueUsd)
-		if err != nil {
+		orderBase, err := tx.
+			OrderBase.
+			Query().
+			Where(
+				entorderbase.EntID(order.EntID),
+				entorderbase.DeletedAt(0),
+			).
+			Only(ctx)
+		if err != nil && !ent.IsNotFound(err) {
 			return err
 		}
-		paymentAmount, err := decimal.NewFromString(order.PaymentAmount)
-		if err != nil {
+		if orderBase == nil {
+			logger.Sugar().Warnw(
+				"order base not exist",
+				"orderID", order.EntID,
+			)
+			if _, err := tx.
+				OrderBase.
+				Create().
+				SetEntID(order.EntID).
+				SetAppID(order.AppID).
+				SetUserID(order.UserID).
+				SetGoodID(order.GoodID).
+				SetAppGoodID(order.AppGoodID).
+				SetGoodType(defaultGoodType).
+				SetParentOrderID(order.ParentOrderID).
+				SetOrderType(order.OrderType).
+				SetCreateMethod(order.CreateMethod).
+				SetSimulate(order.Simulate).
+				SetCreatedAt(order.OrderCreatedAt).
+				SetUpdatedAt(order.OrderUpdatedAt).
+				Save(ctx); err != nil {
+				return err
+			}
+		}
+
+		feeOrder, err := tx.
+			FeeOrder.
+			Query().
+			Where(
+				entfeeorder.OrderID(order.EntID),
+				entfeeorder.DeletedAt(0),
+			).
+			Only(ctx)
+		if err != nil && !ent.IsNotFound(err) {
 			return err
 		}
-		discountAmount, err := decimal.NewFromString(order.DiscountAmount)
-		if err != nil {
+		if feeOrder == nil {
+			logger.Sugar().Warnw(
+				"fee order not exist",
+				"orderID", order.EntID,
+			)
+			id := uuid.New()
+			goodValueUsd, err := decimal.NewFromString(order.GoodValueUsd)
+			if err != nil {
+				return err
+			}
+			paymentAmount, err := decimal.NewFromString(order.PaymentAmount)
+			if err != nil {
+				return err
+			}
+			discountAmount, err := decimal.NewFromString(order.DiscountAmount)
+			if err != nil {
+				return err
+			}
+			if _, err := tx.
+				FeeOrder.
+				Create().
+				SetEntID(id).
+				SetOrderID(order.EntID).
+				SetGoodValueUsd(goodValueUsd).
+				SetPaymentAmountUsd(paymentAmount).
+				SetDiscountAmountUsd(discountAmount).
+				SetPromotionID(order.PromotionID).
+				SetDurationSeconds(order.Duration).
+				SetCreatedAt(order.OrderCreatedAt).
+				SetUpdatedAt(order.OrderUpdatedAt).
+				Save(ctx); err != nil {
+				return err
+			}
+		}
+
+		orderStateBase, err := tx.
+			OrderStateBase.
+			Query().
+			Where(
+				entorderstatebase.OrderID(order.EntID),
+				entorderstatebase.DeletedAt(0),
+			).
+			Only(ctx)
+		if err != nil && !ent.IsNotFound(err) {
 			return err
 		}
-		// if _, err := tx.
-		// 	FeeOrder.
-		// 	Create().
-		// 	SetEntID(id).
-		// 	SetOrderID(order.EntID).
-		// 	SetGoodValueUsd(goodValueUsd).
-		// 	SetPaymentAmountUsd(paymentAmount).
-		// 	SetDiscountAmountUsd(discountAmount).
-		// 	SetPromotionID(order.PromotionID).
-		// 	SetDurationSeconds(order.Duration).
-		// 	SetCreatedAt(order.OrderCreatedAt).
-		// 	SetUpdatedAt(order.OrderUpdatedAt).
-		// 	Save(ctx); err != nil {
-		// 	return err
-		// }
-		fmt.Println("3 -------- create fee order ---------")
-		fmt.Println("id: ", id)
-		fmt.Println("order.EntID: ", order.EntID)
-		fmt.Println("goodValueUsd: ", goodValueUsd)
-		fmt.Println("paymentAmount: ", paymentAmount)
-		fmt.Println("discountAmount: ", discountAmount)
-		fmt.Println("order.PromotionID: ", order.PromotionID)
-		fmt.Println("order.Duration: ", order.Duration)
-		fmt.Println("order.OrderCreatedAt: ", order.OrderCreatedAt)
-		fmt.Println("order.OrderUpdatedAt: ", order.OrderUpdatedAt)
-		fmt.Println("33 ------- create fee order ---------")
-
-		id = uuid.New()
-		// if _, err := tx.
-		// 	OrderStateBase.
-		// 	Create().
-		// 	SetEntID(id).
-		// 	SetOrderID(order.EntID).
-		// 	SetOrderState(order.OrderState).
-		// 	SetStartMode(order.StartMode).
-		// 	SetStartAt(order.StartAt).
-		// 	SetLastBenefitAt(order.LastBenefitAt).
-		// 	SetBenefitState(order.BenefitState).
-		// 	SetPaymentType(order.PaymentType).
-		// 	SetCreatedAt(order.OrderStateCreatedAt).
-		// 	SetUpdatedAt(order.OrderStateUpdatedAt).
-		// 	Save(ctx); err != nil {
-		// 	return err
-		// }
-		fmt.Println("3 -------- create order state base ---------")
-		fmt.Println("id: ", id)
-		fmt.Println("order.EntID: ", order.EntID)
-		fmt.Println("order.OrderState: ", order.OrderState)
-		fmt.Println("order.StartMode: ", order.StartMode)
-		fmt.Println("order.StartAt: ", order.StartAt)
-		fmt.Println("order.LastBenefitAt: ", order.LastBenefitAt)
-		fmt.Println("order.BenefitState: ", order.BenefitState)
-		fmt.Println("order.PaymentType: ", order.PaymentType)
-		fmt.Println("order.OrderStateCreatedAt: ", order.OrderStateCreatedAt)
-		fmt.Println("order.OrderStateUpdatedAt: ", order.OrderStateUpdatedAt)
-		fmt.Println("33 ------- create order state base ---------")
-
-		id = uuid.New()
-		canceledAt := uint32(0)
-		if order.CancelState == ordertypes.OrderState_OrderStateCanceled.String() {
-			canceledAt = order.OrderStateUpdatedAt
+		if orderStateBase == nil {
+			logger.Sugar().Warnw(
+				"order state base not exist",
+				"orderID", order.EntID,
+			)
+			id := uuid.New()
+			if _, err := tx.
+				OrderStateBase.
+				Create().
+				SetEntID(id).
+				SetOrderID(order.EntID).
+				SetOrderState(order.OrderState).
+				SetStartMode(order.StartMode).
+				SetStartAt(order.StartAt).
+				SetLastBenefitAt(order.LastBenefitAt).
+				SetBenefitState(order.BenefitState).
+				SetPaymentType(order.PaymentType).
+				SetCreatedAt(order.OrderStateCreatedAt).
+				SetUpdatedAt(order.OrderStateUpdatedAt).
+				Save(ctx); err != nil {
+				return err
+			}
 		}
-		// if _, err := tx.
-		// 	FeeOrderState.
-		// 	Create().
-		// 	SetEntID(id).
-		// 	SetOrderID(order.EntID).
-		// 	SetPaymentID(paymentID).
-		// 	SetPaidAt(order.PaidAt).
-		// 	SetUserSetPaid(order.UserSetPaid).
-		// 	SetUserSetCanceled(order.UserSetCanceled).
-		// 	SetAdminSetCanceled(order.AdminSetCanceled).
-		// 	SetPaymentState(order.PaymentState).
-		// 	SetCancelState(order.CancelState).
-		// 	SetCanceledAt(canceledAt).
-		// 	SetCreatedAt(order.OrderStateCreatedAt).
-		// 	SetUpdatedAt(order.OrderStateUpdatedAt).
-		// 	Save(ctx); err != nil {
-		// 	return err
-		// }
-		fmt.Println("3 -------- create fee order state ---------")
-		fmt.Println("id: ", id)
-		fmt.Println("order.EntID: ", order.EntID)
-		fmt.Println("paymentID: ", paymentID)
-		fmt.Println("order.PaidAt: ", order.PaidAt)
-		fmt.Println("order.UserSetPaid: ", order.UserSetPaid)
-		fmt.Println("order.UserSetCanceled: ", order.UserSetCanceled)
-		fmt.Println("order.AdminSetCanceled: ", order.AdminSetCanceled)
-		fmt.Println("order.PaymentState: ", order.PaymentState)
-		fmt.Println("order.CancelState: ", order.CancelState)
-		fmt.Println("canceledAt: ", canceledAt)
-		fmt.Println("order.OrderStateCreatedAt: ", order.OrderStateCreatedAt)
-		fmt.Println("order.OrderStateUpdatedAt: ", order.OrderStateUpdatedAt)
-		fmt.Println("33 ------- create fee order state ---------")
+
+		feeOrderState, err := tx.
+			FeeOrderState.
+			Query().
+			Where(
+				entfeeorderstate.OrderID(order.EntID),
+				entfeeorderstate.DeletedAt(0),
+			).
+			Only(ctx)
+		if err != nil && !ent.IsNotFound(err) {
+			return err
+		}
+		if feeOrderState == nil {
+			logger.Sugar().Warnw(
+				"fee order state not exist",
+				"orderID", order.EntID,
+			)
+			id := uuid.New()
+			canceledAt := uint32(0)
+			if order.CancelState == ordertypes.OrderState_OrderStateCanceled.String() {
+				canceledAt = order.OrderStateUpdatedAt
+			}
+			if _, err := tx.
+				FeeOrderState.
+				Create().
+				SetEntID(id).
+				SetOrderID(order.EntID).
+				SetPaymentID(paymentID).
+				SetPaidAt(order.PaidAt).
+				SetUserSetPaid(order.UserSetPaid).
+				SetUserSetCanceled(order.UserSetCanceled).
+				SetAdminSetCanceled(order.AdminSetCanceled).
+				SetPaymentState(order.PaymentState).
+				SetCancelState(order.CancelState).
+				SetCanceledAt(canceledAt).
+				SetCreatedAt(order.OrderStateCreatedAt).
+				SetUpdatedAt(order.OrderStateUpdatedAt).
+				Save(ctx); err != nil {
+				return err
+			}
+		}
 
 		couponIDs := []string{}
 		_ = json.Unmarshal([]byte(order.CouponIDs), &couponIDs)
 		for _, couponIDStr := range couponIDs {
 			couponID := uuid.MustParse(couponIDStr)
-			id = uuid.New()
-			// if _, err := tx.
-			// 	OrderCoupon.
-			// 	Create().
-			// 	SetEntID(id).
-			// 	SetOrderID(order.EntID).
-			// 	SetCouponID(couponID).
-			// 	SetCreatedAt(order.OrderStateCreatedAt).
-			// 	SetUpdatedAt(order.OrderStateUpdatedAt).
-			// 	Save(ctx); err != nil {
-			// 	return err
-			// }
-			fmt.Println("3 -------- create order coupon ---------")
-			fmt.Println("id: ", id)
-			fmt.Println("order.EntID: ", order.EntID)
-			fmt.Println("couponID: ", couponID)
-			fmt.Println("order.OrderStateCreatedAt: ", order.OrderStateCreatedAt)
-			fmt.Println("order.OrderStateUpdatedAt: ", order.OrderStateUpdatedAt)
-			fmt.Println("33 ------- create order coupon ---------")
+			orderCoupon, err := tx.
+				OrderCoupon.
+				Query().
+				Where(
+					entordercoupon.OrderID(order.EntID),
+					entordercoupon.CouponID(couponID),
+					entordercoupon.DeletedAt(0),
+				).
+				Only(ctx)
+			if err != nil && !ent.IsNotFound(err) {
+				return err
+			}
+			if orderCoupon == nil {
+				logger.Sugar().Warnw(
+					"order coupon not exist",
+					"orderID", order.EntID,
+					"couponID", couponID,
+				)
+				id := uuid.New()
+				if _, err := tx.
+					OrderCoupon.
+					Create().
+					SetEntID(id).
+					SetOrderID(order.EntID).
+					SetCouponID(couponID).
+					SetCreatedAt(order.OrderCreatedAt).
+					SetUpdatedAt(order.OrderUpdatedAt).
+					Save(ctx); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil

@@ -172,7 +172,7 @@ func (h *OrderOpHandler) GetCoinUSDCurrencies(ctx context.Context) error {
 	h.coinUSDCurrencies = map[string]*currencymwpb.Currency{}
 	now := uint32(time.Now().Unix())
 	for _, info := range infos {
-		if info.CreatedAt+timedef.SecondsPerMinute*10 < now {
+		if info.UpdatedAt+timedef.SecondsPerMinute*10 < now {
 			return wlog.Errorf("stale coincurrency")
 		}
 		h.coinUSDCurrencies[info.CoinTypeID] = info
@@ -784,6 +784,7 @@ func (h *OrderOpHandler) GoodCancelable() error {
 		default:
 			return wlog.Errorf("permission denied")
 		}
+	case goodtypes.CancelMode_CancellableBeforeUsed:
 	default:
 		return wlog.Errorf("invalid cancelmode")
 	}

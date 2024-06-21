@@ -124,10 +124,14 @@ func (h *baseCreateHandler) getAppPowerRental(ctx context.Context) (err error) {
 	if err != nil {
 		return wlog.WrapError(err)
 	}
-	if h.appPowerRental == nil ||
-		!h.appPowerRental.AppGoodOnline || !h.appPowerRental.AppGoodPurchasable ||
-		!h.appPowerRental.GoodOnline || !h.appPowerRental.GoodPurchasable {
+	if h.appPowerRental == nil || !h.appPowerRental.AppGoodOnline || !h.appPowerRental.GoodOnline {
 		return wlog.Errorf("invalid apppowerrental")
+	}
+
+	if !h.appPowerRental.AppGoodPurchasable || !h.appPowerRental.GoodPurchasable {
+		if *h.CreateMethod != types.OrderCreateMethod_OrderCreatedByAdmin {
+			return wlog.Errorf("invalid apppowerrental")
+		}
 	}
 	return nil
 }
