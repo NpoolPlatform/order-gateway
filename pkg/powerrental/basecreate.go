@@ -74,7 +74,12 @@ func (h *baseCreateHandler) getGoodCoins(ctx context.Context) error {
 	if len(h.goodCoins) == 0 {
 		return wlog.Errorf("invalid goodcoins")
 	}
-	return nil
+	for _, goodCoin := range h.goodCoins {
+		if goodCoin.Main {
+			return nil
+		}
+	}
+	return wlog.Errorf("invalid goodmaincoin")
 }
 
 func (h *baseCreateHandler) validateRequiredAppGoods() error {
