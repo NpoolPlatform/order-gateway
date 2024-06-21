@@ -35,6 +35,9 @@ func (h *Handler) CreateFeeOrders(ctx context.Context) ([]*npool.FeeOrder, error
 	if err := handler.getParentOrder(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+	if err := handler.validateParentOrder(); err != nil {
+		return nil, wlog.WrapError(err)
+	}
 	handler.OrderOpHandler.AppGoodIDs = append(
 		handler.OrderOpHandler.AppGoodIDs,
 		handler.parentOrder.AppGoodID,
@@ -49,6 +52,12 @@ func (h *Handler) CreateFeeOrders(ctx context.Context) ([]*npool.FeeOrder, error
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.getAppGoods(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+	if err := handler.getParentTypedGood(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+	if err := handler.validateParentGood(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.GetAllocatedCoupons(ctx); err != nil {

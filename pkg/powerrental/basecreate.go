@@ -74,7 +74,12 @@ func (h *baseCreateHandler) getGoodCoins(ctx context.Context) error {
 	if len(h.goodCoins) == 0 {
 		return wlog.Errorf("invalid goodcoins")
 	}
-	return nil
+	for _, goodCoin := range h.goodCoins {
+		if goodCoin.Main {
+			return nil
+		}
+	}
+	return wlog.Errorf("invalid goodmaincoin")
 }
 
 func (h *baseCreateHandler) validateRequiredAppGoods() error {
@@ -208,7 +213,10 @@ func (h *baseCreateHandler) calculateFeeOrderValueUSD(appGoodID string) (value d
 	}
 	quantityUnits := *h.Handler.Units
 	if h.Handler.FeeDurationSeconds == nil {
-		return decimal.NewFromInt(0), wlog.Errorf("invalid feedurationseconds")
+		if !h.appPowerRental.PackageWithRequireds {
+			return decimal.NewFromInt(0), wlog.Errorf("invalid feedurationseconds")
+		}
+		h.Handler.FeeDurationSeconds = h.Handler.DurationSeconds
 	}
 	durationUnits, _ := ordergwcommon.GoodDurationDisplayType2Unit(
 		appFee.DurationDisplayType, *h.Handler.FeeDurationSeconds,
@@ -228,6 +236,9 @@ func (h *baseCreateHandler) calculatePowerRentalOrderValueUSD() (value decimal.D
 	unitValue, err := decimal.NewFromString(h.appPowerRental.UnitPrice)
 	if err != nil {
 		return value, wlog.WrapError(err)
+	}
+	if h.appPowerRental.FixedDuration {
+		return unitValue, nil
 	}
 	quantityUnits := *h.Handler.Units
 	durationUnits, _ := ordergwcommon.GoodDurationDisplayType2Unit(
