@@ -165,7 +165,7 @@ func (h *OrderOpHandler) GetCoinUSDCurrencies(ctx context.Context) error {
 	}
 	infos, _, err := currencymwcli.GetCurrencies(ctx, &currencymwpb.Conds{
 		CoinTypeIDs: &basetypes.StringSliceVal{Op: cruder.IN, Value: coinTypeIDs},
-	}, 0, int32(len(coinTypeIDs)))
+	}, 0, int32(len(coinTypeIDs)*2)) // Work around for multi currency channel
 	if err != nil {
 		return wlog.WrapError(err)
 	}
