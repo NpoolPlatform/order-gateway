@@ -51,6 +51,12 @@ func (h *Handler) CreateFeeOrders(ctx context.Context) ([]*npool.FeeOrder, error
 	if err := handler.getAppGoods(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+	if err := handler.getParentTypedGood(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+	if err := handler.validateParentGood(); err != nil {
+		return nil, wlog.WrapError(err)
+	}
 	if err := handler.GetAllocatedCoupons(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}

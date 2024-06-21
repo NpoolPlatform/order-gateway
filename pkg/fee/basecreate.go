@@ -5,6 +5,7 @@ import (
 	"time"
 
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
+	apppowerrentalmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/powerrental"
 	goodcoinmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/coin"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
@@ -12,6 +13,7 @@ import (
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	appfeemwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/fee"
 	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
+	apppowerrentalmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/powerrental"
 	goodcoinmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/coin"
 	feeordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/fee"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
@@ -32,11 +34,12 @@ import (
 type baseCreateHandler struct {
 	*Handler
 	*ordercommon.DtmHandler
-	parentOrder     *powerrentalordermwpb.PowerRentalOrder
-	parentAppGood   *appgoodmwpb.Good
-	parentGoodCoins []*goodcoinmwpb.GoodCoin
-	appFees         map[string]*appfeemwpb.Fee
-	feeOrderReqs    []*feeordermwpb.FeeOrderReq
+	parentOrder          *powerrentalordermwpb.PowerRentalOrder
+	parentAppGood        *appgoodmwpb.Good
+	parentAppPowerRental *apppowerrentalmwpb.PowerRental
+	parentGoodCoins      []*goodcoinmwpb.GoodCoin
+	appFees              map[string]*appfeemwpb.Fee
+	feeOrderReqs         []*feeordermwpb.FeeOrderReq
 }
 
 func (h *baseCreateHandler) getParentOrder(ctx context.Context) error {
@@ -63,6 +66,38 @@ func (h *baseCreateHandler) getAppGoods(ctx context.Context) error {
 	}
 	if h.parentAppGood == nil {
 		return wlog.Errorf("invalid parentappgood")
+	}
+	return nil
+}
+
+func (h *baseCreateHandler) getParentTypedGood(ctx context.Context) (err error) {
+	switch h.parentAppGood.GoodType {
+	case goodtypes.GoodType_PowerRental:
+		fallthrough //nolint
+	case goodtypes.GoodType_LegacyPowerRental:
+		h.parentAppPowerRental, err = apppowerrentalmwcli.GetPowerRental(ctx, h.parentAppGood.EntID)
+		if err != nil {
+			return wlog.WrapError(err)
+		}
+		if h.parentAppPowerRental == nil {
+			return wlog.Errorf("invalid parentapppowerrental")
+		}
+	default:
+		return wlog.Errorf("not implemented")
+	}
+	return nil
+}
+
+func (h *baseCreateHandler) validateParentGood() error {
+	switch h.parentAppGood.GoodType {
+	case goodtypes.GoodType_PowerRental:
+		fallthrough //nolint
+	case goodtypes.GoodType_LegacyPowerRental:
+		if h.parentAppPowerRental.PackageWithRequireds {
+			return wlog.Errorf("permission denied")
+		}
+	default:
+		return wlog.Errorf("permission denied")
 	}
 	return nil
 }
