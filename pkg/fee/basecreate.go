@@ -9,6 +9,7 @@ import (
 	goodcoinmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/coin"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
+	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	appfeemwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/fee"
@@ -51,6 +52,16 @@ func (h *baseCreateHandler) getParentOrder(ctx context.Context) error {
 		return wlog.Errorf("invalid parentorder")
 	}
 	h.parentOrder = info
+	return nil
+}
+
+func (h *baseCreateHandler) validateParentOrder() error {
+	switch h.parentOrder.OrderState {
+	case ordertypes.OrderState_OrderStatePaid:
+	case ordertypes.OrderState_OrderStateInService:
+	default:
+		return wlog.Errorf("permission denied")
+	}
 	return nil
 }
 
