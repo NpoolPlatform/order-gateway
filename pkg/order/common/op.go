@@ -813,6 +813,7 @@ func (h *OrderOpHandler) GetOrderCommissions(ctx context.Context) error {
 }
 
 func (h *OrderOpHandler) PrepareCommissionLockIDs() {
+	h.CommissionLockIDs = map[string]string{}
 	for _, statement := range h.CommissionLedgerStatements {
 		if _, ok := h.CommissionLockIDs[statement.UserID]; ok {
 			continue
@@ -837,8 +838,8 @@ func (h *OrderOpHandler) WithCreateOrderCommissionLocks(dispose *dtmcli.SagaDisp
 	}()
 	dispose.Add(
 		ordermwsvcname.ServiceDomain,
-		"order.middleware.order1.orderlock.v1.Middleware/CreateOrderLocks",
-		"order.middleware.order1.orderlock.v1.Middleware/DeleteOrderLocks",
+		"order.middleware.order1.lock.v1.Middleware/CreateOrderLocks",
+		"order.middleware.order1.lock.v1.Middleware/DeleteOrderLocks",
 		&orderlockmwpb.CreateOrderLocksRequest{
 			Infos: reqs,
 		},
