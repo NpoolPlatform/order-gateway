@@ -808,6 +808,7 @@ func (h *OrderOpHandler) GetOrderCommissions(ctx context.Context) error {
 			return nil
 		}
 		h.CommissionLedgerStatements = append(h.CommissionLedgerStatements, infos...)
+		offset += limit
 	}
 }
 
