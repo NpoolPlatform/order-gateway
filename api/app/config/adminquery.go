@@ -16,6 +16,8 @@ func (s *Server) AdminGetAppConfigs(ctx context.Context, in *npool.AdminGetAppCo
 	handler, err := config1.NewHandler(
 		ctx,
 		config1.WithAppID(in.TargetAppID, false),
+		config1.WithOffset(in.Offset),
+		config1.WithOffset(in.Limit),
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
