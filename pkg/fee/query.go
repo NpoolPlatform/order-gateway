@@ -122,7 +122,7 @@ func (h *queryHandler) getPaymentAccounts(ctx context.Context) (err error) {
 	h.paymentAccounts, err = ordergwcommon.GetPaymentAccounts(ctx, func() (accountIDs []string) {
 		for _, fee := range h.fees {
 			for _, transfer := range fee.PaymentTransfers {
-				accountIDs = append(accountIDs, transfer.CoinTypeID)
+				accountIDs = append(accountIDs, transfer.AccountID)
 			}
 		}
 		return
