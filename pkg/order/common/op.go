@@ -149,6 +149,7 @@ func (h *OrderOpHandler) GetAppCoins(ctx context.Context, parentGoodCoinTypeIDs 
 			return wlog.Errorf("invalid appcoins")
 		}
 		h.AppCoins[coin.CoinTypeID] = coin
+		coinENV = coin.ENV
 	}
 	return nil
 }
