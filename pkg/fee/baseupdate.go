@@ -17,7 +17,7 @@ import (
 )
 
 type baseUpdateHandler struct {
-	*Handler
+	*checkHandler
 	*ordercommon.DtmHandler
 	feeOrder    *npool.FeeOrder
 	feeOrderReq *feeordermwpb.FeeOrderReq

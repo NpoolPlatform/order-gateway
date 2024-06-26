@@ -23,7 +23,9 @@ func (h *Handler) UpdatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	handler := &updateHandler{
 		baseUpdateHandler: &baseUpdateHandler{
 			dtmHandler: &dtmHandler{
-				Handler: h,
+				checkHandler: &checkHandler{
+					Handler: h,
+				},
 			},
 			OrderOpHandler: &ordercommon.OrderOpHandler{
 				AppGoodCheckHandler:         h.AppGoodCheckHandler,
@@ -38,6 +40,9 @@ func (h *Handler) UpdatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 		},
 	}
 
+	if err := handler.checkPowerRentalOrder(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
 	if err := handler.getPowerRentalOrder(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}

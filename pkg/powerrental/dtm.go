@@ -11,7 +11,7 @@ import (
 )
 
 type dtmHandler struct {
-	*Handler
+	*checkHandler
 }
 
 func (h *dtmHandler) dtmDo(ctx context.Context, dispose *dtmcli.SagaDispose) error {

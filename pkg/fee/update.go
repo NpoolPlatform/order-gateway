@@ -22,7 +22,9 @@ func (h *Handler) UpdateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 
 	handler := &updateHandler{
 		baseUpdateHandler: &baseUpdateHandler{
-			Handler: h,
+			checkHandler: &checkHandler{
+				Handler: h,
+			},
 			DtmHandler: &ordercommon.DtmHandler{
 				OrderOpHandler: &ordercommon.OrderOpHandler{
 					AppGoodCheckHandler:         h.AppGoodCheckHandler,
@@ -38,6 +40,9 @@ func (h *Handler) UpdateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 		},
 	}
 
+	if err := handler.checkFeeOrder(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
 	if err := handler.getFeeOrder(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}

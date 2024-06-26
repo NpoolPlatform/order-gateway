@@ -20,7 +20,9 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	handler := &createHandler{
 		baseCreateHandler: &baseCreateHandler{
 			dtmHandler: &dtmHandler{
-				Handler: h,
+				checkHandler: &checkHandler{
+					Handler: h,
+				},
 			},
 			OrderOpHandler: &ordercommon.OrderOpHandler{
 				OrderType:                   *h.OrderType,
