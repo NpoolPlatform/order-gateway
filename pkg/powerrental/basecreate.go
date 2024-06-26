@@ -237,10 +237,10 @@ func (h *baseCreateHandler) calculatePowerRentalOrderValueUSD() (value decimal.D
 	if err != nil {
 		return value, wlog.WrapError(err)
 	}
-	if h.appPowerRental.FixedDuration {
-		return unitValue, nil
-	}
 	quantityUnits := *h.Handler.Units
+	if h.appPowerRental.FixedDuration {
+		return unitValue.Mul(quantityUnits), nil
+	}
 	durationUnits, _ := ordergwcommon.GoodDurationDisplayType2Unit(
 		h.appPowerRental.DurationDisplayType, *h.Handler.DurationSeconds,
 	)
