@@ -10,7 +10,6 @@ import (
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
 	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
-	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	appfeemwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/fee"
 	appgoodmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good"
@@ -221,7 +220,7 @@ func (h *baseCreateHandler) constructFeeOrderReq(appGoodID string) error {
 	paymentType := h.PaymentType
 	if len(h.feeOrderReqs) > 0 {
 		paymentAmountUSD = decimal.NewFromInt(0)
-		paymentType = types.PaymentType_PayWithOtherOrder.Enum()
+		paymentType = ordertypes.PaymentType_PayWithOtherOrder.Enum()
 	}
 	var promotionID *string
 	topMostAppGood, ok := h.TopMostAppGoods[appFee.AppGoodID]
