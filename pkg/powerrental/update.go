@@ -15,7 +15,7 @@ type updateHandler struct {
 }
 
 //nolint:gocyclo
-func (h *Handler) UpdatePowerRentalOrder(ctx context.Context) (*npool.PowerRentalOrder, error) {
+func (h *Handler) UpdatePowerRentalOrder(ctx context.Context) (*npool.PowerRentalOrder, error) { //nolint:funlen
 	if err := h.CheckOrder(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
