@@ -593,6 +593,7 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 				SetOrderID(order.EntID).
 				SetAppGoodStockID(appGoodStockID).
 				SetUnits(unit).
+				SetDurationSeconds(order.Duration).
 				SetGoodValueUsd(goodValueUsd).
 				SetPaymentAmountUsd(paymentAmount).
 				SetDiscountAmountUsd(discountAmount).
@@ -668,7 +669,6 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 				SetOrderID(order.EntID).
 				SetCancelState(order.CancelState).
 				SetCanceledAt(canceledAt).
-				SetDurationSeconds(order.Duration).
 				SetPaymentID(paymentID).
 				SetPaidAt(order.PaidAt).
 				SetUserSetPaid(order.UserSetPaid).
