@@ -53,7 +53,8 @@ func (h *Handler) UpdatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 			return nil, wlog.WrapError(err)
 		}
 	}
-	if h.UserSetCanceled != nil || h.AdminSetCanceled != nil {
+	if (h.UserSetCanceled != nil && *h.UserSetCanceled) ||
+		(h.AdminSetCanceled != nil && *h.AdminSetCanceled) {
 		if err := handler.validateCancelParam(); err != nil {
 			return nil, wlog.WrapError(err)
 		}

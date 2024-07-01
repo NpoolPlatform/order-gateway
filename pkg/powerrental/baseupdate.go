@@ -133,9 +133,13 @@ func (h *baseUpdateHandler) updatePowerRentalOrder(ctx context.Context) error {
 		TimeoutToFail:  10,
 	})
 
-	if len(h.CommissionLockIDs) > 0 {
-		h.WithCreateOrderCommissionLocks(sagaDispose)
-		h.WithLockCommissions(sagaDispose)
+	if !h.OrderOpHandler.Simulate {
+		if len(h.CommissionLockIDs) > 0 {
+			h.WithCreateOrderCommissionLocks(sagaDispose)
+			h.WithLockCommissions(sagaDispose)
+		}
+		h.WithLockBalances(sagaDispose)
+		h.WithLockPaymentTransferAccount(sagaDispose)
 	}
 	h.withUpdatePowerRentalOrder(sagaDispose)
 	return h.dtmDo(ctx, sagaDispose)
