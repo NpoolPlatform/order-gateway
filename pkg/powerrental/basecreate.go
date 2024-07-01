@@ -434,6 +434,7 @@ func (h *baseCreateHandler) formalizePayment() {
 	h.powerRentalOrderReq.PaymentAmountUSD = func() *string { s := h.PaymentAmountUSD.String(); return &s }()
 	h.powerRentalOrderReq.DiscountAmountUSD = func() *string { s := h.DeductAmountUSD.String(); return &s }()
 	h.powerRentalOrderReq.LedgerLockID = h.BalanceLockID
+	h.powerRentalOrderReq.PaymentID = h.PaymentID
 }
 
 func (h *baseCreateHandler) notifyCouponUsed() {

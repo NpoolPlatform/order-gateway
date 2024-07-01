@@ -104,6 +104,7 @@ func (h *Handler) UpdatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 			return nil, wlog.WrapError(err)
 		}
 		handler.PrepareLedgerLockID()
+		handler.PreparePaymentID()
 		handler.formalizePayment()
 	}
 

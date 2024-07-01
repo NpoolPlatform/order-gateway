@@ -144,6 +144,7 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	}
 	if !handler.OrderOpHandler.Simulate {
 		handler.PrepareLedgerLockID()
+		handler.PreparePaymentID()
 		handler.formalizePayment()
 		if err := handler.ValidateCouponConstraint(); err != nil {
 			return nil, wlog.WrapError(err)
