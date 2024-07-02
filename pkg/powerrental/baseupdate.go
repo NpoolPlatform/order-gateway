@@ -124,6 +124,7 @@ func (h *baseUpdateHandler) formalizePayment() {
 		h.powerRentalOrderReq.PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}
 	}
 	h.powerRentalOrderReq.LedgerLockID = h.BalanceLockID
+	h.powerRentalOrderReq.PaymentID = h.PaymentID
 }
 
 func (h *baseUpdateHandler) updatePowerRentalOrder(ctx context.Context) error {
