@@ -131,7 +131,7 @@ func migrateOrderLocks(ctx context.Context, tx *ent.Tx) error {
 //nolint:funlen,gocyclo
 func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 	logger.Sugar().Warnw("exec migratePowerRentals")
-	selectOrderSql := fmt.Sprintf("select od.ent_id,od.app_id,od.user_id,od.good_id,od.app_good_id,od.parent_order_id,od.order_type,od.create_method,od.simulate,od.coupon_ids,od.payment_type,od.units_v1,od.good_value_usd,od.payment_amount,od.discount_amount,od.promotion_id,od.investment_type,od.duration,od.payment_id,od.payment_coin_type_id,od.balance_amount,od.coin_usd_currency,od.local_coin_usd_currency,od.live_coin_usd_currency,od.created_at as order_created_at,od.updated_at as order_updated_at,os.cancel_state,os.paid_at,os.user_set_paid,os.user_set_canceled,os.admin_set_canceled,os.payment_state,os.renew_state,os.renew_notify_at,os.order_state,os.start_mode,os.start_at,os.last_benefit_at,os.benefit_state,os.payment_finish_amount,os.created_at as order_state_created_at,os.updated_at as order_state_updated_at,pm.ent_id as payment_ent_id,pm.account_id,pm.start_amount,pm.created_at as payment_created_at,pm.updated_at as payment_updated_at,ol.ent_id as ledger_lock_id,ol.created_at as lock_created_at,ol.updated_at as lock_updated_at from orders as od inner join order_states os on od.ent_id=os.order_id and os.deleted_at=0 left join payments as pm on od.ent_id=pm.order_id and pm.deleted_at=0 left join order_locks as ol on od.ent_id=ol.order_id and ol.deleted_at=0 and ol.lock_type='LockBalance' where od.parent_order_id='%v' and od.deleted_at=0", uuid.Nil.String()) //nolint
+	selectOrderSql := fmt.Sprintf("select od.ent_id,od.app_id,od.user_id,od.good_id,od.app_good_id,od.parent_order_id,od.order_type,od.create_method,od.simulate,od.coupon_ids,od.payment_type,od.units_v1,od.good_value_usd,od.payment_amount,od.transfer_amount,od.discount_amount,od.promotion_id,od.investment_type,od.duration,od.payment_id,od.payment_coin_type_id,od.balance_amount,od.coin_usd_currency,od.local_coin_usd_currency,od.live_coin_usd_currency,od.created_at as order_created_at,od.updated_at as order_updated_at,os.cancel_state,os.paid_at,os.user_set_paid,os.user_set_canceled,os.admin_set_canceled,os.payment_state,os.renew_state,os.renew_notify_at,os.order_state,os.start_mode,os.start_at,os.last_benefit_at,os.benefit_state,os.payment_finish_amount,os.created_at as order_state_created_at,os.updated_at as order_state_updated_at,pm.ent_id as payment_ent_id,pm.account_id,pm.start_amount,pm.created_at as payment_created_at,pm.updated_at as payment_updated_at,ol.ent_id as ledger_lock_id,ol.created_at as lock_created_at,ol.updated_at as lock_updated_at from orders as od inner join order_states os on od.ent_id=os.order_id and os.deleted_at=0 left join payments as pm on od.ent_id=pm.order_id and pm.deleted_at=0 left join order_locks as ol on od.ent_id=ol.order_id and ol.deleted_at=0 and ol.lock_type='LockBalance' where od.parent_order_id='%v' and od.deleted_at=0", uuid.Nil.String()) //nolint
 	logger.Sugar().Warnw(
 		"exec selectOrderSql",
 		"sql", selectOrderSql,
@@ -157,6 +157,7 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 		UnitsV1              string
 		GoodValueUsd         string
 		PaymentAmount        string
+		TransferAmount       string
 		DiscountAmount       string
 		PromotionID          uuid.UUID `json:"promotion_id"`
 		InvestmentType       string
@@ -205,7 +206,7 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 		od := &Order{}
 		if err := orderRows.Scan(&od.EntID, &od.AppID, &od.UserID, &od.GoodID, &od.AppGoodID,
 			&od.ParentOrderID, &od.OrderType, &od.CreateMethod, &od.Simulate, &od.CouponIDsStr,
-			&od.PaymentType, &od.UnitsV1, &od.GoodValueUsd, &od.PaymentAmount, &od.DiscountAmount,
+			&od.PaymentType, &od.UnitsV1, &od.GoodValueUsd, &od.PaymentAmount, &od.TransferAmount, &od.DiscountAmount,
 			&od.PromotionID, &od.InvestmentType, &od.Duration, &od.PaymentID, &od.PaymentCoinTypeID,
 			&od.BalanceAmount, &od.CoinUsdCurrency, &od.LocalCoinUsdCurrency, &od.LiveCoinUsdCurrency,
 			&od.OrderCreatedAt, &od.OrderUpdatedAt, &od.CancelState, &od.PaidAt, &od.UserSetPaid,
@@ -346,9 +347,9 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 					"payment transfer not exist",
 					"paymentID", order.PaymentID,
 				)
-				paymentAmount, err := decimal.NewFromString(order.PaymentAmount)
+				transferAmount, err := decimal.NewFromString(order.TransferAmount)
 				if err != nil {
-					return fmt.Errorf("invalid paymentAmount")
+					return fmt.Errorf("invalid transferAmount")
 				}
 				startAmount, err := decimal.NewFromString(order.StartAmount)
 				if err != nil {
@@ -378,7 +379,7 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 					SetPaymentID(order.PaymentID).
 					SetCoinTypeID(order.PaymentCoinTypeID).
 					SetAccountID(order.AccountID).
-					SetAmount(paymentAmount).
+					SetAmount(transferAmount).
 					SetStartAmount(startAmount).
 					SetFinishAmount(finishAmount).
 					SetCoinUsdCurrency(coinUsdCurrency).
@@ -731,7 +732,7 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 //nolint:funlen,gocyclo
 func migrateFees(ctx context.Context, tx *ent.Tx) error {
 	logger.Sugar().Warnw("exec migrateFees")
-	selectOrderSql := fmt.Sprintf("select od.ent_id,od.app_id,od.user_id,od.good_id,od.app_good_id,od.parent_order_id,od.order_type,od.create_method,od.simulate,od.coupon_ids,od.payment_type,od.units_v1,od.good_value_usd,od.payment_amount,od.discount_amount,od.promotion_id,od.investment_type,od.duration,od.payment_id,od.payment_coin_type_id,od.balance_amount,od.coin_usd_currency,od.local_coin_usd_currency,od.live_coin_usd_currency,od.created_at as order_created_at,od.updated_at as order_updated_at,os.cancel_state,os.paid_at,os.user_set_paid,os.user_set_canceled,os.admin_set_canceled,os.payment_state,os.renew_state,os.renew_notify_at,os.order_state,os.start_mode,os.start_at,os.last_benefit_at,os.benefit_state,os.payment_finish_amount,os.created_at as order_state_created_at,os.updated_at as order_state_updated_at,pm.ent_id as payment_ent_id,pm.account_id,pm.start_amount,pm.created_at as payment_created_at,pm.updated_at as payment_updated_at,ol.ent_id as ledger_lock_id,ol.created_at as lock_created_at,ol.updated_at as lock_updated_at from orders as od inner join order_states os on od.ent_id=os.order_id and os.deleted_at=0 left join payments as pm on od.ent_id=pm.order_id and pm.deleted_at=0 left join order_locks as ol on od.ent_id=ol.order_id and ol.deleted_at=0 and ol.lock_type='LockBalance' where od.parent_order_id!='%v' and od.deleted_at=0", uuid.Nil.String()) //nolint
+	selectOrderSql := fmt.Sprintf("select od.ent_id,od.app_id,od.user_id,od.good_id,od.app_good_id,od.parent_order_id,od.order_type,od.create_method,od.simulate,od.coupon_ids,od.payment_type,od.units_v1,od.good_value_usd,od.payment_amount,od.transfer_amount,od.discount_amount,od.promotion_id,od.investment_type,od.duration,od.payment_id,od.payment_coin_type_id,od.balance_amount,od.coin_usd_currency,od.local_coin_usd_currency,od.live_coin_usd_currency,od.created_at as order_created_at,od.updated_at as order_updated_at,os.cancel_state,os.paid_at,os.user_set_paid,os.user_set_canceled,os.admin_set_canceled,os.payment_state,os.renew_state,os.renew_notify_at,os.order_state,os.start_mode,os.start_at,os.last_benefit_at,os.benefit_state,os.payment_finish_amount,os.created_at as order_state_created_at,os.updated_at as order_state_updated_at,pm.ent_id as payment_ent_id,pm.account_id,pm.start_amount,pm.created_at as payment_created_at,pm.updated_at as payment_updated_at,ol.ent_id as ledger_lock_id,ol.created_at as lock_created_at,ol.updated_at as lock_updated_at from orders as od inner join order_states os on od.ent_id=os.order_id and os.deleted_at=0 left join payments as pm on od.ent_id=pm.order_id and pm.deleted_at=0 left join order_locks as ol on od.ent_id=ol.order_id and ol.deleted_at=0 and ol.lock_type='LockBalance' where od.parent_order_id!='%v' and od.deleted_at=0", uuid.Nil.String()) //nolint
 	logger.Sugar().Warnw(
 		"exec selectOrderSql",
 		"sql", selectOrderSql,
@@ -757,6 +758,7 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 		UnitsV1              string
 		GoodValueUsd         string
 		PaymentAmount        string
+		TransferAmount       string
 		DiscountAmount       string
 		PromotionID          uuid.UUID `json:"promotion_id"`
 		InvestmentType       string
@@ -804,7 +806,7 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 		od := &Order{}
 		if err := orderRows.Scan(&od.EntID, &od.AppID, &od.UserID, &od.GoodID, &od.AppGoodID,
 			&od.ParentOrderID, &od.OrderType, &od.CreateMethod, &od.Simulate, &od.CouponIDsStr,
-			&od.PaymentType, &od.UnitsV1, &od.GoodValueUsd, &od.PaymentAmount, &od.DiscountAmount,
+			&od.PaymentType, &od.UnitsV1, &od.GoodValueUsd, &od.PaymentAmount, &od.TransferAmount, &od.DiscountAmount,
 			&od.PromotionID, &od.InvestmentType, &od.Duration, &od.PaymentID, &od.PaymentCoinTypeID,
 			&od.BalanceAmount, &od.CoinUsdCurrency, &od.LocalCoinUsdCurrency, &od.LiveCoinUsdCurrency,
 			&od.OrderCreatedAt, &od.OrderUpdatedAt, &od.CancelState, &od.PaidAt, &od.UserSetPaid,
@@ -899,9 +901,9 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 					"payment transfer not exist",
 					"paymentID:", order.PaymentID,
 				)
-				paymentAmount, err := decimal.NewFromString(order.PaymentAmount)
+				transferAmount, err := decimal.NewFromString(order.TransferAmount)
 				if err != nil {
-					return fmt.Errorf("invalid paymentAmount")
+					return fmt.Errorf("invalid transferAmount")
 				}
 				startAmount, err := decimal.NewFromString(order.StartAmount)
 				if err != nil {
@@ -931,7 +933,7 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 					SetPaymentID(order.PaymentID).
 					SetCoinTypeID(order.PaymentCoinTypeID).
 					SetAccountID(order.AccountID).
-					SetAmount(paymentAmount).
+					SetAmount(transferAmount).
 					SetStartAmount(startAmount).
 					SetFinishAmount(finishAmount).
 					SetCoinUsdCurrency(coinUsdCurrency).
