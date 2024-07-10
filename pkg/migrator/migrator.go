@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/NpoolPlatform/go-service-framework/pkg/config"
+	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	redis2 "github.com/NpoolPlatform/go-service-framework/pkg/redis"
 	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
@@ -586,6 +587,7 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 			if err != nil {
 				return err
 			}
+			durationSeconds := order.Duration * timedef.SecondsPerDay
 			if _, err := tx.
 				PowerRental.
 				Create().
@@ -593,7 +595,7 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 				SetOrderID(order.EntID).
 				SetAppGoodStockID(appGoodStockID).
 				SetUnits(unit).
-				SetDurationSeconds(order.Duration).
+				SetDurationSeconds(durationSeconds).
 				SetGoodValueUsd(goodValueUsd).
 				SetPaymentAmountUsd(paymentAmount).
 				SetDiscountAmountUsd(discountAmount).
@@ -1134,6 +1136,7 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 			if err != nil {
 				return err
 			}
+			durationSeconds := order.Duration * timedef.SecondsPerDay
 			if _, err := tx.
 				FeeOrder.
 				Create().
@@ -1143,7 +1146,7 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 				SetPaymentAmountUsd(paymentAmount).
 				SetDiscountAmountUsd(discountAmount).
 				SetPromotionID(order.PromotionID).
-				SetDurationSeconds(order.Duration).
+				SetDurationSeconds(durationSeconds).
 				SetCreatedAt(order.OrderCreatedAt).
 				SetUpdatedAt(order.OrderUpdatedAt).
 				Save(ctx); err != nil {
