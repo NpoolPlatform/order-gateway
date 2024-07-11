@@ -88,15 +88,35 @@ spec:
             backend:
               serviceName: order-gateway
               servicePort: 50430
-          - path: /api/order/v1/update/order
-            backend:
-              serviceName: order-gateway
-              servicePort: 50430
           - path: /api/order/v1/create/simulateorder
             backend:
               serviceName: order-gateway
               servicePort: 50430
           - path: /api/order/v1/create/simulateorders
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/my/compensates
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/my/feeorders
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/my/ordercoupons
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/my/orders
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/my/outofgases
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/my/powerrentalorders
             backend:
               serviceName: order-gateway
               servicePort: 50430
@@ -152,6 +172,170 @@ spec:
               serviceName: order-gateway
               servicePort: 50430
           - path: /api/order/v1/delete/app/simulate/config
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/create/appconfig
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/delete/appconfig
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/get/appconfigs
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/update/appconfig
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/create/appconfig
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/appconfig
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/update/appconfig
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/get/compensates
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/compensates
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/create/feeorder
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/create/feeorders
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/delete/feeorder
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/get/feeorders
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/update/feeorder
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/create/feeorder
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/create/feeorders
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/create/user/feeorder
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/create/user/feeorders
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/feeorder
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/feeorders
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/update/feeorder
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/update/user/feeorder
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/get/ordercoupons
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/ordercoupons
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/get/orders
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/orders
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/get/outofgases
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/outofgases
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/create/powerrentalcompensate
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/delete/powerrentalcompensate
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/delete/powerrentaloutofgas
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/create/powerrentalorder
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/delete/powerrentalorder
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/get/powerrentalorders
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/admin/update/powerrentalorder
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/create/powerrentalorder
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/create/user/powerrentalorder
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/powerrentalorder
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/get/powerrentalorders
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/update/powerrentalorder
+            backend:
+              serviceName: order-gateway
+              servicePort: 50430
+          - path: /api/order/v1/update/user/powerrentalorder
             backend:
               serviceName: order-gateway
               servicePort: 50430
