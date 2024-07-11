@@ -484,6 +484,11 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 				}
 			}
 
+			if order.EntID == uuid.MustParse("6cbc948d-9d98-416b-9191-5268f41e98c0") {
+				fmt.Println("----------------->>>>>>>>>>>>>> order: ", order)
+				fmt.Println("----------------->>>>>>>>>>>>>> order.LedgerLockID: ", order.LedgerLockID)
+			}
+
 			if order.LedgerLockID != uuid.Nil {
 				paymentBalanceLock, err := tx.
 					PaymentBalanceLock.
@@ -619,6 +624,10 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 			Only(ctx)
 		if err != nil && !ent.IsNotFound(err) {
 			return err
+		}
+		if order.EntID == uuid.MustParse("43ecff4c-2572-4ccf-9730-4d79ea6842b0") {
+			fmt.Println("=========>>>>>>>>>>>>>>>>>>>>>>>>>>===----------------------===============-------order.PaymentType: ", order.PaymentType)
+			fmt.Println("=========>>>>>>>>>>>>>>>>>>>>>>>>>>===----------------------===============-------order.OrderState: ", order.OrderState)
 		}
 		if orderStateBase == nil {
 			logger.Sugar().Warnw(
@@ -1167,6 +1176,10 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 		if err != nil && !ent.IsNotFound(err) {
 			return err
 		}
+		if order.EntID == uuid.MustParse("43ecff4c-2572-4ccf-9730-4d79ea6842b0") {
+			fmt.Println("+++++++++======>>>>>>>>>>>>>>>>>>>>>>>>>>===----------------------===============-------order.PaymentType: ", order.PaymentType)
+			fmt.Println("+++++++++======>>>>>>>>>>>>>>>>>>>>>>>>>>===----------------------===============-------order.OrderState: ", order.OrderState)
+		}
 		if orderStateBase == nil {
 			logger.Sugar().Warnw(
 				"order state base not exist",
@@ -1201,6 +1214,13 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 			Only(ctx)
 		if err != nil && !ent.IsNotFound(err) {
 			return err
+		}
+		if order.EntID == uuid.MustParse("43ecff4c-2572-4ccf-9730-4d79ea6842b0") {
+			fmt.Println("-----========++++++=====>>>>>>>>>>>>>>======order.PaymentState: ", order.PaymentState)
+			fmt.Println("-----========++++++=====>>>>>>>>>>>>>>======order.AdminSetCanceled: ", order.AdminSetCanceled)
+			fmt.Println("-----========++++++=====>>>>>>>>>>>>>>======order.PaidAt: ", order.PaidAt)
+			fmt.Println("-----========++++++=====>>>>>>>>>>>>>>======order.CancelState: ", order.CancelState)
+			fmt.Println("-----========++++++=====>>>>>>>>>>>>>>======order.OrderStateUpdatedAt: ", order.OrderStateUpdatedAt)
 		}
 		if feeOrderState == nil {
 			logger.Sugar().Warnw(
