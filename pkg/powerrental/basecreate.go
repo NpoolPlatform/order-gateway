@@ -6,6 +6,8 @@ import (
 
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
 	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
+	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
+	"github.com/NpoolPlatform/go-service-framework/pkg/pubsub"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	apppowerrentalmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/powerrental"
 	apppowerrentalsimulatemwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/powerrental/simulate"
@@ -20,6 +22,7 @@ import (
 	apppowerrentalmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/powerrental"
 	apppowerrentalsimulatemwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/powerrental/simulate"
 	goodcoinmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/coin"
+	eventmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/event"
 	feeordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/fee"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
 	powerrentalordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/powerrental"
@@ -45,6 +48,34 @@ type baseCreateHandler struct {
 	appGoodStockLockID     *string
 	orderStartMode         types.OrderStartMode
 	orderStartAt           uint32
+}
+
+
+func (h *baseCreateHandler) rewardPurchase() {
+	if err := pubsub.WithPublisher(func(publisher *pubsub.Publisher) error {
+		req := &eventmwpb.CalcluateEventRewardsRequest{
+			AppID:       *h.OrderCheckHandler.AppCheckHandler.AppID,
+			UserID:      *h.OrderCheckHandler.UserID,
+			EventType:   basetypes.UsedFor_Purchase,
+			Consecutive: 1,
+			Amount:      h.powerRentalOrderReq.PaymentAmountUSD,
+		}
+		return publisher.Update(
+			basetypes.MsgID_CalculateEventRewardReq.String(),
+			nil,
+			nil,
+			nil,
+			req,
+		)
+	}); err != nil {
+		logger.Sugar().Errorw(
+			"rewardPurchase",
+			"AppID", *h.OrderCheckHandler.AppCheckHandler.AppID,
+			"UserID", *h.OrderCheckHandler.UserID,
+			"Amount", h.powerRentalOrderReq.PaymentAmountUSD,
+			"Error", err,
+		)
+	}
 }
 
 func (h *baseCreateHandler) getAppGoods(ctx context.Context) error {

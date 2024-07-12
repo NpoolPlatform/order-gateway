@@ -155,5 +155,9 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 		return nil, wlog.WrapError(err)
 	}
 
+	if !handler.OrderOpHandler.Simulate {
+		handler.rewardPurchase()
+	}
+
 	return h.GetPowerRentalOrder(ctx)
 }
