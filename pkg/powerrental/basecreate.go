@@ -50,7 +50,7 @@ type baseCreateHandler struct {
 	orderStartAt           uint32
 }
 
-
+//nolint:dupl
 func (h *baseCreateHandler) rewardPurchase() {
 	if err := pubsub.WithPublisher(func(publisher *pubsub.Publisher) error {
 		req := &eventmwpb.CalcluateEventRewardsRequest{
@@ -70,6 +70,34 @@ func (h *baseCreateHandler) rewardPurchase() {
 	}); err != nil {
 		logger.Sugar().Errorw(
 			"rewardPurchase",
+			"AppID", *h.OrderCheckHandler.AppCheckHandler.AppID,
+			"UserID", *h.OrderCheckHandler.UserID,
+			"Amount", h.powerRentalOrderReq.PaymentAmountUSD,
+			"Error", err,
+		)
+	}
+}
+
+//nolint:dupl
+func (h *baseCreateHandler) rewardAffiliatePurchase() {
+	if err := pubsub.WithPublisher(func(publisher *pubsub.Publisher) error {
+		req := &eventmwpb.CalcluateEventRewardsRequest{
+			AppID:       *h.OrderCheckHandler.AppCheckHandler.AppID,
+			UserID:      *h.OrderCheckHandler.UserID,
+			EventType:   basetypes.UsedFor_AffiliatePurchase,
+			Consecutive: 1,
+			Amount:      h.powerRentalOrderReq.PaymentAmountUSD,
+		}
+		return publisher.Update(
+			basetypes.MsgID_CalculateEventRewardReq.String(),
+			nil,
+			nil,
+			nil,
+			req,
+		)
+	}); err != nil {
+		logger.Sugar().Errorw(
+			"rewardAffiliatePurchase",
 			"AppID", *h.OrderCheckHandler.AppCheckHandler.AppID,
 			"UserID", *h.OrderCheckHandler.UserID,
 			"Amount", h.powerRentalOrderReq.PaymentAmountUSD,
