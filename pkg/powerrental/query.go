@@ -189,6 +189,7 @@ func (h *queryHandler) formalize() {
 		appPowerRental, ok := h.appPowerRentals[powerRentalOrder.AppGoodID]
 		if ok {
 			info.GoodName = appPowerRental.GoodName
+			info.GoodQuantityUnit = appPowerRental.QuantityUnit
 			info.AppGoodName = appPowerRental.AppGoodName
 			info.DurationDisplayType = appPowerRental.DurationDisplayType
 			info.Durations, info.DurationUnit = ordergwcommon.GoodDurationDisplayType2Unit(
