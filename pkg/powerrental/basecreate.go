@@ -178,6 +178,9 @@ func (h *baseCreateHandler) validateOrderDuration() error {
 }
 
 func (h *baseCreateHandler) validateOrderUnits() error {
+	if h.Units == nil {
+		return wlog.Errorf("invalid orderunits")
+	}
 	minOrderAmount, err := decimal.NewFromString(h.appPowerRental.MinOrderAmount)
 	if err != nil {
 		return wlog.WrapError(err)
