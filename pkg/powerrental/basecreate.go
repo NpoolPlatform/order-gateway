@@ -204,8 +204,10 @@ func (h *baseCreateHandler) validateOrderUnits(ctx context.Context) error {
 	purchasedUnits, err := powerrentalmwcli.SumPowerRentalOrderUnits(ctx, &powerrentalmwpb.Conds{
 		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodCheckHandler.AppID},
 		UserID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodCheckHandler.UserID},
+		AppGoodID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodCheckHandler.AppGoodID},
 		OrderType:  &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(types.OrderType_Normal)},
 		OrderState: &basetypes.Uint32Val{Op: cruder.NEQ, Value: uint32(types.OrderState_OrderStateCanceled)},
+		Simulate:   &basetypes.BoolVal{Op: cruder.EQ, Value: false},
 	})
 	if err != nil {
 		return wlog.WrapError(err)
