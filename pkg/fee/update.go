@@ -98,6 +98,7 @@ func (h *Handler) UpdateFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 			return nil, wlog.WrapError(err)
 		}
 		handler.PrepareLedgerLockID()
+		handler.PreparePaymentID()
 		handler.formalizePayment()
 	}
 

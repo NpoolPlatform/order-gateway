@@ -82,6 +82,7 @@ func (h *baseUpdateHandler) formalizePayment() {
 		h.feeOrderReq.PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}
 	}
 	h.feeOrderReq.LedgerLockID = h.BalanceLockID
+	h.feeOrderReq.PaymentID = h.PaymentID
 }
 
 func (h *baseUpdateHandler) updateFeeOrder(ctx context.Context) error {
