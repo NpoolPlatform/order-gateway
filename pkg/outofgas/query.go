@@ -98,6 +98,9 @@ func (h *Handler) GetOutOfGas(ctx context.Context) (*npool.OutOfGas, error) {
 	if info == nil {
 		return nil, wlog.Errorf("invalid outofgas")
 	}
+	if h.OrderID != nil && info.OrderID != *h.OrderID {
+		return nil, wlog.Errorf("invalid outofgas")
+	}
 
 	handler := &queryHandler{
 		Handler:    h,

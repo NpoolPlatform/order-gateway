@@ -19,7 +19,9 @@ type OrderCheckHandler struct {
 func (h *OrderCheckHandler) CheckOrderWithOrderID(ctx context.Context, orderID string) error {
 	conds := &ordermwpb.Conds{
 		EntID: &basetypes.StringVal{Op: cruder.EQ, Value: orderID},
-		AppID: &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID},
+	}
+	if h.AppID != nil {
+		conds.AppID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppID}
 	}
 	if h.UserID != nil {
 		conds.UserID = &basetypes.StringVal{Op: cruder.EQ, Value: *h.UserID}
