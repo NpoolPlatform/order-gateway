@@ -22,10 +22,12 @@ import (
 	goodcoinmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/coin"
 	feeordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/fee"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
+	powerrentalmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/powerrental"
 	powerrentalordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/powerrental"
 	ordergwcommon "github.com/NpoolPlatform/order-gateway/pkg/common"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
+	powerrentalmwcli "github.com/NpoolPlatform/order-middleware/pkg/client/powerrental"
 	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
 	"github.com/dtm-labs/dtm/client/dtmcli/dtmimp"
 
@@ -177,7 +179,7 @@ func (h *baseCreateHandler) validateOrderDuration() error {
 	return nil
 }
 
-func (h *baseCreateHandler) validateOrderUnits() error {
+func (h *baseCreateHandler) validateOrderUnits(ctx context.Context) error {
 	if h.Units == nil {
 		return wlog.Errorf("invalid orderunits")
 	}
@@ -199,7 +201,20 @@ func (h *baseCreateHandler) validateOrderUnits() error {
 	if err != nil {
 		return wlog.WrapError(err)
 	}
-	if h.Units.GreaterThan(maxUserAmount) {
+	purchasedUnits, err := powerrentalmwcli.SumPowerRentalOrderUnits(ctx, &powerrentalmwpb.Conds{
+		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodCheckHandler.AppID},
+		UserID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodCheckHandler.UserID},
+		OrderType:  &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(types.OrderType_Normal)},
+		OrderState: &basetypes.Uint32Val{Op: cruder.NEQ, Value: uint32(types.OrderState_OrderStateCanceled)},
+	})
+	if err != nil {
+		return wlog.WrapError(err)
+	}
+	_purchasedUnits, err := decimal.NewFromString(purchasedUnits)
+	if err != nil {
+		return wlog.WrapError(err)
+	}
+	if h.Units.Add(_purchasedUnits).GreaterThan(maxUserAmount) {
 		return wlog.Errorf("invalid orderunits")
 	}
 	return nil
