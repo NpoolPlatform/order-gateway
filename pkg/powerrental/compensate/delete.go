@@ -19,6 +19,7 @@ func (h *Handler) DeleteCompensate(ctx context.Context) (*compensategwpb.Compens
 	h1, err := compensate1.NewHandler(
 		ctx,
 		compensate1.WithEntID(h.EntID, true),
+		compensate1.WithOrderID(h.OrderID, true),
 	)
 	if err != nil {
 		return nil, wlog.WrapError(err)
