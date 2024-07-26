@@ -96,6 +96,8 @@ func (h *baseUpdateHandler) updateFeeOrder(ctx context.Context) error {
 		h.WithCreateOrderCommissionLocks(sagaDispose)
 		h.WithLockCommissions(sagaDispose)
 	}
+	h.WithLockBalances(sagaDispose)
+	h.WithLockPaymentTransferAccount(sagaDispose)
 	h.withUpdateFeeOrder(sagaDispose)
 	return h.DtmDo(ctx, sagaDispose)
 }
