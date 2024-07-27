@@ -22,7 +22,6 @@ import (
 	goodcoinmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/coin"
 	feeordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/fee"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
-	powerrentalmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/powerrental"
 	powerrentalordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/powerrental"
 	ordergwcommon "github.com/NpoolPlatform/order-gateway/pkg/common"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
@@ -201,7 +200,7 @@ func (h *baseCreateHandler) validateOrderUnits(ctx context.Context) error {
 	if err != nil {
 		return wlog.WrapError(err)
 	}
-	purchasedUnits, err := powerrentalmwcli.SumPowerRentalOrderUnits(ctx, &powerrentalmwpb.Conds{
+	purchasedUnits, err := powerrentalmwcli.SumPowerRentalOrderUnits(ctx, &powerrentalordermwpb.Conds{
 		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodCheckHandler.AppID},
 		UserID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodCheckHandler.UserID},
 		AppGoodID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodCheckHandler.AppGoodID},
