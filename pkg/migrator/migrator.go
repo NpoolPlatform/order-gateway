@@ -304,6 +304,10 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 					"paymentbase not exist",
 					"paymentID", order.PaymentID,
 				)
+				if order.PaymentCreatedAt == 0 {
+					order.PaymentCreatedAt = order.OrderCreatedAt
+					order.PaymentUpdatedAt = order.OrderUpdatedAt
+				}
 				// payment transter
 				if _, err := tx.
 					PaymentBase.
@@ -410,6 +414,10 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 						"new paymentID",
 						"paymentID", paymentID,
 					)
+					if order.PaymentCreatedAt == 0 {
+						order.PaymentCreatedAt = order.OrderCreatedAt
+						order.PaymentUpdatedAt = order.OrderUpdatedAt
+					}
 					if _, err := tx.
 						PaymentBase.
 						Create().
@@ -859,6 +867,10 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 					"paymentbase not exist",
 					"paymentID", order.PaymentID,
 				)
+				if order.PaymentCreatedAt == 0 {
+					order.PaymentCreatedAt = order.OrderCreatedAt
+					order.PaymentUpdatedAt = order.OrderUpdatedAt
+				}
 				// payment transter
 				if _, err := tx.
 					PaymentBase.
@@ -965,6 +977,10 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 						"new paymentID",
 						"paymentID", paymentID,
 					)
+					if order.PaymentCreatedAt == 0 {
+						order.PaymentCreatedAt = order.OrderCreatedAt
+						order.PaymentUpdatedAt = order.OrderUpdatedAt
+					}
 					if _, err := tx.
 						PaymentBase.
 						Create().
