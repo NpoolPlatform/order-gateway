@@ -4,6 +4,9 @@ import (
 	"context"
 	"time"
 
+	accountmwcli "github.com/NpoolPlatform/account-middleware/pkg/client/account"
+	orderbenefitmwcli "github.com/NpoolPlatform/account-middleware/pkg/client/orderbenefit"
+	accountmwsvcname "github.com/NpoolPlatform/account-middleware/pkg/servicename"
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
 	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
@@ -12,6 +15,7 @@ import (
 	goodcoinmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/coin"
 	goodmwsvcname "github.com/NpoolPlatform/good-middleware/pkg/servicename"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
+	orderbenefitmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/orderbenefit"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
@@ -20,6 +24,7 @@ import (
 	apppowerrentalmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/powerrental"
 	apppowerrentalsimulatemwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/powerrental/simulate"
 	goodcoinmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/coin"
+	powerrentalpb "github.com/NpoolPlatform/message/npool/order/gw/v1/powerrental"
 	feeordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/fee"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
 	powerrentalordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/powerrental"
@@ -43,6 +48,7 @@ type baseCreateHandler struct {
 	appFees                map[string]*appfeemwpb.Fee
 	powerRentalOrderReq    *powerrentalordermwpb.PowerRentalOrderReq
 	feeOrderReqs           []*feeordermwpb.FeeOrderReq
+	orderBenefitReqs       []*orderbenefitmwpb.AccountReq
 	appGoodStockLockID     *string
 	orderStartMode         types.OrderStartMode
 	orderStartAt           uint32
@@ -456,6 +462,135 @@ func (h *baseCreateHandler) formalizePayment() {
 	h.powerRentalOrderReq.PaymentID = h.PaymentID
 }
 
+func (h *baseCreateHandler) formalizeOrderBenefitReqs(ctx context.Context) error {
+	for _, req := range h.OrderBenefitAccounts {
+		err := h.formalizeOrderBenefitReq(ctx, req)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+//nolint:gocyclo
+func (h *baseCreateHandler) formalizeOrderBenefitReq(ctx context.Context, req *powerrentalpb.OrderBenefitAccountReq) (err error) {
+	usedfor := basetypes.AccountUsedFor_OrderBenefit
+	if req.AccountID != nil {
+		accountID := *req.AccountID
+		baseAccount, err := accountmwcli.GetAccount(ctx, accountID)
+		if err != nil {
+			return err
+		}
+
+		if baseAccount == nil {
+			return wlog.Errorf("invalid accountid: %v", accountID)
+		}
+
+		if baseAccount != nil && baseAccount.UsedFor != usedfor {
+			return wlog.Errorf("invalid account usedfor, accountid: %v", accountID)
+		}
+
+		if req.CoinTypeID != nil && baseAccount.CoinTypeID != req.GetCoinTypeID() {
+			return wlog.Errorf("invalid cointypeid")
+		} else if req.CoinTypeID == nil {
+			req.CoinTypeID = &baseAccount.CoinTypeID
+		}
+
+		if req.Address != nil && baseAccount.Address != *req.Address {
+			return wlog.Errorf("invalid address")
+		} else if req.Address == nil {
+			req.Address = &baseAccount.Address
+		}
+		return nil
+	}
+
+	if req.CoinTypeID == nil || req.Address == nil {
+		return wlog.Errorf("invalid cointypeid or address")
+	}
+
+	historyAccounts, _, err := orderbenefitmwcli.GetAccounts(ctx, &orderbenefitmwpb.Conds{
+		CoinTypeID: &basetypes.StringVal{
+			Op:    cruder.EQ,
+			Value: *req.CoinTypeID,
+		},
+		AppID: &basetypes.StringVal{
+			Op:    cruder.EQ,
+			Value: *h.Handler.OrderCheckHandler.AppID,
+		},
+		UserID: &basetypes.StringVal{
+			Op:    cruder.EQ,
+			Value: *h.Handler.OrderCheckHandler.UserID,
+		},
+		Address: &basetypes.StringVal{
+			Op:    cruder.EQ,
+			Value: *req.Address,
+		},
+	}, 0, 1)
+	if err != nil {
+		return err
+	}
+
+	if len(historyAccounts) > 0 {
+		req.AccountID = &historyAccounts[0].AccountID
+	}
+
+	return nil
+}
+
+// validate after getGoodCoins and formalizeOrderBenefitReqs
+func (h *baseCreateHandler) validateOrderBenefitReqs() error {
+	if h.appPowerRental.StockMode != goodtypes.GoodStockMode_GoodStockByMiningPool {
+		return nil
+	}
+
+	coinTypeIDs := make(map[string]struct{})
+	for _, goodCoin := range h.goodCoins {
+		coinTypeIDs[goodCoin.CoinTypeID] = struct{}{}
+	}
+
+	if len(coinTypeIDs) != len(h.OrderBenefitAccounts) {
+		return wlog.Errorf("good coins and order benefit accounts do not match")
+	}
+
+	for _, req := range h.OrderBenefitAccounts {
+		if req.CoinTypeID == nil {
+			return wlog.Errorf("good coins and order benefit accounts do not match")
+		}
+		if _, ok := coinTypeIDs[*req.CoinTypeID]; !ok {
+			return wlog.Errorf("good coins and order benefit accounts do not match")
+		}
+	}
+	return nil
+}
+
+// after constructPowerRentalOrderReq
+func (h *baseCreateHandler) constructOrderBenefitReqs() {
+	h.orderBenefitReqs = []*orderbenefitmwpb.AccountReq{}
+	for _, req := range h.OrderBenefitAccounts {
+		_req := orderbenefitmwpb.AccountReq{
+			EntID:      func() *string { id := uuid.NewString(); return &id }(),
+			AppID:      h.Handler.OrderCheckHandler.AppID,
+			UserID:     h.Handler.OrderCheckHandler.UserID,
+			AccountID:  req.AccountID,
+			CoinTypeID: req.CoinTypeID,
+			Address:    req.Address,
+			OrderID:    h.OrderID,
+		}
+		h.orderBenefitReqs = append(h.orderBenefitReqs, &_req)
+	}
+}
+
+func (h *baseCreateHandler) withCreateOrderBenefits(dispose *dtmcli.SagaDispose) {
+	dispose.Add(
+		accountmwsvcname.ServiceDomain,
+		"account.middleware.orderbenefit.v1.Middleware/CreateAccounts",
+		"account.middleware.orderbenefit.v1.Middleware/DeleteAccounts",
+		&orderbenefitmwpb.CreateAccountsRequest{
+			Infos: h.orderBenefitReqs,
+		},
+	)
+}
+
 func (h *baseCreateHandler) notifyCouponUsed() {
 
 }
@@ -507,6 +642,7 @@ func (h *baseCreateHandler) createPowerRentalOrder(ctx context.Context) error {
 		h.WithLockBalances(sagaDispose)
 		h.WithLockPaymentTransferAccount(sagaDispose)
 	}
+	h.withCreateOrderBenefits(sagaDispose)
 	h.withCreatePowerRentalOrderWithFees(sagaDispose)
 	defer h.notifyCouponUsed()
 	return h.dtmDo(ctx, sagaDispose)

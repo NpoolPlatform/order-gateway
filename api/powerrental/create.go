@@ -35,6 +35,7 @@ func (s *Server) CreatePowerRentalOrder(ctx context.Context, in *npool.CreatePow
 		powerrental1.WithAppGoodStockID(in.AppGoodStockID, false),
 		powerrental1.WithInvestmentType(&in.InvestmentType, true),
 		powerrental1.WithSimulate(in.Simulate, false),
+		powerrental1.WithOrderBenefitReqs(in.OrderBenefitAccounts, false),
 	)
 	if err != nil {
 		logger.Sugar().Errorw(
