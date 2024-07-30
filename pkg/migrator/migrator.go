@@ -19,7 +19,6 @@ import (
 	entappconfig "github.com/NpoolPlatform/order-middleware/pkg/db/ent/appconfig"
 	entfeeorder "github.com/NpoolPlatform/order-middleware/pkg/db/ent/feeorder"
 	entfeeorderstate "github.com/NpoolPlatform/order-middleware/pkg/db/ent/feeorderstate"
-	entorderbase "github.com/NpoolPlatform/order-middleware/pkg/db/ent/orderbase"
 	entordercoupon "github.com/NpoolPlatform/order-middleware/pkg/db/ent/ordercoupon"
 	entorderstatebase "github.com/NpoolPlatform/order-middleware/pkg/db/ent/orderstatebase"
 	entpaymentbalance "github.com/NpoolPlatform/order-middleware/pkg/db/ent/paymentbalance"
@@ -288,22 +287,24 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 		}
 		paymentID := order.PaymentID
 		if order.PaymentID != uuid.Nil {
-			paymentBase, err := tx.
-				PaymentBase.
-				Query().
-				Where(
-					entpaymentbase.EntID(order.PaymentID),
-					entpaymentbase.DeletedAt(0),
-				).
-				Only(ctx)
-			if err != nil && !ent.IsNotFound(err) {
+			checkPaymentBaseSQL := fmt.Sprintf("select 1 from payment_bases where ent_id='%v'", order.PaymentID)
+			checkRows, err := tx.QueryContext(ctx, checkPaymentBaseSQL)
+			if err != nil {
 				return err
 			}
-			if paymentBase == nil {
+			count := 0
+			for checkRows.Next() {
+				count++
+			}
+			if count == 0 {
 				logger.Sugar().Warnw(
 					"paymentbase not exist",
 					"paymentID", order.PaymentID,
 				)
+				if order.PaymentCreatedAt == 0 {
+					order.PaymentCreatedAt = order.OrderCreatedAt
+					order.PaymentUpdatedAt = order.OrderUpdatedAt
+				}
 				// payment transter
 				if _, err := tx.
 					PaymentBase.
@@ -410,6 +411,10 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 						"new paymentID",
 						"paymentID", paymentID,
 					)
+					if order.PaymentCreatedAt == 0 {
+						order.PaymentCreatedAt = order.OrderCreatedAt
+						order.PaymentUpdatedAt = order.OrderUpdatedAt
+					}
 					if _, err := tx.
 						PaymentBase.
 						Create().
@@ -507,18 +512,16 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 			}
 		}
 
-		orderBase, err := tx.
-			OrderBase.
-			Query().
-			Where(
-				entorderbase.EntID(order.EntID),
-				entorderbase.DeletedAt(0),
-			).
-			Only(ctx)
-		if err != nil && !ent.IsNotFound(err) {
+		checkOrderBaseSQL := fmt.Sprintf("select 1 from order_bases where ent_id='%v'", order.EntID)
+		checkRows, err := tx.QueryContext(ctx, checkOrderBaseSQL)
+		if err != nil {
 			return err
 		}
-		if orderBase == nil {
+		count := 0
+		for checkRows.Next() {
+			count++
+		}
+		if count == 0 {
 			logger.Sugar().Warnw(
 				"order base not exist",
 				"orderID", order.EntID,
@@ -843,22 +846,24 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 		logger.Sugar().Warnw("exec order")
 		paymentID := order.PaymentID
 		if order.PaymentID != uuid.Nil {
-			paymentBase, err := tx.
-				PaymentBase.
-				Query().
-				Where(
-					entpaymentbase.EntID(order.PaymentID),
-					entpaymentbase.DeletedAt(0),
-				).
-				Only(ctx)
-			if err != nil && !ent.IsNotFound(err) {
+			checkPaymentBaseSQL := fmt.Sprintf("select 1 from payment_bases where ent_id='%v'", order.PaymentID)
+			checkRows, err := tx.QueryContext(ctx, checkPaymentBaseSQL)
+			if err != nil {
 				return err
 			}
-			if paymentBase == nil {
+			count := 0
+			for checkRows.Next() {
+				count++
+			}
+			if count == 0 {
 				logger.Sugar().Warnw(
 					"paymentbase not exist",
 					"paymentID", order.PaymentID,
 				)
+				if order.PaymentCreatedAt == 0 {
+					order.PaymentCreatedAt = order.OrderCreatedAt
+					order.PaymentUpdatedAt = order.OrderUpdatedAt
+				}
 				// payment transter
 				if _, err := tx.
 					PaymentBase.
@@ -965,6 +970,10 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 						"new paymentID",
 						"paymentID", paymentID,
 					)
+					if order.PaymentCreatedAt == 0 {
+						order.PaymentCreatedAt = order.OrderCreatedAt
+						order.PaymentUpdatedAt = order.OrderUpdatedAt
+					}
 					if _, err := tx.
 						PaymentBase.
 						Create().
@@ -1062,18 +1071,16 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 			}
 		}
 
-		orderBase, err := tx.
-			OrderBase.
-			Query().
-			Where(
-				entorderbase.EntID(order.EntID),
-				entorderbase.DeletedAt(0),
-			).
-			Only(ctx)
-		if err != nil && !ent.IsNotFound(err) {
+		checkOrderBaseSQL := fmt.Sprintf("select 1 from order_bases where ent_id='%v'", order.EntID)
+		checkRows, err := tx.QueryContext(ctx, checkOrderBaseSQL)
+		if err != nil {
 			return err
 		}
-		if orderBase == nil {
+		count := 0
+		for checkRows.Next() {
+			count++
+		}
+		if count == 0 {
 			logger.Sugar().Warnw(
 				"order base not exist",
 				"orderID", order.EntID,
