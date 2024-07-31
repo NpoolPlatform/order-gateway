@@ -472,7 +472,7 @@ func (h *baseCreateHandler) formalizeOrderBenefitReqs(ctx context.Context) error
 	return nil
 }
 
-//nolint:gocyclo
+
 func (h *baseCreateHandler) formalizeOrderBenefitReq(ctx context.Context, req *powerrentalpb.OrderBenefitAccountReq) (err error) {
 	usedfor := basetypes.AccountUsedFor_OrderBenefit
 	if req.AccountID != nil {
@@ -486,7 +486,7 @@ func (h *baseCreateHandler) formalizeOrderBenefitReq(ctx context.Context, req *p
 			return wlog.Errorf("invalid accountid: %v", accountID)
 		}
 
-		if baseAccount != nil && baseAccount.UsedFor != usedfor {
+		if baseAccount.UsedFor != usedfor {
 			return wlog.Errorf("invalid account usedfor, accountid: %v", accountID)
 		}
 
@@ -539,7 +539,7 @@ func (h *baseCreateHandler) formalizeOrderBenefitReq(ctx context.Context, req *p
 
 // validate after getGoodCoins and formalizeOrderBenefitReqs
 func (h *baseCreateHandler) validateOrderBenefitReqs() error {
-	if h.appPowerRental.StockMode != goodtypes.GoodStockMode_GoodStockByMiningPool {
+	if h.appPowerRental.StockMode != goodtypes.GoodStockMode_GoodStockByMiningpool {
 		return nil
 	}
 

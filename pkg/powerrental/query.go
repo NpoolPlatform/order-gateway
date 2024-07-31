@@ -5,7 +5,7 @@ import (
 
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
-	orderbenefitgwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/orderbenefit"
+	orderbenefitmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/orderbenefit"
 	paymentaccountmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/payment"
 	appmwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/app"
 	usermwpb "github.com/NpoolPlatform/message/npool/appuser/mw/v1/user"
@@ -15,6 +15,7 @@ import (
 	topmostmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/good/topmost"
 	apppowerrentalmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/powerrental"
 	allocatedcouponmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/coupon/allocated"
+	orderusermwpb "github.com/NpoolPlatform/message/npool/miningpool/mw/v1/orderuser"
 	feeordergwpb "github.com/NpoolPlatform/message/npool/order/gw/v1/fee"
 	ordercoupongwpb "github.com/NpoolPlatform/message/npool/order/gw/v1/order/coupon"
 	paymentgwpb "github.com/NpoolPlatform/message/npool/order/gw/v1/payment"
@@ -39,7 +40,8 @@ type queryHandler struct {
 	coins             map[string]*coinmwpb.Coin
 	paymentAccounts   map[string]*paymentaccountmwpb.Account
 	appPowerRentals   map[string]*apppowerrentalmwpb.PowerRental
-	orderBenefits     map[string][]*orderbenefitgwpb.Account
+	orderBenefits     map[string][]*orderbenefitmwpb.Account
+	poolOrderUsers    map[string]*orderusermwpb.OrderUser
 }
 
 func (h *queryHandler) getApps(ctx context.Context) (err error) {
@@ -146,6 +148,16 @@ func (h *queryHandler) getOrderBenefits(ctx context.Context) (err error) {
 	return err
 }
 
+func (h *queryHandler) getMiningPoolOrderUsers(ctx context.Context) (err error) {
+	h.poolOrderUsers, err = ordergwcommon.GetMiningPoolOrderUsers(ctx, func() (orderuserIDs []string) {
+		for _, powerrentalOrder := range h.powerRentalOrders {
+			orderuserIDs = append(orderuserIDs, powerrentalOrder.PoolOrderUserID)
+		}
+		return
+	}())
+	return err
+}
+
 //nolint:funlen,gocyclo
 func (h *queryHandler) formalize() {
 	for _, powerRentalOrder := range h.powerRentalOrders {
@@ -228,6 +240,15 @@ func (h *queryHandler) formalize() {
 				})
 			}
 			info.OrderBenefitAccounts = ret
+		}
+
+		poolOrderUser, ok := h.poolOrderUsers[powerRentalOrder.PoolOrderUserID]
+		if ok {
+			info.MiningpoolName = &poolOrderUser.MiningpoolName
+			info.MiningpoolLogo = &poolOrderUser.MiningpoolLogo
+			info.MiningpoolOrderUserID = &poolOrderUser.EntID
+			info.MiningpoolOrderUserName = &poolOrderUser.Name
+			info.MiningpoolReadPageLink = &poolOrderUser.ReadPageLink
 		}
 
 		for _, coupon := range powerRentalOrder.Coupons {
@@ -339,6 +360,9 @@ func (h *Handler) GetPowerRentalOrder(ctx context.Context) (*npool.PowerRentalOr
 	if err := handler.getOrderBenefits(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+	if err := handler.getMiningPoolOrderUsers(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
 
 	handler.formalize()
 	if len(handler.infos) == 0 {
@@ -403,6 +427,9 @@ func (h *Handler) GetPowerRentalOrders(ctx context.Context) ([]*npool.PowerRenta
 		return nil, 0, wlog.WrapError(err)
 	}
 	if err := handler.getOrderBenefits(ctx); err != nil {
+		return nil, 0, wlog.WrapError(err)
+	}
+	if err := handler.getMiningPoolOrderUsers(ctx); err != nil {
 		return nil, 0, wlog.WrapError(err)
 	}
 
