@@ -151,7 +151,9 @@ func (h *queryHandler) getOrderBenefits(ctx context.Context) (err error) {
 func (h *queryHandler) getMiningPoolOrderUsers(ctx context.Context) (err error) {
 	h.poolOrderUsers, err = ordergwcommon.GetMiningPoolOrderUsers(ctx, func() (orderuserIDs []string) {
 		for _, powerrentalOrder := range h.powerRentalOrders {
-			orderuserIDs = append(orderuserIDs, powerrentalOrder.PoolOrderUserID)
+			if powerrentalOrder.PoolOrderUserID != nil {
+				orderuserIDs = append(orderuserIDs, *powerrentalOrder.PoolOrderUserID)
+			}
 		}
 		return
 	}())
@@ -242,13 +244,15 @@ func (h *queryHandler) formalize() {
 			info.OrderBenefitAccounts = ret
 		}
 
-		poolOrderUser, ok := h.poolOrderUsers[powerRentalOrder.PoolOrderUserID]
-		if ok {
-			info.MiningpoolName = &poolOrderUser.MiningpoolName
-			info.MiningpoolLogo = &poolOrderUser.MiningpoolLogo
-			info.MiningpoolOrderUserID = &poolOrderUser.EntID
-			info.MiningpoolOrderUserName = &poolOrderUser.Name
-			info.MiningpoolReadPageLink = &poolOrderUser.ReadPageLink
+		if powerRentalOrder.PoolOrderUserID != nil {
+			poolOrderUser, ok := h.poolOrderUsers[*powerRentalOrder.PoolOrderUserID]
+			if ok {
+				info.MiningpoolName = &poolOrderUser.MiningpoolName
+				info.MiningpoolLogo = &poolOrderUser.MiningpoolLogo
+				info.MiningpoolOrderUserID = &poolOrderUser.EntID
+				info.MiningpoolOrderUserName = &poolOrderUser.Name
+				info.MiningpoolReadPageLink = &poolOrderUser.ReadPageLink
+			}
 		}
 
 		for _, coupon := range powerRentalOrder.Coupons {

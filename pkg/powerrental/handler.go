@@ -428,6 +428,7 @@ func WithOrderBenefitReqs(reqs []*powerrentalpb.OrderBenefitAccountReq, must boo
 				return wlog.Errorf("invalid orderbenefitaccountreqs")
 			}
 		}
+		h.OrderBenefitAccounts = reqs
 		return nil
 	}
 }
