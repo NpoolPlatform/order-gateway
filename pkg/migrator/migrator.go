@@ -40,6 +40,27 @@ func lockKey() string {
 	return fmt.Sprintf("migrator:%v", serviceID)
 }
 
+func validFieldExist(ctx context.Context, tx *ent.Tx, databaseName, tableName, fieldName string) (bool, error) {
+	checkFieldSQL := fmt.Sprintf("show columns from %v.%v like '%v'", databaseName, tableName, fieldName)
+	logger.Sugar().Warnw(
+		"validFieldExist",
+		"checkFieldSQL",
+		checkFieldSQL,
+	)
+	checkRows, err := tx.QueryContext(ctx, checkFieldSQL)
+	if err != nil {
+		return false, err
+	}
+	count := 0
+	for checkRows.Next() {
+		count++
+	}
+	if count == 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
 func migrateAppConfigs(ctx context.Context, tx *ent.Tx) error {
 	logger.Sugar().Warnw("exec migrateAppConfigs")
 	rows, err := tx.QueryContext(ctx, "select ent_id from appuser_manager.apps where deleted_at = 0") //nolint
@@ -99,6 +120,14 @@ func migrateAppConfigs(ctx context.Context, tx *ent.Tx) error {
 
 func migrateOrderLocks(ctx context.Context, tx *ent.Tx) error {
 	logger.Sugar().Warnw("exec migrateOrderLocks")
+	exist, err := validFieldExist(ctx, tx, "order_manager", "order_locks", "app_id")
+	if err != nil {
+		return err
+	}
+	if !exist {
+		logger.Sugar().Warnw("unnecessary to exec migrateOrderLocks")
+		return nil
+	}
 	orderLocksSQL := "alter table order_locks modify app_id varchar(36);"
 	logger.Sugar().Warnw(
 		"exec orderLocksSQL",
@@ -247,6 +276,11 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 		if comm == "" {
 			comm = ","
 		}
+	}
+
+	if appGoodIDs == "" {
+		logger.Sugar().Warnw("unnecessary to exec migratePowerRentals")
+		return nil
 	}
 
 	selectAppGoodStockSQL := fmt.Sprintf("select ent_id, app_good_id from good_manager.app_stocks where app_good_id in(%v) and deleted_at=0", appGoodIDs)
