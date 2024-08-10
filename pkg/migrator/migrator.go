@@ -278,6 +278,11 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 		}
 	}
 
+	if appGoodIDs == "" {
+		logger.Sugar().Warnw("unnecessary to exec migratePowerRentals")
+		return nil
+	}
+
 	selectAppGoodStockSQL := fmt.Sprintf("select ent_id, app_good_id from good_manager.app_stocks where app_good_id in(%v) and deleted_at=0", appGoodIDs)
 	logger.Sugar().Warnw(
 		"exec selectAppGoodStockSQL",
