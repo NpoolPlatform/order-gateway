@@ -560,6 +560,11 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 				"order base not exist",
 				"orderID", order.EntID,
 			)
+
+			if order.OrderType == ordertypes.OrderType_Airdrop.String() || order.OrderType == ordertypes.OrderType_Offline.String() {
+				order.CreateMethod = ordertypes.OrderCreateMethod_OrderCreatedByAdmin.String()
+			}
+
 			if _, err := tx.
 				OrderBase.
 				Create().
@@ -1119,6 +1124,11 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 				"order base not exist",
 				"orderID", order.EntID,
 			)
+
+			if order.OrderType == ordertypes.OrderType_Airdrop.String() || order.OrderType == ordertypes.OrderType_Offline.String() {
+				order.CreateMethod = ordertypes.OrderCreateMethod_OrderCreatedByAdmin.String()
+			}
+
 			if _, err := tx.
 				OrderBase.
 				Create().
