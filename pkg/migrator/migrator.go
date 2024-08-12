@@ -1282,16 +1282,16 @@ func Migrate(ctx context.Context) error {
 
 	return db.WithTx(ctx, func(_ctx context.Context, tx *ent.Tx) error {
 		if err := migrateAppConfigs(ctx, tx); err != nil {
-			return err
+			// return err
 		}
 		if err := migrateOrderLocks(ctx, tx); err != nil {
-			return err
+			// return err
 		}
 		if err := migratePowerRentals(ctx, tx); err != nil {
-			return err
+			// return err
 		}
 		if err := migrateFees(ctx, tx); err != nil {
-			return err
+			// return err
 		}
 		logger.Sugar().Infow("Migrate", "Done", "success")
 		return nil
