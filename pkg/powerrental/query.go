@@ -190,6 +190,7 @@ func (h *queryHandler) formalize() {
 			PromotionID:       powerRentalOrder.PromotionID,
 			DurationSeconds:   powerRentalOrder.DurationSeconds,
 			InvestmentType:    powerRentalOrder.InvestmentType,
+			GoodStockMode:     powerRentalOrder.GoodStockMode,
 			CancelState:       powerRentalOrder.CancelState,
 			CanceledAt:        powerRentalOrder.CanceledAt,
 			EndAt:             powerRentalOrder.EndAt,
