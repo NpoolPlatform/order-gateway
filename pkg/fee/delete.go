@@ -23,7 +23,7 @@ func (h *Handler) DeleteFeeOrder(ctx context.Context) (*npool.FeeOrder, error) {
 		return nil, wlog.Errorf("invalid feeorder")
 	}
 	if err := feeordermwcli.DeleteFeeOrder(ctx, h.ID, h.EntID, h.OrderID); err != nil {
-		return nil, err
+		return nil, wlog.WrapError(err)
 	}
 	return info, nil
 }

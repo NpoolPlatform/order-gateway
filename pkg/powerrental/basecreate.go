@@ -563,6 +563,14 @@ func (h *baseCreateHandler) validateOrderBenefitReqs() error {
 	return nil
 }
 
+// validate after getGoodCoins and formalizeOrderBenefitReqs
+func (h *baseCreateHandler) validatePowerRentalGoodState() error {
+	if h.appPowerRental.State != goodtypes.GoodState_GoodStateReady {
+		return wlog.Errorf("powerrental good state is not ready")
+	}
+	return nil
+}
+
 // after constructPowerRentalOrderReq
 func (h *baseCreateHandler) constructOrderBenefitReqs() {
 	h.orderBenefitReqs = []*orderbenefitmwpb.AccountReq{}
