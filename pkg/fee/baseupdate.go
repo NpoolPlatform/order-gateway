@@ -3,7 +3,6 @@ package fee
 import (
 	"context"
 
-	logger "github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	appfeemwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/fee"
 	appfeemwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/fee"
@@ -91,7 +90,6 @@ func (h *baseUpdateHandler) withUpdateFeeOrder(dispose *dtmcli.SagaDispose) {
 func (h *baseUpdateHandler) formalizePayment() {
 	h.feeOrderReq.PaymentType = h.PaymentType
 	h.feeOrderReq.PaymentBalances = h.PaymentBalanceReqs
-	logger.Sugar().Infow("formalizePayment", "PaymentBalances", h.PaymentBalanceReqs)
 	if h.PaymentTransferReq != nil {
 		h.feeOrderReq.PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}
 	}
