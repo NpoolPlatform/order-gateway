@@ -148,8 +148,8 @@ func (h *queryHandler) getOrderBenefits(ctx context.Context) (err error) {
 	return err
 }
 
-func (h *queryHandler) getMiningPoolOrderUsers(ctx context.Context) (err error) {
-	h.poolOrderUsers, err = ordergwcommon.GetMiningPoolOrderUsers(ctx, func() (orderuserIDs []string) {
+func (h *queryHandler) getMiningpoolOrderUsers(ctx context.Context) (err error) {
+	h.poolOrderUsers, err = ordergwcommon.GetMiningpoolOrderUsers(ctx, func() (orderuserIDs []string) {
 		for _, powerrentalOrder := range h.powerRentalOrders {
 			if powerrentalOrder.PoolOrderUserID != nil {
 				orderuserIDs = append(orderuserIDs, *powerrentalOrder.PoolOrderUserID)
@@ -365,7 +365,7 @@ func (h *Handler) GetPowerRentalOrder(ctx context.Context) (*npool.PowerRentalOr
 	if err := handler.getOrderBenefits(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if err := handler.getMiningPoolOrderUsers(ctx); err != nil {
+	if err := handler.getMiningpoolOrderUsers(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 
@@ -434,7 +434,7 @@ func (h *Handler) GetPowerRentalOrders(ctx context.Context) ([]*npool.PowerRenta
 	if err := handler.getOrderBenefits(ctx); err != nil {
 		return nil, 0, wlog.WrapError(err)
 	}
-	if err := handler.getMiningPoolOrderUsers(ctx); err != nil {
+	if err := handler.getMiningpoolOrderUsers(ctx); err != nil {
 		return nil, 0, wlog.WrapError(err)
 	}
 

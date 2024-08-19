@@ -421,7 +421,7 @@ func WithInvestmentType(_type *types.InvestmentType, must bool) func(context.Con
 	}
 }
 
-func WithOrderBenefitReqs(reqs []*powerrentalpb.OrderBenefitAccountReq, must bool) func(context.Context, *Handler) error {
+func WithOrderBenefitReqs(reqs []*powerrentalpb.OrderBenefitAccountReq) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		for _, req := range reqs {
 			if req.AccountID == nil && (req.CoinTypeID == nil || req.Address == nil) {

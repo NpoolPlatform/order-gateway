@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func GetMiningPoolOrderUsers(ctx context.Context, orderuserIDs []string) (map[string]*orderusermwpb.OrderUser, error) {
+func GetMiningpoolOrderUsers(ctx context.Context, orderuserIDs []string) (map[string]*orderusermwpb.OrderUser, error) {
 	for _, orderuserID := range orderuserIDs {
 		if _, err := uuid.Parse(orderuserID); err != nil {
 			return nil, wlog.WrapError(err)
@@ -25,9 +25,11 @@ func GetMiningPoolOrderUsers(ctx context.Context, orderuserIDs []string) (map[st
 	if err != nil {
 		return nil, wlog.WrapError(err)
 	}
+
 	orderuserMap := map[string]*orderusermwpb.OrderUser{}
 	for _, coin := range coins {
 		orderuserMap[coin.EntID] = coin
 	}
+
 	return orderuserMap, nil
 }
