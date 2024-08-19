@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	apppowerrentalmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/powerrental"
 	goodledgerstatementcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/good/ledger/statement"
@@ -68,13 +69,20 @@ func (h *baseUpdateHandler) goodCancelable() error {
 	if err := h.GoodCancelable(); err != nil {
 		return wlog.WrapError(err)
 	}
-	if h.goodBenefitedAt == 0 {
-		return nil
-	}
-	if h.appPowerRental.CancelMode == goodtypes.CancelMode_CancellableBeforeBenefit {
-		checkBenefitStartAt := h.powerRentalOrder.StartAt - h.appPowerRental.CancelableBeforeStartSeconds
-		now := uint32(time.Now().Unix())
-		if checkBenefitStartAt <= now {
+	now := uint32(time.Now().Unix())
+	switch h.appPowerRental.CancelMode {
+	case goodtypes.CancelMode_CancellableBeforeStart:
+		checkOrderStartAt := h.powerRentalOrder.StartAt - h.appPowerRental.CancelableBeforeStartSeconds
+		if checkOrderStartAt <= now {
+			return wlog.Errorf("permission denied")
+		}
+	case goodtypes.CancelMode_CancellableBeforeBenefit:
+		if h.goodBenefitedAt == 0 {
+			return nil
+		}
+		checkBenefitStartAt := h.goodBenefitedAt + timedef.SecondsPerDay - h.appPowerRental.CancelableBeforeStartSeconds
+		checkBenefitEndAt := h.goodBenefitedAt + timedef.SecondsPerDay + h.appPowerRental.CancelableBeforeStartSeconds
+		if checkBenefitStartAt <= now && now <= checkBenefitEndAt {
 			return wlog.Errorf("permission denied")
 		}
 	}
