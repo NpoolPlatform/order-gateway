@@ -387,9 +387,9 @@ func (h *baseCreateHandler) resolveStartAt() error {
 	if h.appPowerRental.AppGoodServiceStartAt > h.orderStartAt {
 		h.orderStartAt = h.appPowerRental.AppGoodServiceStartAt
 	}
-	// if h.orderStartAt < now {
-	// 	return wlog.Errorf("invalid orderstartat")
-	// }
+	if h.orderStartAt < now {
+		return wlog.Errorf("invalid orderstartat")
+	}
 	return nil
 }
 
