@@ -451,11 +451,12 @@ func (h *OrderOpHandler) ConstructOrderPayment() error {
 	balanceReqs := []*paymentmwpb.PaymentBalanceReq{}
 
 	for _, balance := range h.PaymentBalanceReqs {
-		cur, live, local, err := h.getCoinUSDCurrency(*balance.CoinTypeID)
+		_balance := balance
+		cur, live, local, err := h.getCoinUSDCurrency(*_balance.CoinTypeID)
 		if err != nil {
 			return wlog.WrapError(err)
 		}
-		amount, err := decimal.NewFromString(*balance.Amount)
+		amount, err := decimal.NewFromString(*_balance.Amount)
 		if err != nil {
 			return wlog.WrapError(err)
 		}
@@ -466,16 +467,16 @@ func (h *OrderOpHandler) ConstructOrderPayment() error {
 		if remainAmountUSD.Cmp(amountUSD) < 0 {
 			amountUSD = remainAmountUSD
 		}
-		balance.CoinUSDCurrency = func() *string { s := cur.String(); return &s }()
-		balance.LiveCoinUSDCurrency = live
-		balance.LocalCoinUSDCurrency = local
+		_balance.CoinUSDCurrency = func() *string { s := cur.String(); return &s }()
+		_balance.LiveCoinUSDCurrency = live
+		_balance.LocalCoinUSDCurrency = local
 		if remainAmountUSD.GreaterThan(amountUSD) {
-			balanceReqs = append(balanceReqs, balance)
+			balanceReqs = append(balanceReqs, _balance)
 			remainAmountUSD = remainAmountUSD.Sub(amountUSD)
 		} else {
 			amountStr := remainAmountUSD.Div(cur).String()
-			balance.Amount = &amountStr
-			balanceReqs = append(balanceReqs, balance)
+			_balance.Amount = &amountStr
+			balanceReqs = append(balanceReqs, _balance)
 			h.PaymentBalanceReqs = balanceReqs
 			return nil
 		}
