@@ -82,6 +82,15 @@ func (h *baseUpdateHandler) goodCancelable() error {
 		if h.powerRentalOrder.LastBenefitAt != 0 {
 			return wlog.Errorf("permission denied")
 		}
+		benefitIntervalSeconds := uint32((time.Duration(h.appPowerRental.BenefitIntervalHours) * time.Hour).Seconds())
+		thisBenefitAt := uint32(time.Now().Unix()) / benefitIntervalSeconds * benefitIntervalSeconds
+		nextBenefitAt := (uint32(time.Now().Unix())/benefitIntervalSeconds + 1) * benefitIntervalSeconds
+		if (thisBenefitAt-h.appPowerRental.CancelableBeforeStartSeconds <= now &&
+			now <= thisBenefitAt+h.appPowerRental.CancelableBeforeStartSeconds) ||
+			(nextBenefitAt-h.appPowerRental.CancelableBeforeStartSeconds <= now &&
+				now <= nextBenefitAt+h.appPowerRental.CancelableBeforeStartSeconds) {
+			return wlog.Errorf("permission denied")
+		}
 	}
 	return nil
 }
