@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	apppowerrentalmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/powerrental"
 	goodledgerstatementcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/good/ledger/statement"
@@ -80,9 +79,7 @@ func (h *baseUpdateHandler) goodCancelable() error {
 		if h.goodBenefitedAt == 0 {
 			return nil
 		}
-		checkBenefitStartAt := h.goodBenefitedAt + timedef.SecondsPerDay - h.appPowerRental.CancelableBeforeStartSeconds
-		checkBenefitEndAt := h.goodBenefitedAt + timedef.SecondsPerDay + h.appPowerRental.CancelableBeforeStartSeconds
-		if checkBenefitStartAt <= now && now <= checkBenefitEndAt {
+		if h.powerRentalOrder.LastBenefitAt != 0 {
 			return wlog.Errorf("permission denied")
 		}
 	}
