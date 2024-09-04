@@ -40,8 +40,8 @@ type queryHandler struct {
 	coins             map[string]*coinmwpb.Coin
 	paymentAccounts   map[string]*paymentaccountmwpb.Account
 	appPowerRentals   map[string]*apppowerrentalmwpb.PowerRental
-	orderBenefits     map[string][]*orderbenefitmwpb.Account
 	poolOrderUsers    map[string]*orderusermwpb.OrderUser
+	orderBenefits     map[string][]*orderbenefitmwpb.Account
 }
 
 func (h *queryHandler) getApps(ctx context.Context) (err error) {
