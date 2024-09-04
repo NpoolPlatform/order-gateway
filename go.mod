@@ -3,18 +3,18 @@ module github.com/NpoolPlatform/order-gateway
 go 1.17
 
 require (
-	github.com/NpoolPlatform/account-middleware v0.0.0-20240729111609-437e1e0fe844
+	github.com/NpoolPlatform/account-middleware v0.0.0-20240904032207-6f47021170c1
 	github.com/NpoolPlatform/appuser-middleware v0.0.0-20240119021359-948c8504d662
 	github.com/NpoolPlatform/basal-middleware v0.0.0-20240228105108-f00107969a4f
 	github.com/NpoolPlatform/chain-middleware v0.0.0-20240711085642-93249f191575
 	github.com/NpoolPlatform/dtm-cluster v0.0.0-20240508013939-4ccc5836ba1f
 	github.com/NpoolPlatform/go-service-framework v0.0.0-20240510075442-89278cb5cf47
-	github.com/NpoolPlatform/good-middleware v0.0.0-20240725012824-d2f509d8c77d
+	github.com/NpoolPlatform/good-middleware v0.0.0-20240904034522-6e5572699f92
 	github.com/NpoolPlatform/inspire-middleware v0.0.0-20240711084912-bda64205c476
 	github.com/NpoolPlatform/ledger-middleware v0.0.0-20240711091502-eaf1d4c83d6d
 	github.com/NpoolPlatform/libent-cruder v0.0.0-20240514082633-598d5fc7b1e3
 	github.com/NpoolPlatform/message v0.0.0-20240904024644-493ba54cfbb9
-	github.com/NpoolPlatform/miningpool-middleware v0.0.0-20240731070450-ac1e4ef6ce00
+	github.com/NpoolPlatform/miningpool-middleware v0.0.0-20240904034146-29b81226c207
 	github.com/NpoolPlatform/order-middleware v0.0.0-20240904031225-e66132d9176c
 	github.com/NpoolPlatform/sphinx-proxy v0.0.0-20231201062049-852b1487d4a9
 	github.com/dtm-labs/dtm v1.17.1
@@ -102,7 +102,6 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.12.0 // indirect
 	github.com/subosito/gotenv v1.3.0 // indirect
-	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.0.2 // indirect
 	github.com/xdg-go/stringprep v1.0.2 // indirect
