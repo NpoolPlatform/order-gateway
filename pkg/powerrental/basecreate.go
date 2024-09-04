@@ -539,7 +539,7 @@ func (h *baseCreateHandler) formalizeOrderBenefitReq(ctx context.Context, req *p
 
 // validate after getGoodCoins and formalizeOrderBenefitReqs
 func (h *baseCreateHandler) validateOrderBenefitReqs() error {
-	if h.appPowerRental.StockMode != goodtypes.GoodStockMode_GoodStockByMiningpool {
+	if h.appPowerRental.StockMode != goodtypes.GoodStockMode_GoodStockByMiningPool {
 		return nil
 	}
 

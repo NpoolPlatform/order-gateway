@@ -148,8 +148,8 @@ func (h *queryHandler) getOrderBenefits(ctx context.Context) (err error) {
 	return err
 }
 
-func (h *queryHandler) getMiningpoolOrderUsers(ctx context.Context) (err error) {
-	h.poolOrderUsers, err = ordergwcommon.GetMiningpoolOrderUsers(ctx, func() (orderuserIDs []string) {
+func (h *queryHandler) getMiningPoolOrderUsers(ctx context.Context) (err error) {
+	h.poolOrderUsers, err = ordergwcommon.GetMiningPoolOrderUsers(ctx, func() (orderuserIDs []string) {
 		for _, powerrentalOrder := range h.powerRentalOrders {
 			if powerrentalOrder.PoolOrderUserID != nil {
 				orderuserIDs = append(orderuserIDs, *powerrentalOrder.PoolOrderUserID)
@@ -248,11 +248,11 @@ func (h *queryHandler) formalize() {
 		if powerRentalOrder.PoolOrderUserID != nil {
 			poolOrderUser, ok := h.poolOrderUsers[*powerRentalOrder.PoolOrderUserID]
 			if ok {
-				info.MiningpoolName = &poolOrderUser.MiningpoolName
-				info.MiningpoolLogo = &poolOrderUser.MiningpoolLogo
-				info.MiningpoolOrderUserID = &poolOrderUser.EntID
-				info.MiningpoolOrderUserName = &poolOrderUser.Name
-				info.MiningpoolReadPageLink = &poolOrderUser.ReadPageLink
+				info.MiningPoolName = &poolOrderUser.MiningPoolName
+				info.MiningPoolLogo = &poolOrderUser.MiningPoolLogo
+				info.MiningPoolOrderUserID = &poolOrderUser.EntID
+				info.MiningPoolOrderUserName = &poolOrderUser.Name
+				info.MiningPoolReadPageLink = &poolOrderUser.ReadPageLink
 			}
 		}
 
@@ -365,7 +365,7 @@ func (h *Handler) GetPowerRentalOrder(ctx context.Context) (*npool.PowerRentalOr
 	if err := handler.getOrderBenefits(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if err := handler.getMiningpoolOrderUsers(ctx); err != nil {
+	if err := handler.getMiningPoolOrderUsers(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 
@@ -434,7 +434,7 @@ func (h *Handler) GetPowerRentalOrders(ctx context.Context) ([]*npool.PowerRenta
 	if err := handler.getOrderBenefits(ctx); err != nil {
 		return nil, 0, wlog.WrapError(err)
 	}
-	if err := handler.getMiningpoolOrderUsers(ctx); err != nil {
+	if err := handler.getMiningPoolOrderUsers(ctx); err != nil {
 		return nil, 0, wlog.WrapError(err)
 	}
 
