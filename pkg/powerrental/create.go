@@ -156,8 +156,12 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	}
 
 	if !handler.OrderOpHandler.Simulate {
-		handler.rewardPurchase()
-		handler.rewardAffiliatePurchase()
+		existGoodID, err := handler.checkExistEventGood(ctx)
+		if err != nil {
+			return nil, wlog.WrapError(err)
+		}
+		handler.rewardPurchase(existGoodID)
+		handler.rewardAffiliatePurchase(existGoodID)
 	}
 
 	return h.GetPowerRentalOrder(ctx)

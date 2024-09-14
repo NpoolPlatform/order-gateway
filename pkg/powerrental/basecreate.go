@@ -13,6 +13,7 @@ import (
 	apppowerrentalsimulatemwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/powerrental/simulate"
 	goodcoinmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/coin"
 	goodmwsvcname "github.com/NpoolPlatform/good-middleware/pkg/servicename"
+	eventmwli "github.com/NpoolPlatform/inspire-middleware/pkg/client/event"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
@@ -50,15 +51,39 @@ type baseCreateHandler struct {
 	orderStartAt           uint32
 }
 
+func (h *baseCreateHandler) checkExistEventGood(ctx context.Context) (bool, error) {
+	ev, err := eventmwli.GetEventOnly(ctx, &eventmwpb.Conds{
+		AppID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.OrderCheckHandler.AppCheckHandler.AppID},
+		EventType: &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(basetypes.UsedFor_Purchase)},
+	})
+	if err != nil {
+		return false, wlog.Errorf("invalid event")
+	}
+	if ev == nil {
+		return false, wlog.Errorf("invalid event")
+	}
+	if *ev.GoodID == uuid.Nil.String() && *ev.AppGoodID == uuid.Nil.String() {
+		return false, nil
+	}
+	return true, nil
+}
+
 //nolint:dupl
-func (h *baseCreateHandler) rewardPurchase() {
+func (h *baseCreateHandler) rewardPurchase(existGoodID bool) {
 	if err := pubsub.WithPublisher(func(publisher *pubsub.Publisher) error {
+		goodID := uuid.Nil.String()
 		req := &eventmwpb.CalcluateEventRewardsRequest{
 			AppID:       *h.OrderCheckHandler.AppCheckHandler.AppID,
 			UserID:      *h.OrderCheckHandler.UserID,
 			EventType:   basetypes.UsedFor_Purchase,
 			Consecutive: 1,
 			Amount:      h.powerRentalOrderReq.PaymentAmountUSD,
+			AppGoodID:   &goodID,
+			GoodID:      &goodID,
+		}
+		if existGoodID {
+			req.GoodID = &h.appPowerRental.GoodID
+			req.AppGoodID = &h.appPowerRental.AppGoodID
 		}
 		return publisher.Update(
 			basetypes.MsgID_CalculateEventRewardReq.String(),
@@ -79,14 +104,21 @@ func (h *baseCreateHandler) rewardPurchase() {
 }
 
 //nolint:dupl
-func (h *baseCreateHandler) rewardAffiliatePurchase() {
+func (h *baseCreateHandler) rewardAffiliatePurchase(existGoodID bool) {
 	if err := pubsub.WithPublisher(func(publisher *pubsub.Publisher) error {
+		goodID := uuid.Nil.String()
 		req := &eventmwpb.CalcluateEventRewardsRequest{
 			AppID:       *h.OrderCheckHandler.AppCheckHandler.AppID,
 			UserID:      *h.OrderCheckHandler.UserID,
 			EventType:   basetypes.UsedFor_AffiliatePurchase,
 			Consecutive: 1,
 			Amount:      h.powerRentalOrderReq.PaymentAmountUSD,
+			AppGoodID:   &goodID,
+			GoodID:      &goodID,
+		}
+		if existGoodID {
+			req.GoodID = &h.appPowerRental.GoodID
+			req.AppGoodID = &h.appPowerRental.AppGoodID
 		}
 		return publisher.Update(
 			basetypes.MsgID_CalculateEventRewardReq.String(),
