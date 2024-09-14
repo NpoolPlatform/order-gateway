@@ -155,7 +155,7 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 		return nil, wlog.WrapError(err)
 	}
 
-	if !handler.OrderOpHandler.Simulate {
+	if !handler.OrderOpHandler.Simulate && *h.OrderType == types.OrderType_Normal {
 		existGoodID, err := handler.checkExistEventGood(ctx)
 		if err != nil {
 			return nil, wlog.WrapError(err)
