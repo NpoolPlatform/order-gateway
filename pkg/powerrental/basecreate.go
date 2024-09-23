@@ -63,7 +63,7 @@ func (h *baseCreateHandler) checkExistEventGood(ctx context.Context) (bool, erro
 	if ev == nil {
 		return false, wlog.Errorf("invalid event")
 	}
-	fmt.Println("event: ", *ev)
+	fmt.Println("event: ", ev)
 	if ev.GoodID == nil || ev.AppGoodID == nil {
 		return false, nil
 	}
