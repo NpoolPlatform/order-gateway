@@ -175,8 +175,8 @@ func (h *queryHandler) formalize() {
 		}
 		appFee, ok := h.appFees[fee.AppGoodID]
 		if ok {
-			info.GoodName = appFee.Name
-			info.AppGoodName = appFee.Name
+			info.GoodName = appFee.GoodName
+			info.AppGoodName = appFee.AppGoodName
 			info.DurationDisplayType = appFee.DurationDisplayType
 			info.Durations, info.DurationUnit = ordergwcommon.GoodDurationDisplayType2Unit(
 				appFee.DurationDisplayType, info.DurationSeconds,
