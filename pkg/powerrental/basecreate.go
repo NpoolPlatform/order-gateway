@@ -31,6 +31,7 @@ import (
 	ordergwcommon "github.com/NpoolPlatform/order-gateway/pkg/common"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
+	powerrentalmwcli "github.com/NpoolPlatform/order-middleware/pkg/client/powerrental"
 	ordermwsvcname "github.com/NpoolPlatform/order-middleware/pkg/servicename"
 	"github.com/dtm-labs/dtm/client/dtmcli/dtmimp"
 
@@ -273,7 +274,10 @@ func (h *baseCreateHandler) validateOrderDuration() error {
 	return nil
 }
 
-func (h *baseCreateHandler) validateOrderUnits() error {
+func (h *baseCreateHandler) validateOrderUnits(ctx context.Context) error {
+	if h.Units == nil {
+		return wlog.Errorf("invalid orderunits")
+	}
 	minOrderAmount, err := decimal.NewFromString(h.appPowerRental.MinOrderAmount)
 	if err != nil {
 		return wlog.WrapError(err)
@@ -292,7 +296,22 @@ func (h *baseCreateHandler) validateOrderUnits() error {
 	if err != nil {
 		return wlog.WrapError(err)
 	}
-	if h.Units.GreaterThan(maxUserAmount) {
+	purchasedUnits, err := powerrentalmwcli.SumPowerRentalOrderUnits(ctx, &powerrentalordermwpb.Conds{
+		AppID:      &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodCheckHandler.AppID},
+		UserID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodCheckHandler.UserID},
+		AppGoodID:  &basetypes.StringVal{Op: cruder.EQ, Value: *h.AppGoodCheckHandler.AppGoodID},
+		OrderType:  &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(types.OrderType_Normal)},
+		OrderState: &basetypes.Uint32Val{Op: cruder.NEQ, Value: uint32(types.OrderState_OrderStateCanceled)},
+		Simulate:   &basetypes.BoolVal{Op: cruder.EQ, Value: false},
+	})
+	if err != nil {
+		return wlog.WrapError(err)
+	}
+	_purchasedUnits, err := decimal.NewFromString(purchasedUnits)
+	if err != nil {
+		return wlog.WrapError(err)
+	}
+	if h.Units.Add(_purchasedUnits).GreaterThan(maxUserAmount) {
 		return wlog.Errorf("invalid orderunits")
 	}
 	return nil

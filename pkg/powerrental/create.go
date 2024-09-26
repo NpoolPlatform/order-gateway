@@ -66,15 +66,18 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	if err := handler.ValidateCouponCount(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+	if err := handler.getAppPowerRental(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
 	if !handler.OrderOpHandler.Simulate &&
 		*h.OrderType != types.OrderType_Offline &&
 		*h.OrderType != types.OrderType_Airdrop {
 		if err := handler.ValidateMaxUnpaidOrders(ctx); err != nil {
 			return nil, wlog.WrapError(err)
 		}
-	}
-	if err := handler.getAppPowerRental(ctx); err != nil {
-		return nil, wlog.WrapError(err)
+		if err := handler.validateOrderUnits(ctx); err != nil {
+			return nil, wlog.WrapError(err)
+		}
 	}
 	if handler.OrderOpHandler.Simulate {
 		if err := handler.getAppPowerRentalSimulate(ctx); err != nil {
@@ -85,9 +88,6 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 		}
 	}
 	if err := handler.validateOrderDuration(); err != nil {
-		return nil, wlog.WrapError(err)
-	}
-	if err := handler.validateOrderUnits(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.getGoodCoins(ctx); err != nil {

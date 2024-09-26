@@ -26,12 +26,24 @@ type baseUpdateHandler struct {
 
 func (h *baseUpdateHandler) getFeeOrder(ctx context.Context) (err error) {
 	h.feeOrder, err = h.GetFeeOrder(ctx)
-	return wlog.WrapError(err)
+	if err != nil {
+		return wlog.WrapError(err)
+	}
+	if h.feeOrder == nil {
+		return wlog.Errorf("invalid feeorder")
+	}
+	return nil
 }
 
 func (h *baseUpdateHandler) getAppFee(ctx context.Context) (err error) {
 	h.appFee, err = appfeemwcli.GetFee(ctx, h.feeOrder.AppGoodID)
-	return wlog.WrapError(err)
+	if err != nil {
+		return wlog.WrapError(err)
+	}
+	if h.appFee == nil {
+		return wlog.Errorf("invalid appfee")
+	}
+	return nil
 }
 
 func (h *baseUpdateHandler) validateCancelParam() error {
@@ -82,6 +94,7 @@ func (h *baseUpdateHandler) formalizePayment() {
 		h.feeOrderReq.PaymentTransfers = []*paymentmwpb.PaymentTransferReq{h.PaymentTransferReq}
 	}
 	h.feeOrderReq.LedgerLockID = h.BalanceLockID
+	h.feeOrderReq.PaymentID = h.PaymentID
 }
 
 func (h *baseUpdateHandler) updateFeeOrder(ctx context.Context) error {
@@ -95,6 +108,8 @@ func (h *baseUpdateHandler) updateFeeOrder(ctx context.Context) error {
 		h.WithCreateOrderCommissionLocks(sagaDispose)
 		h.WithLockCommissions(sagaDispose)
 	}
+	h.WithLockBalances(sagaDispose)
+	h.WithLockPaymentTransferAccount(sagaDispose)
 	h.withUpdateFeeOrder(sagaDispose)
 	return h.DtmDo(ctx, sagaDispose)
 }

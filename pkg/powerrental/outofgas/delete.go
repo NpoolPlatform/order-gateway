@@ -13,6 +13,7 @@ func (h *Handler) DeleteOutOfGas(ctx context.Context) (*outofgasgwpb.OutOfGas, e
 	h1, err := outofgas1.NewHandler(
 		ctx,
 		outofgas1.WithEntID(h.EntID, true),
+		outofgas1.WithOrderID(h.OrderID, true),
 	)
 	if err != nil {
 		return nil, wlog.WrapError(err)

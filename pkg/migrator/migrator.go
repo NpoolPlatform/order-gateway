@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/NpoolPlatform/go-service-framework/pkg/config"
 	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
@@ -18,7 +19,6 @@ import (
 	entappconfig "github.com/NpoolPlatform/order-middleware/pkg/db/ent/appconfig"
 	entfeeorder "github.com/NpoolPlatform/order-middleware/pkg/db/ent/feeorder"
 	entfeeorderstate "github.com/NpoolPlatform/order-middleware/pkg/db/ent/feeorderstate"
-	entorderbase "github.com/NpoolPlatform/order-middleware/pkg/db/ent/orderbase"
 	entordercoupon "github.com/NpoolPlatform/order-middleware/pkg/db/ent/ordercoupon"
 	entorderstatebase "github.com/NpoolPlatform/order-middleware/pkg/db/ent/orderstatebase"
 	entpaymentbalance "github.com/NpoolPlatform/order-middleware/pkg/db/ent/paymentbalance"
@@ -40,45 +40,51 @@ func lockKey() string {
 	return fmt.Sprintf("migrator:%v", serviceID)
 }
 
+func validFieldExist(ctx context.Context, tx *ent.Tx, databaseName, tableName, fieldName string) (bool, error) {
+	checkFieldSQL := fmt.Sprintf("show columns from %v.%v like '%v'", databaseName, tableName, fieldName)
+	logger.Sugar().Warnw(
+		"validFieldExist",
+		"checkFieldSQL",
+		checkFieldSQL,
+	)
+	checkRows, err := tx.QueryContext(ctx, checkFieldSQL)
+	if err != nil {
+		return false, err
+	}
+	count := 0
+	for checkRows.Next() {
+		count++
+	}
+	if count == 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
 func migrateAppConfigs(ctx context.Context, tx *ent.Tx) error {
 	logger.Sugar().Warnw("exec migrateAppConfigs")
-	rows, err := tx.QueryContext(ctx, "select ent_id,app_id,enabled,send_coupon_mode,send_coupon_probability,cashable_profit_probability,created_at,updated_at from simulate_configs where deleted_at = 0") //nolint
+	rows, err := tx.QueryContext(ctx, "select ent_id from appuser_manager.apps where deleted_at = 0") //nolint
 	if err != nil {
 		return err
 	}
 
-	type SimulateConfig struct {
-		EntID                     uuid.UUID `json:"ent_id"`
-		AppID                     uuid.UUID `json:"app_id"`
-		Enabled                   bool
-		SendCouponMode            string
-		SendCouponProbability     string
-		CashableProfitProbability string
-		CreatedAt                 uint32
-		UpdatedAt                 uint32
+	type App struct {
+		EntID uuid.UUID `json:"ent_id"`
 	}
-	simulateConfigs := []*SimulateConfig{}
+	apps := []*App{}
 	for rows.Next() {
-		sc := &SimulateConfig{}
-		if err := rows.Scan(&sc.EntID, &sc.AppID, &sc.Enabled, &sc.SendCouponMode, &sc.SendCouponProbability, &sc.CashableProfitProbability, &sc.CreatedAt, &sc.UpdatedAt); err != nil {
+		app := &App{}
+		if err := rows.Scan(&app.EntID); err != nil {
 			return err
 		}
-		simulateConfigs = append(simulateConfigs, sc)
+		apps = append(apps, app)
 	}
-	for _, sc := range simulateConfigs {
-		sendCouponProbability, err := decimal.NewFromString(sc.SendCouponProbability)
-		if err != nil {
-			return err
-		}
-		cashableProfitProbability, err := decimal.NewFromString(sc.CashableProfitProbability)
-		if err != nil {
-			return err
-		}
+	for _, app := range apps {
 		appConfig, err := tx.
 			AppConfig.
 			Query().
 			Where(
-				entappconfig.AppID(sc.AppID),
+				entappconfig.AppID(app.EntID),
 				entappconfig.DeletedAt(0),
 			).
 			Only(ctx)
@@ -88,21 +94,23 @@ func migrateAppConfigs(ctx context.Context, tx *ent.Tx) error {
 		if appConfig != nil {
 			logger.Sugar().Warnw(
 				"appid exist",
-				"appID", sc.AppID,
+				"appID", app.EntID,
 			)
 			continue
 		}
 
+		sendCouponProbability := decimal.NewFromInt32(0)
+		cashableProfitProbability := decimal.NewFromInt32(0)
+		now := uint32(time.Now().Unix())
+
 		if _, err := tx.
 			AppConfig.
 			Create().
-			SetAppID(sc.AppID).
-			SetEnableSimulateOrder(sc.Enabled).
-			SetSimulateOrderCouponMode(sc.SendCouponMode).
+			SetAppID(app.EntID).
 			SetSimulateOrderCouponProbability(sendCouponProbability).
 			SetSimulateOrderCashableProfitProbability(cashableProfitProbability).
-			SetCreatedAt(sc.CreatedAt).
-			SetUpdatedAt(sc.UpdatedAt).
+			SetCreatedAt(now).
+			SetUpdatedAt(now).
 			Save(ctx); err != nil {
 			return err
 		}
@@ -112,6 +120,14 @@ func migrateAppConfigs(ctx context.Context, tx *ent.Tx) error {
 
 func migrateOrderLocks(ctx context.Context, tx *ent.Tx) error {
 	logger.Sugar().Warnw("exec migrateOrderLocks")
+	exist, err := validFieldExist(ctx, tx, "order_manager", "order_locks", "app_id")
+	if err != nil {
+		return err
+	}
+	if !exist {
+		logger.Sugar().Warnw("unnecessary to exec migrateOrderLocks")
+		return nil
+	}
 	orderLocksSQL := "alter table order_locks modify app_id varchar(36);"
 	logger.Sugar().Warnw(
 		"exec orderLocksSQL",
@@ -262,6 +278,11 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 		}
 	}
 
+	if appGoodIDs == "" {
+		logger.Sugar().Warnw("unnecessary to exec migratePowerRentals")
+		return nil
+	}
+
 	selectAppGoodStockSQL := fmt.Sprintf("select ent_id, app_good_id from good_manager.app_stocks where app_good_id in(%v) and deleted_at=0", appGoodIDs)
 	logger.Sugar().Warnw(
 		"exec selectAppGoodStockSQL",
@@ -300,22 +321,24 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 		}
 		paymentID := order.PaymentID
 		if order.PaymentID != uuid.Nil {
-			paymentBase, err := tx.
-				PaymentBase.
-				Query().
-				Where(
-					entpaymentbase.EntID(order.PaymentID),
-					entpaymentbase.DeletedAt(0),
-				).
-				Only(ctx)
-			if err != nil && !ent.IsNotFound(err) {
+			checkPaymentBaseSQL := fmt.Sprintf("select 1 from payment_bases where ent_id='%v'", order.PaymentID)
+			checkRows, err := tx.QueryContext(ctx, checkPaymentBaseSQL)
+			if err != nil {
 				return err
 			}
-			if paymentBase == nil {
+			count := 0
+			for checkRows.Next() {
+				count++
+			}
+			if count == 0 {
 				logger.Sugar().Warnw(
 					"paymentbase not exist",
 					"paymentID", order.PaymentID,
 				)
+				if order.PaymentCreatedAt == 0 {
+					order.PaymentCreatedAt = order.OrderCreatedAt
+					order.PaymentUpdatedAt = order.OrderUpdatedAt
+				}
 				// payment transter
 				if _, err := tx.
 					PaymentBase.
@@ -422,6 +445,10 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 						"new paymentID",
 						"paymentID", paymentID,
 					)
+					if order.PaymentCreatedAt == 0 {
+						order.PaymentCreatedAt = order.OrderCreatedAt
+						order.PaymentUpdatedAt = order.OrderUpdatedAt
+					}
 					if _, err := tx.
 						PaymentBase.
 						Create().
@@ -484,11 +511,6 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 				}
 			}
 
-			if order.EntID == uuid.MustParse("6cbc948d-9d98-416b-9191-5268f41e98c0") {
-				fmt.Println("----------------->>>>>>>>>>>>>> order: ", order)
-				fmt.Println("----------------->>>>>>>>>>>>>> order.LedgerLockID: ", order.LedgerLockID)
-			}
-
 			if order.LedgerLockID != uuid.Nil {
 				paymentBalanceLock, err := tx.
 					PaymentBalanceLock.
@@ -524,22 +546,25 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 			}
 		}
 
-		orderBase, err := tx.
-			OrderBase.
-			Query().
-			Where(
-				entorderbase.EntID(order.EntID),
-				entorderbase.DeletedAt(0),
-			).
-			Only(ctx)
-		if err != nil && !ent.IsNotFound(err) {
+		checkOrderBaseSQL := fmt.Sprintf("select 1 from order_bases where ent_id='%v'", order.EntID)
+		checkRows, err := tx.QueryContext(ctx, checkOrderBaseSQL)
+		if err != nil {
 			return err
 		}
-		if orderBase == nil {
+		count := 0
+		for checkRows.Next() {
+			count++
+		}
+		if count == 0 {
 			logger.Sugar().Warnw(
 				"order base not exist",
 				"orderID", order.EntID,
 			)
+
+			if order.OrderType == ordertypes.OrderType_Airdrop.String() || order.OrderType == ordertypes.OrderType_Offline.String() {
+				order.CreateMethod = ordertypes.OrderCreateMethod_OrderCreatedByAdmin.String()
+			}
+
 			if _, err := tx.
 				OrderBase.
 				Create().
@@ -625,10 +650,7 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 		if err != nil && !ent.IsNotFound(err) {
 			return err
 		}
-		if order.EntID == uuid.MustParse("43ecff4c-2572-4ccf-9730-4d79ea6842b0") {
-			fmt.Println("=========>>>>>>>>>>>>>>>>>>>>>>>>>>===----------------------===============-------order.PaymentType: ", order.PaymentType)
-			fmt.Println("=========>>>>>>>>>>>>>>>>>>>>>>>>>>===----------------------===============-------order.OrderState: ", order.OrderState)
-		}
+
 		if orderStateBase == nil {
 			logger.Sugar().Warnw(
 				"order state base not exist",
@@ -863,22 +885,24 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 		logger.Sugar().Warnw("exec order")
 		paymentID := order.PaymentID
 		if order.PaymentID != uuid.Nil {
-			paymentBase, err := tx.
-				PaymentBase.
-				Query().
-				Where(
-					entpaymentbase.EntID(order.PaymentID),
-					entpaymentbase.DeletedAt(0),
-				).
-				Only(ctx)
-			if err != nil && !ent.IsNotFound(err) {
+			checkPaymentBaseSQL := fmt.Sprintf("select 1 from payment_bases where ent_id='%v'", order.PaymentID)
+			checkRows, err := tx.QueryContext(ctx, checkPaymentBaseSQL)
+			if err != nil {
 				return err
 			}
-			if paymentBase == nil {
+			count := 0
+			for checkRows.Next() {
+				count++
+			}
+			if count == 0 {
 				logger.Sugar().Warnw(
 					"paymentbase not exist",
 					"paymentID", order.PaymentID,
 				)
+				if order.PaymentCreatedAt == 0 {
+					order.PaymentCreatedAt = order.OrderCreatedAt
+					order.PaymentUpdatedAt = order.OrderUpdatedAt
+				}
 				// payment transter
 				if _, err := tx.
 					PaymentBase.
@@ -985,6 +1009,10 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 						"new paymentID",
 						"paymentID", paymentID,
 					)
+					if order.PaymentCreatedAt == 0 {
+						order.PaymentCreatedAt = order.OrderCreatedAt
+						order.PaymentUpdatedAt = order.OrderUpdatedAt
+					}
 					if _, err := tx.
 						PaymentBase.
 						Create().
@@ -1082,22 +1110,25 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 			}
 		}
 
-		orderBase, err := tx.
-			OrderBase.
-			Query().
-			Where(
-				entorderbase.EntID(order.EntID),
-				entorderbase.DeletedAt(0),
-			).
-			Only(ctx)
-		if err != nil && !ent.IsNotFound(err) {
+		checkOrderBaseSQL := fmt.Sprintf("select 1 from order_bases where ent_id='%v'", order.EntID)
+		checkRows, err := tx.QueryContext(ctx, checkOrderBaseSQL)
+		if err != nil {
 			return err
 		}
-		if orderBase == nil {
+		count := 0
+		for checkRows.Next() {
+			count++
+		}
+		if count == 0 {
 			logger.Sugar().Warnw(
 				"order base not exist",
 				"orderID", order.EntID,
 			)
+
+			if order.OrderType == ordertypes.OrderType_Airdrop.String() || order.OrderType == ordertypes.OrderType_Offline.String() {
+				order.CreateMethod = ordertypes.OrderCreateMethod_OrderCreatedByAdmin.String()
+			}
+
 			if _, err := tx.
 				OrderBase.
 				Create().
@@ -1176,10 +1207,7 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 		if err != nil && !ent.IsNotFound(err) {
 			return err
 		}
-		if order.EntID == uuid.MustParse("43ecff4c-2572-4ccf-9730-4d79ea6842b0") {
-			fmt.Println("+++++++++======>>>>>>>>>>>>>>>>>>>>>>>>>>===----------------------===============-------order.PaymentType: ", order.PaymentType)
-			fmt.Println("+++++++++======>>>>>>>>>>>>>>>>>>>>>>>>>>===----------------------===============-------order.OrderState: ", order.OrderState)
-		}
+
 		if orderStateBase == nil {
 			logger.Sugar().Warnw(
 				"order state base not exist",
@@ -1215,13 +1243,7 @@ func migrateFees(ctx context.Context, tx *ent.Tx) error {
 		if err != nil && !ent.IsNotFound(err) {
 			return err
 		}
-		if order.EntID == uuid.MustParse("43ecff4c-2572-4ccf-9730-4d79ea6842b0") {
-			fmt.Println("-----========++++++=====>>>>>>>>>>>>>>======order.PaymentState: ", order.PaymentState)
-			fmt.Println("-----========++++++=====>>>>>>>>>>>>>>======order.AdminSetCanceled: ", order.AdminSetCanceled)
-			fmt.Println("-----========++++++=====>>>>>>>>>>>>>>======order.PaidAt: ", order.PaidAt)
-			fmt.Println("-----========++++++=====>>>>>>>>>>>>>>======order.CancelState: ", order.CancelState)
-			fmt.Println("-----========++++++=====>>>>>>>>>>>>>>======order.OrderStateUpdatedAt: ", order.OrderStateUpdatedAt)
-		}
+
 		if feeOrderState == nil {
 			logger.Sugar().Warnw(
 				"fee order state not exist",

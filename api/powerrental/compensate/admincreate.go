@@ -15,7 +15,6 @@ import (
 func (s *Server) AdminCreateCompensate(ctx context.Context, in *npool.AdminCreateCompensateRequest) (*npool.AdminCreateCompensateResponse, error) {
 	handler, err := compensate1.NewHandler(
 		ctx,
-		compensate1.WithAppID(&in.TargetAppID, true),
 		compensate1.WithGoodID(in.GoodID, false),
 		compensate1.WithOrderID(in.OrderID, false),
 		compensate1.WithCompensateFromID(&in.CompensateFromID, true),

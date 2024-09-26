@@ -98,7 +98,10 @@ func (h *Handler) GetCompensate(ctx context.Context) (*npool.Compensate, error) 
 		return nil, wlog.WrapError(err)
 	}
 	if info == nil {
-		return nil, wlog.WrapError(err)
+		return nil, wlog.Errorf("invalid compensate")
+	}
+	if h.OrderID != nil && info.OrderID != *h.OrderID {
+		return nil, wlog.Errorf("invalid compensate")
 	}
 
 	handler := &queryHandler{
