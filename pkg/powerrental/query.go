@@ -259,7 +259,7 @@ func (h *queryHandler) formalize() {
 			}
 			info.FeeDurations = append(info.FeeDurations, &feeordergwpb.FeeDuration{
 				AppGoodID:            feeDuration.AppGoodID,
-				AppGoodName:          appFee.Name,
+				AppGoodName:          appFee.AppGoodName,
 				TotalDurationSeconds: feeDuration.TotalDurationSeconds,
 			})
 		}

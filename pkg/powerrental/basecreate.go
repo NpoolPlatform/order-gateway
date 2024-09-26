@@ -2,15 +2,19 @@ package powerrental
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
 	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
+	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
+	"github.com/NpoolPlatform/go-service-framework/pkg/pubsub"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	apppowerrentalmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/powerrental"
 	apppowerrentalsimulatemwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/powerrental/simulate"
 	goodcoinmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/good/coin"
 	goodmwsvcname "github.com/NpoolPlatform/good-middleware/pkg/servicename"
+	eventmwli "github.com/NpoolPlatform/inspire-middleware/pkg/client/event"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
@@ -20,6 +24,7 @@ import (
 	apppowerrentalmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/powerrental"
 	apppowerrentalsimulatemwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/powerrental/simulate"
 	goodcoinmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/coin"
+	eventmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/event"
 	feeordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/fee"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
 	powerrentalordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/powerrental"
@@ -46,6 +51,97 @@ type baseCreateHandler struct {
 	appGoodStockLockID     *string
 	orderStartMode         types.OrderStartMode
 	orderStartAt           uint32
+}
+
+func (h *baseCreateHandler) checkExistEventGood(ctx context.Context) (bool, error) {
+	ev, err := eventmwli.GetEventOnly(ctx, &eventmwpb.Conds{
+		AppID:     &basetypes.StringVal{Op: cruder.EQ, Value: *h.OrderCheckHandler.AppCheckHandler.AppID},
+		EventType: &basetypes.Uint32Val{Op: cruder.EQ, Value: uint32(basetypes.UsedFor_Purchase)},
+	})
+	if err != nil {
+		return false, wlog.Errorf("invalid event")
+	}
+	if ev == nil {
+		return false, wlog.Errorf("invalid event")
+	}
+	fmt.Println("event: ", ev)
+	if ev.GoodID == nil || ev.AppGoodID == nil {
+		return false, nil
+	}
+	if *ev.GoodID == uuid.Nil.String() && *ev.AppGoodID == uuid.Nil.String() {
+		return false, nil
+	}
+	return true, nil
+}
+
+//nolint:dupl
+func (h *baseCreateHandler) rewardPurchase(existGoodID bool) {
+	if err := pubsub.WithPublisher(func(publisher *pubsub.Publisher) error {
+		goodID := uuid.Nil.String()
+		req := &eventmwpb.CalcluateEventRewardsRequest{
+			AppID:       *h.OrderCheckHandler.AppCheckHandler.AppID,
+			UserID:      *h.OrderCheckHandler.UserID,
+			EventType:   basetypes.UsedFor_Purchase,
+			Consecutive: 1,
+			Amount:      h.powerRentalOrderReq.PaymentAmountUSD,
+			AppGoodID:   &goodID,
+			GoodID:      &goodID,
+		}
+		if existGoodID {
+			req.GoodID = &h.appPowerRental.GoodID
+			req.AppGoodID = &h.appPowerRental.AppGoodID
+		}
+		return publisher.Update(
+			basetypes.MsgID_CalculateEventRewardReq.String(),
+			nil,
+			nil,
+			nil,
+			req,
+		)
+	}); err != nil {
+		logger.Sugar().Errorw(
+			"rewardPurchase",
+			"AppID", *h.OrderCheckHandler.AppCheckHandler.AppID,
+			"UserID", *h.OrderCheckHandler.UserID,
+			"Amount", h.powerRentalOrderReq.PaymentAmountUSD,
+			"Error", err,
+		)
+	}
+}
+
+//nolint:dupl
+func (h *baseCreateHandler) rewardAffiliatePurchase(existGoodID bool) {
+	if err := pubsub.WithPublisher(func(publisher *pubsub.Publisher) error {
+		goodID := uuid.Nil.String()
+		req := &eventmwpb.CalcluateEventRewardsRequest{
+			AppID:       *h.OrderCheckHandler.AppCheckHandler.AppID,
+			UserID:      *h.OrderCheckHandler.UserID,
+			EventType:   basetypes.UsedFor_AffiliatePurchase,
+			Consecutive: 1,
+			Amount:      h.powerRentalOrderReq.PaymentAmountUSD,
+			AppGoodID:   &goodID,
+			GoodID:      &goodID,
+		}
+		if existGoodID {
+			req.GoodID = &h.appPowerRental.GoodID
+			req.AppGoodID = &h.appPowerRental.AppGoodID
+		}
+		return publisher.Update(
+			basetypes.MsgID_CalculateEventRewardReq.String(),
+			nil,
+			nil,
+			nil,
+			req,
+		)
+	}); err != nil {
+		logger.Sugar().Errorw(
+			"rewardAffiliatePurchase",
+			"AppID", *h.OrderCheckHandler.AppCheckHandler.AppID,
+			"UserID", *h.OrderCheckHandler.UserID,
+			"Amount", h.powerRentalOrderReq.PaymentAmountUSD,
+			"Error", err,
+		)
+	}
 }
 
 func (h *baseCreateHandler) getAppGoods(ctx context.Context) error {
