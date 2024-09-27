@@ -2,7 +2,6 @@ package powerrental
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
@@ -62,9 +61,8 @@ func (h *baseCreateHandler) checkExistEventGood(ctx context.Context) (bool, erro
 		return false, wlog.Errorf("invalid event")
 	}
 	if ev == nil {
-		return false, wlog.Errorf("invalid event")
+		return false, nil
 	}
-	fmt.Println("event: ", ev)
 	if ev.GoodID == nil || ev.AppGoodID == nil {
 		return false, nil
 	}
