@@ -1,4 +1,3 @@
-
 package migrator
 
 import (
