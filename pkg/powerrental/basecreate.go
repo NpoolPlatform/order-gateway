@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	accountmwcli "github.com/NpoolPlatform/account-middleware/pkg/client/account"
 	orderbenefitmwcli "github.com/NpoolPlatform/account-middleware/pkg/client/orderbenefit"
 	accountmwsvcname "github.com/NpoolPlatform/account-middleware/pkg/servicename"
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
@@ -474,22 +473,31 @@ func (h *baseCreateHandler) formalizeOrderBenefitReqs(ctx context.Context) error
 }
 
 func (h *baseCreateHandler) formalizeOrderBenefitReq(ctx context.Context, req *powerrentalpb.OrderBenefitAccountReq) (err error) {
-	usedfor := basetypes.AccountUsedFor_OrderBenefit
 	if req.AccountID != nil {
-		accountID := *req.AccountID
-		baseAccount, err := accountmwcli.GetAccount(ctx, accountID)
+		historyAccounts, _, err := orderbenefitmwcli.GetAccounts(ctx, &orderbenefitmwpb.Conds{
+			AppID: &basetypes.StringVal{
+				Op:    cruder.EQ,
+				Value: *h.Handler.OrderCheckHandler.AppID,
+			},
+			UserID: &basetypes.StringVal{
+				Op:    cruder.EQ,
+				Value: *h.Handler.OrderCheckHandler.UserID,
+			},
+			AccountID: &basetypes.StringVal{
+				Op:    cruder.EQ,
+				Value: *req.AccountID,
+			},
+		}, 0, 1)
+
 		if err != nil {
 			return err
 		}
 
-		if baseAccount == nil {
-			return wlog.Errorf("invalid accountid: %v", accountID)
+		if len(historyAccounts) < 1 {
+			return wlog.Errorf("invalid accountid")
 		}
 
-		if baseAccount.UsedFor != usedfor {
-			return wlog.Errorf("invalid account usedfor, accountid: %v", accountID)
-		}
-
+		baseAccount := historyAccounts[0]
 		if req.CoinTypeID != nil && baseAccount.CoinTypeID != req.GetCoinTypeID() {
 			return wlog.Errorf("invalid cointypeid")
 		} else if req.CoinTypeID == nil {
