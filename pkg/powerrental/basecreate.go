@@ -27,6 +27,7 @@ import (
 	feeordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/fee"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
 	powerrentalordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/powerrental"
+	"github.com/NpoolPlatform/order-gateway/pkg/common"
 	ordergwcommon "github.com/NpoolPlatform/order-gateway/pkg/common"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
@@ -463,6 +464,11 @@ func (h *baseCreateHandler) formalizePayment() {
 }
 
 func (h *baseCreateHandler) formalizeOrderBenefitReqs(ctx context.Context) error {
+	if h.appPowerRental.StockMode != goodtypes.GoodStockMode_GoodStockByMiningPool {
+		h.OrderBenefitAccounts = nil
+		return nil
+	}
+
 	for _, req := range h.OrderBenefitAccounts {
 		err := h.formalizeOrderBenefitReq(ctx, req)
 		if err != nil {
@@ -546,7 +552,7 @@ func (h *baseCreateHandler) formalizeOrderBenefitReq(ctx context.Context, req *p
 }
 
 // validate after getGoodCoins and formalizeOrderBenefitReqs
-func (h *baseCreateHandler) validateOrderBenefitReqs() error {
+func (h *baseCreateHandler) validateOrderBenefitReqs(ctx context.Context) error {
 	if h.appPowerRental.StockMode != goodtypes.GoodStockMode_GoodStockByMiningPool {
 		return nil
 	}
@@ -566,6 +572,10 @@ func (h *baseCreateHandler) validateOrderBenefitReqs() error {
 		}
 		if _, ok := coinTypeIDs[*req.CoinTypeID]; !ok {
 			return wlog.Errorf("good coins and order benefit accounts do not match")
+		}
+
+		if err := common.CheckAddress(ctx, *req.CoinTypeID, *req.Address); err != nil {
+			return wlog.WrapError(err)
 		}
 	}
 	return nil
@@ -597,6 +607,9 @@ func (h *baseCreateHandler) constructOrderBenefitReqs() {
 }
 
 func (h *baseCreateHandler) withCreateOrderBenefits(dispose *dtmcli.SagaDispose) {
+	if len(h.orderBenefitReqs) == 0 {
+		return
+	}
 	dispose.Add(
 		accountmwsvcname.ServiceDomain,
 		"account.middleware.orderbenefit.v1.Middleware/CreateAccounts",

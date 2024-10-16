@@ -105,7 +105,7 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	if err := handler.formalizeOrderBenefitReqs(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
-	if err := handler.validateOrderBenefitReqs(); err != nil {
+	if err := handler.validateOrderBenefitReqs(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
 	if err := handler.validatePowerRentalGoodState(); err != nil {
