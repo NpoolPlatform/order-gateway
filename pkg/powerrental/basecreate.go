@@ -27,7 +27,6 @@ import (
 	feeordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/fee"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
 	powerrentalordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/powerrental"
-	"github.com/NpoolPlatform/order-gateway/pkg/common"
 	ordergwcommon "github.com/NpoolPlatform/order-gateway/pkg/common"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
 	ordercommon "github.com/NpoolPlatform/order-gateway/pkg/order/common"
@@ -574,7 +573,7 @@ func (h *baseCreateHandler) validateOrderBenefitReqs(ctx context.Context) error 
 			return wlog.Errorf("good coins and order benefit accounts do not match")
 		}
 
-		if err := common.CheckAddress(ctx, *req.CoinTypeID, *req.Address); err != nil {
+		if err := ordergwcommon.CheckAddress(ctx, *req.CoinTypeID, *req.Address); err != nil {
 			return wlog.WrapError(err)
 		}
 	}
