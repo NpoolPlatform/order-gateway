@@ -33,11 +33,11 @@ func migratePowerRentals(ctx context.Context, tx *ent.Tx) error {
 		SetGoodStockMode(
 			goodtypes.GoodStockMode_GoodStockByUnique.String(),
 		).
+		SetUpdatedAt(now).
 		Where(
-			entpowerrental.DeletedAtEQ(0),
+			entpowerrental.DeletedAt(0),
 			entpowerrental.GoodStockMode(goodtypes.GoodStockMode_DefaultGoodStockMode.String()),
 		).
-		SetUpdatedAt(now).
 		Save(ctx)
 
 	return err
