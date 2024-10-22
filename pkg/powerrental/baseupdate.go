@@ -38,6 +38,14 @@ func (h *baseUpdateHandler) getPowerRentalOrder(ctx context.Context) (err error)
 	return wlog.WrapError(err)
 }
 
+func (h *baseUpdateHandler) validateOrderStateWhenCancel() error {
+	if h.powerRentalOrder.GoodStockMode == goodtypes.GoodStockMode_GoodStockByMiningPool &&
+		h.powerRentalOrder.OrderState == types.OrderState_OrderStateInService {
+		return wlog.Errorf("cannot cancel in service order of stock by miningpool")
+	}
+	return nil
+}
+
 func (h *baseUpdateHandler) validateCancelParam() error {
 	if err := h.ValidateCancelParam(); err != nil {
 		return wlog.WrapError(err)

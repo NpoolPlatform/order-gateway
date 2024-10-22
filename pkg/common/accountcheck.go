@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	coinmwcli "github.com/NpoolPlatform/chain-middleware/pkg/client/coin"
-	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	sphinxproxypb "github.com/NpoolPlatform/message/npool/sphinxproxy"
 	sphinxproxycli "github.com/NpoolPlatform/sphinx-proxy/pkg/client"
 )
@@ -52,7 +51,7 @@ func CheckAddress(ctx context.Context, coinTypeID, address string) error {
 		return fmt.Errorf("invalid coin")
 	}
 
-	if coin.CheckNewAddressBalance {
+	if !coin.CheckNewAddressBalance {
 		err := ValidateAddress(coin.Name, address)
 		if err != nil {
 			return fmt.Errorf("invalid %v address", coin.Name)
@@ -60,16 +59,10 @@ func CheckAddress(ctx context.Context, coinTypeID, address string) error {
 		return nil
 	}
 
-	logger.Sugar().Error("ssssssssssssssssssssssssssssssssssssssssssssssssss1")
-
 	bal, err := sphinxproxycli.GetBalance(ctx, &sphinxproxypb.GetBalanceRequest{
 		Name:    coin.Name,
 		Address: address,
 	})
-
-	logger.Sugar().Error(coin.Name, address)
-	logger.Sugar().Error("ssssssssssssssssssssssssssssssssssssssssssssssssss2")
-
 	if err != nil {
 		return err
 	}
