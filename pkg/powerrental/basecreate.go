@@ -253,6 +253,9 @@ func (h *baseCreateHandler) checkEnableSimulateOrder() error {
 	if h.OrderOpHandler.Simulate && h.OrderConfig != nil && !h.OrderConfig.EnableSimulateOrder {
 		return wlog.Errorf("permission denied")
 	}
+	if h.OrderOpHandler.Simulate && h.appPowerRental.StockMode == goodtypes.GoodStockMode_GoodStockByMiningPool {
+		return wlog.Errorf("disable simulate order of good is goodstockbyminingpool")
+	}
 	return nil
 }
 
