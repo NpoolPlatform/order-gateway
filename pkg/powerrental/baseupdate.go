@@ -4,13 +4,12 @@ import (
 	"context"
 	"time"
 
-	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	apppowerrentalmwcli "github.com/NpoolPlatform/good-middleware/pkg/client/app/powerrental"
 	goodledgerstatementcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/good/ledger/statement"
 	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
-	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
+	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	apppowerrentalmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/powerrental"
 	goodledgerstatementpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/good/ledger/statement"
@@ -40,7 +39,7 @@ func (h *baseUpdateHandler) getPowerRentalOrder(ctx context.Context) (err error)
 
 func (h *baseUpdateHandler) validateOrderStateWhenCancel() error {
 	if h.powerRentalOrder.GoodStockMode == goodtypes.GoodStockMode_GoodStockByMiningPool &&
-		h.powerRentalOrder.OrderState == types.OrderState_OrderStateInService {
+		h.powerRentalOrder.OrderState == ordertypes.OrderState_OrderStateInService {
 		return wlog.Errorf("cannot cancel in service order of stock by miningpool")
 	}
 	return nil
@@ -78,17 +77,28 @@ func (h *baseUpdateHandler) goodCancelable() error {
 	if err := h.GoodCancelable(); err != nil {
 		return wlog.WrapError(err)
 	}
-	if h.goodBenefitedAt == 0 {
-		return nil
-	}
-	if h.appPowerRental.CancelMode == goodtypes.CancelMode_CancellableBeforeBenefit {
-		if h.powerRentalOrder.OrderState == types.OrderState_OrderStateInService {
-			checkBenefitStartAt := h.goodBenefitedAt + timedef.SecondsPerDay - h.appPowerRental.CancelableBeforeStartSeconds
-			checkBenefitEndAt := h.goodBenefitedAt + timedef.SecondsPerDay + h.appPowerRental.CancelableBeforeStartSeconds
-			now := uint32(time.Now().Unix())
-			if checkBenefitStartAt <= now && now <= checkBenefitEndAt {
-				return wlog.Errorf("permission denied")
-			}
+	now := uint32(time.Now().Unix())
+	switch h.appPowerRental.CancelMode {
+	case goodtypes.CancelMode_CancellableBeforeStart:
+		checkOrderStartAt := h.powerRentalOrder.StartAt - h.appPowerRental.CancelableBeforeStartSeconds
+		if checkOrderStartAt <= now {
+			return wlog.Errorf("permission denied")
+		}
+	case goodtypes.CancelMode_CancellableBeforeBenefit:
+		if h.goodBenefitedAt == 0 {
+			return nil
+		}
+		if h.powerRentalOrder.LastBenefitAt != 0 {
+			return wlog.Errorf("permission denied")
+		}
+		benefitIntervalSeconds := uint32((time.Duration(h.appPowerRental.BenefitIntervalHours) * time.Hour).Seconds())
+		thisBenefitAt := uint32(time.Now().Unix()) / benefitIntervalSeconds * benefitIntervalSeconds
+		nextBenefitAt := (uint32(time.Now().Unix())/benefitIntervalSeconds + 1) * benefitIntervalSeconds
+		if (thisBenefitAt-h.appPowerRental.CancelableBeforeStartSeconds <= now &&
+			now <= thisBenefitAt+h.appPowerRental.CancelableBeforeStartSeconds) ||
+			(nextBenefitAt-h.appPowerRental.CancelableBeforeStartSeconds <= now &&
+				now <= nextBenefitAt+h.appPowerRental.CancelableBeforeStartSeconds) {
+			return wlog.Errorf("permission denied")
 		}
 	}
 	return nil

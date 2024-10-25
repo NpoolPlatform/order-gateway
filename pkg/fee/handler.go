@@ -4,6 +4,7 @@ package fee
 import (
 	"context"
 
+	logger "github.com/NpoolPlatform/go-service-framework/pkg/logger"
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	paymentgwpb "github.com/NpoolPlatform/message/npool/order/gw/v1/payment"
@@ -208,6 +209,7 @@ func WithPaymentBalances(bs []*paymentgwpb.PaymentBalance, must bool) func(conte
 				Amount:     &balance.Amount,
 			})
 		}
+		logger.Sugar().Infow("WithPaymentBalances", "Balances", h.Balances)
 		return nil
 	}
 }

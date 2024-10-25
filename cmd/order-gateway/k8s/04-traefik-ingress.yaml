@@ -35,6 +35,8 @@ spec:
       http: *http_rules
     - host: api.procyon.xpool.top
       http: *http_rules
+    - host: api.lpsb.xpool.top
+      http: *http_rules
     - host: api.lpsecretbase.com
       http: *http_rules
     - host: api.development.npool.top
@@ -351,7 +353,11 @@ spec:
       http: *http_rules
     - host: api.procyon.xpool.top
       http: *http_rules
+    - host: api.lpsb.xpool.top
+      http: *http_rules
     - host: api.jh-testing.npool.top
+      http: *http_rules
+    - host: api.harbin-testing.npool.top
       http: *http_rules
     - host: api.lpsecretbase.com
       http: *http_rules
