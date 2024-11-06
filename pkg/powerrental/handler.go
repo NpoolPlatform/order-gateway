@@ -7,6 +7,7 @@ import (
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	paymentgwpb "github.com/NpoolPlatform/message/npool/order/gw/v1/payment"
+	powerrentalpb "github.com/NpoolPlatform/message/npool/order/gw/v1/powerrental"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
 	ordergwcommon "github.com/NpoolPlatform/order-gateway/pkg/common"
 	constant "github.com/NpoolPlatform/order-gateway/pkg/const"
@@ -42,6 +43,7 @@ type Handler struct {
 	AppGoodStockID            *string
 	InvestmentType            *types.InvestmentType
 	OrderType                 *types.OrderType
+	OrderBenefitAccounts      []*powerrentalpb.OrderBenefitAccountReq
 	Offset                    int32
 	Limit                     int32
 }
@@ -50,7 +52,7 @@ func NewHandler(ctx context.Context, options ...func(context.Context, *Handler) 
 	handler := &Handler{}
 	for _, opt := range options {
 		if err := opt(ctx, handler); err != nil {
-			return nil, err
+			return nil, wlog.WrapError(err)
 		}
 	}
 	return handler, nil
@@ -415,6 +417,18 @@ func WithInvestmentType(_type *types.InvestmentType, must bool) func(context.Con
 			return wlog.Errorf("invalid investmenttype")
 		}
 		h.InvestmentType = _type
+		return nil
+	}
+}
+
+func WithOrderBenefitReqs(reqs []*powerrentalpb.OrderBenefitAccountReq) func(context.Context, *Handler) error {
+	return func(ctx context.Context, h *Handler) error {
+		for _, req := range reqs {
+			if req.AccountID == nil && (req.CoinTypeID == nil || req.Address == nil) {
+				return wlog.Errorf("invalid orderbenefitaccountreqs")
+			}
+		}
+		h.OrderBenefitAccounts = reqs
 		return nil
 	}
 }

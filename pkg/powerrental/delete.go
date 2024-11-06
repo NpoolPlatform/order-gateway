@@ -23,7 +23,7 @@ func (h *Handler) DeletePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 		return nil, wlog.Errorf("invalid powerrentalorder")
 	}
 	if err := powerrentalordermwcli.DeletePowerRentalOrder(ctx, h.ID, h.EntID, h.OrderID); err != nil {
-		return nil, err
+		return nil, wlog.WrapError(err)
 	}
 	return info, nil
 }

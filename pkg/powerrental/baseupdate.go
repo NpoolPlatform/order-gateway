@@ -9,6 +9,7 @@ import (
 	goodledgerstatementcli "github.com/NpoolPlatform/ledger-middleware/pkg/client/good/ledger/statement"
 	"github.com/NpoolPlatform/libent-cruder/pkg/cruder"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
+	ordertypes "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
 	apppowerrentalmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/powerrental"
 	goodledgerstatementpb "github.com/NpoolPlatform/message/npool/ledger/mw/v2/good/ledger/statement"
@@ -34,6 +35,14 @@ type baseUpdateHandler struct {
 func (h *baseUpdateHandler) getPowerRentalOrder(ctx context.Context) (err error) {
 	h.powerRentalOrder, err = h.GetPowerRentalOrder(ctx)
 	return wlog.WrapError(err)
+}
+
+func (h *baseUpdateHandler) validateOrderStateWhenCancel() error {
+	if h.powerRentalOrder.GoodStockMode == goodtypes.GoodStockMode_GoodStockByMiningPool &&
+		h.powerRentalOrder.OrderState == ordertypes.OrderState_OrderStateInService {
+		return wlog.Errorf("cannot cancel in service order of stock by miningpool")
+	}
+	return nil
 }
 
 func (h *baseUpdateHandler) validateCancelParam() error {

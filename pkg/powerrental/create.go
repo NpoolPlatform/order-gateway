@@ -101,6 +101,17 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	}()); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+
+	if err := handler.formalizeOrderBenefitReqs(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+	if err := handler.validateOrderBenefitReqs(ctx); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+	if err := handler.validatePowerRentalGoodState(); err != nil {
+		return nil, wlog.WrapError(err)
+	}
+
 	if err := handler.GetTopMostAppGoods(ctx); err != nil {
 		return nil, wlog.WrapError(err)
 	}
@@ -127,6 +138,7 @@ func (h *Handler) CreatePowerRentalOrder(ctx context.Context) (*npool.PowerRenta
 	if err := handler.constructFeeOrderReqs(); err != nil {
 		return nil, wlog.WrapError(err)
 	}
+	handler.constructOrderBenefitReqs()
 	if err := handler.calculateTotalGoodValueUSD(); err != nil {
 		return nil, wlog.WrapError(err)
 	}

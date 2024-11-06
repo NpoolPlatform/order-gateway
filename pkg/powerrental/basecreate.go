@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	orderbenefitmwcli "github.com/NpoolPlatform/account-middleware/pkg/client/orderbenefit"
+	accountmwsvcname "github.com/NpoolPlatform/account-middleware/pkg/servicename"
 	dtmcli "github.com/NpoolPlatform/dtm-cluster/pkg/dtm"
 	timedef "github.com/NpoolPlatform/go-service-framework/pkg/const/time"
 	"github.com/NpoolPlatform/go-service-framework/pkg/logger"
@@ -15,6 +17,7 @@ import (
 	goodmwsvcname "github.com/NpoolPlatform/good-middleware/pkg/servicename"
 	eventmwli "github.com/NpoolPlatform/inspire-middleware/pkg/client/event"
 	cruder "github.com/NpoolPlatform/libent-cruder/pkg/cruder"
+	orderbenefitmwpb "github.com/NpoolPlatform/message/npool/account/mw/v1/orderbenefit"
 	goodtypes "github.com/NpoolPlatform/message/npool/basetypes/good/v1"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
 	basetypes "github.com/NpoolPlatform/message/npool/basetypes/v1"
@@ -24,6 +27,7 @@ import (
 	apppowerrentalsimulatemwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/app/powerrental/simulate"
 	goodcoinmwpb "github.com/NpoolPlatform/message/npool/good/mw/v1/good/coin"
 	eventmwpb "github.com/NpoolPlatform/message/npool/inspire/mw/v1/event"
+	powerrentalpb "github.com/NpoolPlatform/message/npool/order/gw/v1/powerrental"
 	feeordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/fee"
 	paymentmwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/payment"
 	powerrentalordermwpb "github.com/NpoolPlatform/message/npool/order/mw/v1/powerrental"
@@ -47,6 +51,7 @@ type baseCreateHandler struct {
 	appFees                map[string]*appfeemwpb.Fee
 	powerRentalOrderReq    *powerrentalordermwpb.PowerRentalOrderReq
 	feeOrderReqs           []*feeordermwpb.FeeOrderReq
+	orderBenefitReqs       []*orderbenefitmwpb.AccountReq
 	appGoodStockLockID     *string
 	orderStartMode         types.OrderStartMode
 	orderStartAt           uint32
@@ -342,6 +347,9 @@ func (h *baseCreateHandler) checkEnableSimulateOrder() error {
 	if h.OrderOpHandler.Simulate && h.OrderConfig != nil && !h.OrderConfig.EnableSimulateOrder {
 		return wlog.Errorf("permission denied")
 	}
+	if h.OrderOpHandler.Simulate && h.appPowerRental.StockMode == goodtypes.GoodStockMode_GoodStockByMiningPool {
+		return wlog.Errorf("disable simulate order of good is goodstockbyminingpool")
+	}
 	return nil
 }
 
@@ -518,6 +526,7 @@ func (h *baseCreateHandler) constructPowerRentalOrderReq() error {
 		PromotionID:       promotionID,
 		DurationSeconds:   h.Handler.DurationSeconds,
 		InvestmentType:    h.Handler.InvestmentType,
+		GoodStockMode:     &h.appPowerRental.StockMode,
 
 		StartMode: &h.orderStartMode,
 		StartAt:   &h.orderStartAt,
@@ -548,6 +557,163 @@ func (h *baseCreateHandler) formalizePayment() {
 	h.powerRentalOrderReq.DiscountAmountUSD = func() *string { s := h.DeductAmountUSD.String(); return &s }()
 	h.powerRentalOrderReq.LedgerLockID = h.BalanceLockID
 	h.powerRentalOrderReq.PaymentID = h.PaymentID
+}
+
+func (h *baseCreateHandler) formalizeOrderBenefitReqs(ctx context.Context) error {
+	if h.appPowerRental.StockMode != goodtypes.GoodStockMode_GoodStockByMiningPool {
+		h.OrderBenefitAccounts = nil
+		return nil
+	}
+
+	for _, req := range h.OrderBenefitAccounts {
+		err := h.formalizeOrderBenefitReq(ctx, req)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *baseCreateHandler) formalizeOrderBenefitReq(ctx context.Context, req *powerrentalpb.OrderBenefitAccountReq) (err error) {
+	if req.AccountID != nil {
+		historyAccounts, _, err := orderbenefitmwcli.GetAccounts(ctx, &orderbenefitmwpb.Conds{
+			AppID: &basetypes.StringVal{
+				Op:    cruder.EQ,
+				Value: *h.Handler.OrderCheckHandler.AppID,
+			},
+			UserID: &basetypes.StringVal{
+				Op:    cruder.EQ,
+				Value: *h.Handler.OrderCheckHandler.UserID,
+			},
+			AccountID: &basetypes.StringVal{
+				Op:    cruder.EQ,
+				Value: *req.AccountID,
+			},
+		}, 0, 1)
+
+		if err != nil {
+			return err
+		}
+
+		if len(historyAccounts) < 1 {
+			return wlog.Errorf("invalid accountid")
+		}
+
+		baseAccount := historyAccounts[0]
+		if req.CoinTypeID != nil && baseAccount.CoinTypeID != req.GetCoinTypeID() {
+			return wlog.Errorf("invalid cointypeid")
+		} else if req.CoinTypeID == nil {
+			req.CoinTypeID = &baseAccount.CoinTypeID
+		}
+
+		if req.Address != nil && baseAccount.Address != *req.Address {
+			return wlog.Errorf("invalid address")
+		} else if req.Address == nil {
+			req.Address = &baseAccount.Address
+		}
+		return nil
+	}
+
+	if req.CoinTypeID == nil || req.Address == nil {
+		return wlog.Errorf("invalid cointypeid or address")
+	}
+
+	historyAccounts, _, err := orderbenefitmwcli.GetAccounts(ctx, &orderbenefitmwpb.Conds{
+		CoinTypeID: &basetypes.StringVal{
+			Op:    cruder.EQ,
+			Value: *req.CoinTypeID,
+		},
+		AppID: &basetypes.StringVal{
+			Op:    cruder.EQ,
+			Value: *h.Handler.OrderCheckHandler.AppID,
+		},
+		UserID: &basetypes.StringVal{
+			Op:    cruder.EQ,
+			Value: *h.Handler.OrderCheckHandler.UserID,
+		},
+		Address: &basetypes.StringVal{
+			Op:    cruder.EQ,
+			Value: *req.Address,
+		},
+	}, 0, 1)
+	if err != nil {
+		return err
+	}
+
+	if len(historyAccounts) > 0 {
+		req.AccountID = &historyAccounts[0].AccountID
+	}
+
+	return nil
+}
+
+// validate after getGoodCoins and formalizeOrderBenefitReqs
+func (h *baseCreateHandler) validateOrderBenefitReqs(ctx context.Context) error {
+	if h.appPowerRental.StockMode != goodtypes.GoodStockMode_GoodStockByMiningPool {
+		return nil
+	}
+
+	coinTypeIDs := make(map[string]struct{})
+	for _, goodCoin := range h.goodCoins {
+		coinTypeIDs[goodCoin.CoinTypeID] = struct{}{}
+	}
+
+	if len(coinTypeIDs) != len(h.OrderBenefitAccounts) {
+		return wlog.Errorf("good coins and order benefit accounts do not match")
+	}
+
+	for _, req := range h.OrderBenefitAccounts {
+		if req.CoinTypeID == nil {
+			return wlog.Errorf("good coins and order benefit accounts do not match")
+		}
+		if _, ok := coinTypeIDs[*req.CoinTypeID]; !ok {
+			return wlog.Errorf("good coins and order benefit accounts do not match")
+		}
+
+		if err := ordergwcommon.CheckAddress(ctx, *req.CoinTypeID, *req.Address); err != nil {
+			return wlog.WrapError(err)
+		}
+	}
+	return nil
+}
+
+// validate after getGoodCoins and formalizeOrderBenefitReqs
+func (h *baseCreateHandler) validatePowerRentalGoodState() error {
+	if h.appPowerRental.State != goodtypes.GoodState_GoodStateReady {
+		return wlog.Errorf("powerrental good state is not ready")
+	}
+	return nil
+}
+
+// after constructPowerRentalOrderReq
+func (h *baseCreateHandler) constructOrderBenefitReqs() {
+	h.orderBenefitReqs = []*orderbenefitmwpb.AccountReq{}
+	for _, req := range h.OrderBenefitAccounts {
+		_req := orderbenefitmwpb.AccountReq{
+			EntID:      func() *string { id := uuid.NewString(); return &id }(),
+			AppID:      h.Handler.OrderCheckHandler.AppID,
+			UserID:     h.Handler.OrderCheckHandler.UserID,
+			AccountID:  req.AccountID,
+			CoinTypeID: req.CoinTypeID,
+			Address:    req.Address,
+			OrderID:    h.OrderID,
+		}
+		h.orderBenefitReqs = append(h.orderBenefitReqs, &_req)
+	}
+}
+
+func (h *baseCreateHandler) withCreateOrderBenefits(dispose *dtmcli.SagaDispose) {
+	if len(h.orderBenefitReqs) == 0 {
+		return
+	}
+	dispose.Add(
+		accountmwsvcname.ServiceDomain,
+		"account.middleware.orderbenefit.v1.Middleware/CreateAccounts",
+		"account.middleware.orderbenefit.v1.Middleware/DeleteAccounts",
+		&orderbenefitmwpb.CreateAccountsRequest{
+			Infos: h.orderBenefitReqs,
+		},
+	)
 }
 
 func (h *baseCreateHandler) notifyCouponUsed() {
@@ -601,6 +767,7 @@ func (h *baseCreateHandler) createPowerRentalOrder(ctx context.Context) error {
 		h.WithLockBalances(sagaDispose)
 		h.WithLockPaymentTransferAccount(sagaDispose)
 	}
+	h.withCreateOrderBenefits(sagaDispose)
 	h.withCreatePowerRentalOrderWithFees(sagaDispose)
 	defer h.notifyCouponUsed()
 	return h.dtmDo(ctx, sagaDispose)

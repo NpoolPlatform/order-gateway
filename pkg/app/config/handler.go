@@ -2,7 +2,6 @@ package appconfig
 
 import (
 	"context"
-	"fmt"
 
 	wlog "github.com/NpoolPlatform/go-service-framework/pkg/wlog"
 	types "github.com/NpoolPlatform/message/npool/basetypes/order/v1"
@@ -45,7 +44,7 @@ func WithID(id *uint32, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
 			if must {
-				return fmt.Errorf("invalid id")
+				return wlog.Errorf("invalid id")
 			}
 			return nil
 		}
@@ -58,7 +57,7 @@ func WithEntID(id *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
 			if must {
-				return fmt.Errorf("invalid entid")
+				return wlog.Errorf("invalid entid")
 			}
 			return nil
 		}
@@ -75,7 +74,7 @@ func WithAppID(id *string, must bool) func(context.Context, *Handler) error {
 	return func(ctx context.Context, h *Handler) error {
 		if id == nil {
 			if must {
-				return fmt.Errorf("invalid appid")
+				return wlog.Errorf("invalid appid")
 			}
 			return nil
 		}
@@ -98,7 +97,7 @@ func WithSimulateOrderUnits(amount *string, must bool) func(context.Context, *Ha
 	return func(ctx context.Context, h *Handler) error {
 		if amount == nil {
 			if must {
-				return fmt.Errorf("invalid simulateorderunits")
+				return wlog.Errorf("invalid simulateorderunits")
 			}
 			return nil
 		}
@@ -107,7 +106,7 @@ func WithSimulateOrderUnits(amount *string, must bool) func(context.Context, *Ha
 			return wlog.WrapError(err)
 		}
 		if _amount.Cmp(decimal.NewFromInt32(0)) <= 0 {
-			return fmt.Errorf("invalid simulateorderunits")
+			return wlog.Errorf("invalid simulateorderunits")
 		}
 		h.SimulateOrderUnits = amount
 		return nil
@@ -118,12 +117,12 @@ func WithSimulateOrderDurationSeconds(duration *uint32, must bool) func(context.
 	return func(ctx context.Context, h *Handler) error {
 		if duration == nil {
 			if must {
-				return fmt.Errorf("invalid simulateorderdurationseconds")
+				return wlog.Errorf("invalid simulateorderdurationseconds")
 			}
 			return nil
 		}
 		if *duration <= 0 {
-			return fmt.Errorf("invalid simulateorderdurationseconds")
+			return wlog.Errorf("invalid simulateorderdurationseconds")
 		}
 		h.SimulateOrderDurationSeconds = duration
 		return nil
@@ -134,12 +133,12 @@ func WithMaxUnpaidOrders(duration *uint32, must bool) func(context.Context, *Han
 	return func(ctx context.Context, h *Handler) error {
 		if duration == nil {
 			if must {
-				return fmt.Errorf("invalid maxunpaidorders")
+				return wlog.Errorf("invalid maxunpaidorders")
 			}
 			return nil
 		}
 		if *duration <= 0 {
-			return fmt.Errorf("invalid maxunpaidorders")
+			return wlog.Errorf("invalid maxunpaidorders")
 		}
 		h.MaxUnpaidOrders = duration
 		return nil
@@ -150,12 +149,12 @@ func WithMaxTypedCouponsPerOrder(duration *uint32, must bool) func(context.Conte
 	return func(ctx context.Context, h *Handler) error {
 		if duration == nil {
 			if must {
-				return fmt.Errorf("invalid maxtypedcouponsperorder")
+				return wlog.Errorf("invalid maxtypedcouponsperorder")
 			}
 			return nil
 		}
 		if *duration <= 0 {
-			return fmt.Errorf("invalid maxtypedcouponsperorder")
+			return wlog.Errorf("invalid maxtypedcouponsperorder")
 		}
 		h.MaxTypedCouponsPerOrder = duration
 		return nil
@@ -167,7 +166,7 @@ func WithSimulateOrderCouponProbability(amount *string, must bool) func(context.
 	return func(ctx context.Context, h *Handler) error {
 		if amount == nil {
 			if must {
-				return fmt.Errorf("invalid simulateordercouponprobability")
+				return wlog.Errorf("invalid simulateordercouponprobability")
 			}
 			return nil
 		}
@@ -176,10 +175,10 @@ func WithSimulateOrderCouponProbability(amount *string, must bool) func(context.
 			return wlog.WrapError(err)
 		}
 		if _amount.Cmp(decimal.NewFromInt(0)) < 0 {
-			return fmt.Errorf("invalid simulateordercouponprobability")
+			return wlog.Errorf("invalid simulateordercouponprobability")
 		}
 		if _amount.Cmp(decimal.NewFromInt(1)) > 0 {
-			return fmt.Errorf("invalid simulateordercouponprobability")
+			return wlog.Errorf("invalid simulateordercouponprobability")
 		}
 		h.SimulateOrderCouponProbability = amount
 		return nil
@@ -190,7 +189,7 @@ func WithSimulateOrderCouponMode(value *types.SimulateOrderCouponMode, must bool
 	return func(ctx context.Context, h *Handler) error {
 		if value == nil {
 			if must {
-				return fmt.Errorf("invalid simulateordercouponmode")
+				return wlog.Errorf("invalid simulateordercouponmode")
 			}
 			return nil
 		}
@@ -200,7 +199,7 @@ func WithSimulateOrderCouponMode(value *types.SimulateOrderCouponMode, must bool
 		case types.SimulateOrderCouponMode_RandomBenifit:
 		case types.SimulateOrderCouponMode_FirstAndRandomBenifit:
 		default:
-			return fmt.Errorf("invalid simulateordercouponmode")
+			return wlog.Errorf("invalid simulateordercouponmode")
 		}
 		h.SimulateOrderCouponMode = value
 		return nil
@@ -212,7 +211,7 @@ func WithSimulateOrderCashableProfitProbability(amount *string, must bool) func(
 	return func(ctx context.Context, h *Handler) error {
 		if amount == nil {
 			if must {
-				return fmt.Errorf("invalid simulateordercashableprofitprobability")
+				return wlog.Errorf("invalid simulateordercashableprofitprobability")
 			}
 			return nil
 		}
@@ -221,10 +220,10 @@ func WithSimulateOrderCashableProfitProbability(amount *string, must bool) func(
 			return wlog.WrapError(err)
 		}
 		if _amount.Cmp(decimal.NewFromInt(0)) < 0 {
-			return fmt.Errorf("invalid simulateordercashableprofitprobability")
+			return wlog.Errorf("invalid simulateordercashableprofitprobability")
 		}
 		if _amount.Cmp(decimal.NewFromInt(1)) > 0 {
-			return fmt.Errorf("invalid simulateordercashableprofitprobability")
+			return wlog.Errorf("invalid simulateordercashableprofitprobability")
 		}
 		h.SimulateOrderCashableProfitProbability = amount
 		return nil

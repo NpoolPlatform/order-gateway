@@ -25,7 +25,7 @@ func NewHandler(ctx context.Context, options ...func(context.Context, *Handler) 
 	handler := &Handler{}
 	for _, opt := range options {
 		if err := opt(ctx, handler); err != nil {
-			return nil, err
+			return nil, wlog.WrapError(err)
 		}
 	}
 	return handler, nil
